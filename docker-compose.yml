@@ -1,0 +1,88 @@
+name: bitvar
+
+networks:
+  web:
+    name: bitvar_web          # pública: traefik <-> api
+  internal:
+    name: bitvar_internal     # privada: api <-> postgres
+    internal: true            # sem rota para a internet -> DB isolado
+
+volumes:
+  pgdata:
+  traefik_acme:
+
+services:
+  # ---------------- Traefik ----------------
+  traefik:
+    image: traefik:v3.6   # v3.3 não negocia API com daemon novo (29.x) → "client 1.24 too old"
+    restart: unless-stopped
+    networks: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+      # dashboard NÃO publicado direto — exposto via router seguro
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./infra/traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - traefik_acme:/acme
+    environment:
+      # Env nativas do Traefik (o arquivo estático NÃO interpola {{ env }}):
+      - TRAEFIK_CERTIFICATESRESOLVERS_LE_ACME_EMAIL=${ACME_EMAIL}
+      - TRAEFIK_CERTIFICATESRESOLVERS_LE_ACME_CASERVER=${ACME_CASERVER}
+      # Daemon novo (API 1.54, min 1.40) — mantido por segurança em clients que leem FromEnv.
+      - DOCKER_API_VERSION=1.44
+    # Dashboard DESATIVADO neste deploy: traefik.${DOMAIN} não tem DNS e o hash
+    # basic-auth em dynamic.yml é de exemplo. Com ACME de produção, manter o
+    # router geraria desafios ACME falhos (rate-limit). Para reativar: criar o
+    # DNS de traefik.${DOMAIN}, gerar o hash (infra/scripts/gen-dashboard-auth.sh)
+    # e descomentar abaixo.
+    labels:
+      - "traefik.enable=true"
+      # - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      # - "traefik.http.routers.dashboard.entrypoints=websecure"
+      # - "traefik.http.routers.dashboard.service=api@internal"
+      # - "traefik.http.routers.dashboard.tls.certresolver=le"
+      # - "traefik.http.routers.dashboard.middlewares=dashboard-auth@file,sec-headers@file"
+
+  # ---------------- Postgres ----------------
+  db:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    networks: [internal]              # SÓ rede privada; nenhuma porta publicada
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------- API (FastAPI) ----------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bitvar-api:0.1.0
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    networks: [web, internal]         # web p/ o Traefik, internal p/ o Postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      # GOTCHA multi-rede: fixa a rede que o Traefik usa p/ alcançar a api
+      - "traefik.docker.network=bitvar_web"
+      - "traefik.http.routers.api.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=le"
+      - "traefik.http.routers.api.middlewares=sec-headers@file,api-ratelimit@file"
+      - "traefik.http.services.api.loadbalancer.server.port=8000"

@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BitVar IA — Análise de Tênis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --noite:#0D1A2B; --noite-2:#12233A; --noite-3:#1A3050; --noite-code:#0A1521;
+    --refletor:#F2F7FC; --arquibancada:#8FA9C4; --linha:rgba(143,169,196,.16);
+    --verde:#34D67B; --verde-dim:rgba(52,214,123,.12);
+    --ambar:#FFB454; --ambar-dim:rgba(255,180,84,.12);
+    --botoeira:#FF4438; --info:#6FB1FF; --roxo:#B89CFF; --roxo-dim:rgba(184,156,255,.12);
+    --maxw:1080px; --radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--noite);color:var(--refletor);font-family:'Source Sans 3',system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+  a{color:var(--info)}
+  :focus-visible{outline:2px solid var(--info);outline-offset:2px;border-radius:4px}
+
+  .topbar{position:sticky;top:0;z-index:50;background:rgba(13,26,43,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--linha)}
+  .topbar .wrap{display:flex;align-items:center;gap:14px;padding:12px 22px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;color:var(--arquibancada)}
+  .rec{display:flex;align-items:center;gap:7px;color:var(--refletor);font-weight:600}
+  .rec-dot{width:9px;height:9px;border-radius:50%;background:var(--botoeira);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .topbar .spacer{flex:1}
+  #status-pill{font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--linha)}
+  #status-pill.ok{color:var(--verde);border-color:rgba(52,214,123,.4)}
+  #status-pill.off{color:var(--ambar);border-color:rgba(255,180,84,.4)}
+
+  header.hero{padding:42px 0 26px;border-bottom:1px solid var(--linha)}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--arquibancada);margin-bottom:12px}
+  .eyebrow b{color:var(--verde)}
+  h1{font-family:'Archivo Black',sans-serif;font-size:clamp(1.7rem,4.5vw,2.8rem);line-height:1.08;text-transform:uppercase}
+  h1 .hl{color:var(--verde)}
+  .hero p{margin-top:14px;max-width:64ch;color:var(--arquibancada)}
+
+  section{padding:34px 0;border-bottom:1px solid var(--linha)}
+  h2{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.35rem;margin-bottom:14px}
+  h3{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.05rem;margin:20px 0 10px}
+  .kicker{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--arquibancada);margin-bottom:8px}
+  .kicker .n{color:var(--verde)}
+
+  /* form */
+  .panel{background:var(--noite-2);border:1px solid var(--linha);border-radius:var(--radius);padding:20px}
+  .drop{border:2px dashed var(--linha);border-radius:var(--radius);padding:30px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  .drop:hover,.drop.drag{border-color:var(--info);background:rgba(111,177,255,.06)}
+  .drop .big{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.05rem}
+  .drop .small{color:var(--arquibancada);font-size:.9rem;margin-top:6px}
+  .drop .fname{color:var(--verde);font-family:'JetBrains Mono',monospace;font-size:.88rem;margin-top:10px;word-break:break-all}
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:18px}
+  .field label{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--arquibancada);margin-bottom:7px}
+  .seg{display:flex;border:1px solid var(--linha);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;background:transparent;color:var(--arquibancada);border:none;padding:9px 6px;font-family:'JetBrains Mono',monospace;font-size:.82rem;cursor:pointer;transition:.12s}
+  .seg button[aria-pressed="true"]{background:var(--noite-3);color:var(--refletor)}
+  .seg button.m[aria-pressed="true"]{color:var(--info)} .seg button.f[aria-pressed="true"]{color:var(--roxo)}
+  .actions{margin-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .btn{background:var(--verde);color:#06251a;border:none;border-radius:8px;padding:12px 22px;font-family:'Archivo',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;transition:.12s}
+  .btn:hover{filter:brightness(1.08)} .btn:disabled{opacity:.5;cursor:not-allowed}
+  .chk{display:flex;align-items:center;gap:8px;color:var(--arquibancada);font-size:.9rem}
+  .field input[type=text]{width:100%;background:var(--noite-code);color:var(--refletor);border:1px solid var(--linha);border-radius:7px;padding:9px 11px;font-family:'Source Sans 3',sans-serif;font-size:.92rem}
+  .field input[type=text]:focus{outline:none;border-color:var(--info)}
+  .field input::placeholder{color:#5d7693}
+  .field select{width:100%;background:var(--noite-code);color:var(--refletor);border:1px solid var(--linha);border-radius:7px;padding:9px 11px;font-family:'Source Sans 3',sans-serif;font-size:.92rem}
+  .field select:focus{outline:none;border-color:var(--info)}
+  /* save / share */
+  .btn.ghost{background:transparent;color:var(--refletor);border:1px solid var(--linha);font-family:'JetBrains Mono',monospace;font-weight:500;font-size:.85rem;padding:10px 16px}
+  .btn.ghost:hover{border-color:var(--info);filter:none}
+  #card-canvas{width:100%;max-width:360px;border:1px solid var(--linha);border-radius:var(--radius);margin-top:14px}
+  .copied{color:var(--verde);font-family:'JetBrains Mono',monospace;font-size:.82rem;margin-left:6px}
+  /* leitura: posicionamento / evidência */
+  .pos{display:flex;gap:18px;flex-wrap:wrap;margin-top:4px}
+  .pos .b{flex:1;min-width:120px}
+  .pos .b .lab{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--arquibancada);margin-bottom:4px}
+  .pos .b .val{font-family:'Archivo',sans-serif;font-weight:700;font-size:1rem}
+  .pos .arrow{align-self:center;color:var(--verde);font-size:1.2rem}
+  .ev .row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--linha);font-size:.9rem}
+  .ev .row:last-child{border-bottom:none}
+  .ev .row .k{color:var(--arquibancada)}
+  .conf{font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 7px;border-radius:5px;border:1px solid var(--linha)}
+  .conf.alta{color:var(--verde);border-color:rgba(52,214,123,.4)}
+  .conf.media{color:var(--info);border-color:rgba(111,177,255,.4)}
+  .conf.baixa{color:var(--ambar);border-color:rgba(255,180,84,.4)}
+  .subject{margin-top:16px;border:1px solid var(--linha);border-radius:var(--radius);padding:14px 16px;background:var(--noite)}
+  .subject summary{cursor:pointer;font-family:'Archivo',sans-serif;font-weight:700;font-size:1rem;list-style:none}
+  .subject summary::-webkit-details-marker{display:none}
+  .subject summary::before{content:"▸ ";color:var(--verde)}
+  .subject[open] summary::before{content:"▾ "}
+  .subject .opt{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada);font-weight:400}
+  .subject .hint{color:var(--arquibancada);font-size:.88rem;margin:8px 0 12px}
+
+  .hidden{display:none!important}
+  /* loading */
+  .loading{display:flex;align-items:center;gap:14px;color:var(--arquibancada)}
+  .spin{width:22px;height:22px;border:3px solid var(--noite-3);border-top-color:var(--verde);border-radius:50%;animation:rot 1s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .err{border-left:3px solid var(--botoeira);background:rgba(255,68,56,.1);padding:14px 16px;border-radius:0 var(--radius) var(--radius) 0;color:#ffd9d6}
+  .warns{border-left:3px solid var(--ambar);background:var(--ambar-dim);padding:12px 16px;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:18px;font-size:.9rem;color:#ffe6c4}
+
+  /* route chips */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .chip{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--linha);color:var(--arquibancada)}
+  .chip b{color:var(--refletor)}
+  .chip.green{color:var(--verde);border-color:rgba(52,214,123,.35)}
+  .chip.info{color:var(--info);border-color:rgba(111,177,255,.35)}
+  .chip.roxo{color:var(--roxo);border-color:rgba(184,156,255,.35)}
+
+  /* key improvement */
+  .keybox{background:var(--verde-dim);border:1px solid rgba(52,214,123,.35);border-radius:var(--radius);padding:18px 20px;margin:6px 0 20px}
+  .keybox .lab{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--verde);margin-bottom:8px}
+  .keybox .txt{font-family:'Archivo',sans-serif;font-weight:600;font-size:1.12rem;color:var(--refletor)}
+  .keybox ul{margin:12px 0 0 0;list-style:none;display:grid;gap:6px}
+  .keybox li{padding-left:16px;position:relative;color:#D4E0EE;font-size:.92rem}
+  .keybox li::before{content:"▸";position:absolute;left:0;color:var(--verde)}
+
+  /* grid + cards */
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:760px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:var(--noite-2);border:1px solid var(--linha);border-radius:var(--radius);padding:16px}
+  .card .ct{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--info);margin-bottom:10px}
+  .stat{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--linha)}
+  .stat:last-child{border-bottom:none}
+  .stat .k{color:var(--arquibancada);font-size:.9rem}
+  .stat .v{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--refletor)}
+  .obs{color:var(--arquibancada);font-size:.86rem;margin-top:10px;font-style:italic}
+  .bench{color:var(--arquibancada);font-size:.8rem;margin-top:8px;border-top:1px dashed var(--linha);padding-top:8px}
+
+  /* score bars */
+  .sbar{margin:9px 0}
+  .sbar .row{display:flex;justify-content:space-between;font-size:.86rem;margin-bottom:4px}
+  .sbar .row .n{font-family:'JetBrains Mono',monospace;color:var(--verde)}
+  .track{height:8px;background:var(--noite-3);border-radius:4px;overflow:hidden;position:relative}
+  .fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--info),var(--verde))}
+  .mark{position:absolute;top:-2px;width:2px;height:12px;background:var(--ambar)}
+
+  .big-score{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+  .big-score .num{font-family:'Archivo Black',sans-serif;font-size:3rem;color:var(--verde);line-height:1}
+  .big-score .den{color:var(--arquibancada);font-family:'JetBrains Mono',monospace}
+  svg .axis{stroke:var(--linha)} svg .ring{stroke:var(--linha);fill:none}
+  svg .poly{fill:rgba(52,214,123,.18);stroke:var(--verde);stroke-width:2}
+  svg .dot{fill:var(--verde)} svg text{fill:var(--arquibancada);font-family:'JetBrains Mono',monospace;font-size:10px}
+
+  .narr{white-space:pre-wrap;color:#E4EDF7;font-size:1.04rem;line-height:1.7}
+  audio{width:100%;margin-top:12px}
+  footer{padding:28px 0 60px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--arquibancada)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<nav class="topbar"><div class="wrap">
+  <span class="rec"><span class="rec-dot" aria-hidden="true"></span>BITVAR IA</span>
+  <span class="spacer"></span>
+  <span id="status-pill" class="mono">verificando…</span>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <p class="eyebrow">Análise de tênis por vídeo · <b>M / F · clipe / partida</b></p>
+  <h1>Um motor, <span class="hl">dois jogos,</span> três saídas.</h1>
+  <p>Suba um vídeo, escolha o gênero e receba <strong>métricas visuais</strong>, um <strong>relatório de coach em PT-BR</strong> e o <strong>áudio</strong> da narrativa. Clipe curto vira análise técnica do golpe; partida vira estatística com pesos da literatura.</p>
+</div></header>
+
+<section><div class="wrap">
+  <p class="kicker"><span class="n">01</span> · Entrada</p>
+  <h2>Enviar vídeo</h2>
+  <div class="panel">
+    <div id="drop" class="drop" tabindex="0" role="button" aria-label="Selecionar vídeo">
+      <div class="big">Arraste um vídeo aqui ou clique para escolher</div>
+      <div class="small">MP4/MOV · clipe de lance (≈&lt;75s) ou partida com placar</div>
+      <div id="fname" class="fname"></div>
+      <input id="file" type="file" accept="video/*" class="hidden">
+    </div>
+
+    <div class="controls">
+      <div class="field">
+        <label>Gênero</label>
+        <div class="seg" id="gender" role="group" aria-label="Gênero">
+          <button type="button" class="m" data-v="male" aria-pressed="true">MASCULINO</button>
+          <button type="button" class="f" data-v="female" aria-pressed="false">FEMININO</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Modo</label>
+        <div class="seg" id="mode" role="group" aria-label="Modo de análise">
+          <button type="button" data-v="auto" aria-pressed="true">AUTO</button>
+          <button type="button" data-v="clip" aria-pressed="false">CLIPE</button>
+          <button type="button" data-v="match" aria-pressed="false">PARTIDA</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Câmera (referência espacial)</label>
+        <select id="camera">
+          <option value="central" selected>Central (atrás do fundo)</option>
+          <option value="lateral">Lateral</option>
+          <option value="outra">Outra</option>
+          <option value="">Não informar</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Áudio (TTS)</label>
+        <label class="chk"><input type="checkbox" id="audio" checked> Gerar narração em voz (Vindemiatrix)</label>
+      </div>
+    </div>
+
+    <details class="subject" id="subject-box" open>
+      <summary>Quem é você no vídeo? <span class="opt">(opcional, mas recomendado — o take costuma ter várias pessoas)</span></summary>
+      <p class="hint">Descreva sua <strong>aparência</strong> para a IA seguir <strong>você</strong> e ignorar adversário, parceiro e gente ao fundo. Quanto mais discriminante (lateralidade, boné, cor da raquete), mais fácil travar na pessoa certa. <span style="color:var(--arquibancada)">Não usamos reconhecimento facial.</span></p>
+      <div class="controls">
+        <div class="field"><label>Nome</label><input id="p-name" type="text" placeholder="ex.: João"></div>
+        <div class="field"><label>Roupa / aparência</label><input id="p-outfit" type="text" placeholder="ex.: camiseta azul, shorts preto"></div>
+        <div class="field"><label>Lado / posição na quadra</label><input id="p-side" type="text" placeholder="ex.: fundo esquerdo, perto da câmera"></div>
+        <div class="field"><label>Lateralidade</label>
+          <select id="p-handedness">
+            <option value="">—</option>
+            <option value="destro">Destro</option>
+            <option value="canhoto">Canhoto</option>
+          </select>
+        </div>
+        <div class="field"><label>Boné / viseira</label><input id="p-headwear" type="text" placeholder="ex.: boné branco"></div>
+        <div class="field"><label>Cor da raquete</label><input id="p-racket" type="text" placeholder="ex.: preta e verde"></div>
+        <div class="field"><label>Cabelo</label><input id="p-hair" type="text" placeholder="ex.: curto, castanho"></div>
+        <div class="field"><label>Óculos</label><label class="chk"><input type="checkbox" id="p-glasses"> Usa óculos</label></div>
+        <div class="field"><label>Outras dicas</label><input id="p-notes" type="text" placeholder="ex.: mais alto que o parceiro"></div>
+      </div>
+    </details>
+
+    <div class="actions">
+      <button id="go" class="btn" disabled>Analisar vídeo</button>
+      <div id="loading" class="loading hidden"><span class="spin"></span><span id="loadmsg">Analisando… isto pode levar alguns minutos.</span></div>
+    </div>
+  </div>
+  <div id="error" class="err hidden" style="margin-top:16px"></div>
+</div></section>
+
+<section id="results" class="hidden"><div class="wrap">
+  <p class="kicker"><span class="n">02</span> · Saídas</p>
+  <h2 id="results-title">Resultado da análise</h2>
+  <div id="warns" class="warns hidden"></div>
+  <div id="chips" class="chips"></div>
+  <div id="keybox"></div>
+  <h3>Métricas</h3>
+  <div id="metrics"></div>
+  <div id="narrative-wrap" class="hidden">
+    <h3>Relatório do treinador (PT-BR)</h3>
+    <div id="narrative" class="card narr"></div>
+  </div>
+  <div id="audio-wrap" class="hidden">
+    <h3>Áudio da narrativa</h3>
+    <audio id="audio-player" controls></audio>
+  </div>
+  <div id="share-wrap" class="hidden">
+    <h3>Salvar e compartilhar</h3>
+    <div class="actions" id="share-actions"></div>
+    <canvas id="card-canvas" class="hidden" aria-label="Card da análise para redes sociais"></canvas>
+  </div>
+</div></section>
+
+<footer><div class="wrap">BITVAR IA · tênis M/F · análise por vídeo · salve, baixe e compartilhe o relatório</div></footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const state = { file:null, gender:"male", mode:"auto" };
+
+// ---- segmented controls ----
+function bindSeg(id, key){
+  document.querySelectorAll(`#${id} button`).forEach(b=>{
+    b.addEventListener("click",()=>{
+      document.querySelectorAll(`#${id} button`).forEach(x=>x.setAttribute("aria-pressed","false"));
+      b.setAttribute("aria-pressed","true");
+      state[key]=b.dataset.v;
+    });
+  });
+}
+bindSeg("gender","gender"); bindSeg("mode","mode");
+
+// ---- file pick / drag-drop ----
+const drop=$("#drop"), fileInput=$("#file");
+drop.addEventListener("click",()=>fileInput.click());
+drop.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();fileInput.click();}});
+fileInput.addEventListener("change",()=>setFile(fileInput.files[0]));
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
+drop.addEventListener("drop",e=>{if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);});
+function setFile(f){
+  if(!f) return;
+  state.file=f;
+  $("#fname").textContent=`${f.name} · ${(f.size/1024/1024).toFixed(1)} MB`;
+  $("#go").disabled=false;
+}
+
+// ---- health ----
+fetch("health").then(r=>r.json()).then(h=>{
+  const p=$("#status-pill");
+  if(h.configured){p.textContent=`PRONTO · ${h.analysis_model}`;p.classList.add("ok");}
+  else{p.textContent="SEM CHAVE GEMINI";p.classList.add("off");}
+}).catch(()=>{$("#status-pill").textContent="API OFFLINE";});
+
+// ---- submit ----
+$("#go").addEventListener("click",async()=>{
+  if(!state.file) return;
+  $("#error").classList.add("hidden");
+  $("#results").classList.add("hidden");
+  $("#go").disabled=true; $("#loading").classList.remove("hidden");
+  const fd=new FormData();
+  fd.append("file",state.file);
+  fd.append("gender",state.gender);
+  fd.append("mode",state.mode);
+  fd.append("with_audio",$("#audio").checked?"true":"false");
+  const cam=$("#camera").value; if(cam) fd.append("camera_position",cam);
+  [["p-name","player_name"],["p-outfit","player_outfit"],["p-side","player_side"],["p-notes","player_notes"],
+   ["p-handedness","player_handedness"],["p-headwear","player_headwear"],["p-racket","player_racket_color"],["p-hair","player_hair"]
+  ].forEach(([id,field])=>{const v=$("#"+id).value.trim();if(v)fd.append(field,v);});
+  if($("#p-glasses").checked) fd.append("player_glasses","true");
+  try{
+    const r=await fetch("analyze",{method:"POST",body:fd});
+    const data=await r.json().catch(()=>({detail:r.statusText}));
+    if(!r.ok) throw new Error(data.detail||`Erro ${r.status}`);
+    render(data);
+  }catch(e){
+    $("#error").textContent="Falha: "+e.message;
+    $("#error").classList.remove("hidden");
+  }finally{
+    $("#go").disabled=false; $("#loading").classList.add("hidden");
+  }
+});
+
+// ---- helpers ----
+function el(t,attrs={},...kids){const e=document.createElement(t);for(const k in attrs){if(k==="class")e.className=attrs[k];else if(k==="html")e.innerHTML=attrs[k];else e.setAttribute(k,attrs[k]);}for(const c of kids){if(c==null)continue;e.append(c.nodeType?c:document.createTextNode(c));}return e;}
+const num=v=>v==null?"—":(typeof v==="number"?(Number.isInteger(v)?v:v.toFixed(1)):v);
+const pct=v=>v==null?"—":num(v)+"%";
+const LABELS={preparation:"Preparação",contact_point:"Ponto de contato",follow_through:"Finalização",balance_and_posture:"Equilíbrio e postura",racket_path:"Trajetória da raquete",split_step:"Split step",court_positioning:"Posicionamento",recovery_after_shot:"Recuperação",kinetic_chain:"Cadeia cinética",hip_shoulder_rotation:"Rotação quadril/ombro",weight_transfer:"Transferência de peso",shot_placement_quality:"Colocação do golpe",shot_selection:"Seleção do golpe"};
+const SHOTS={forehand:"Forehand",backhand:"Backhand",serve:"Saque",return:"Devolução",volley:"Voleio",overhead_smash:"Smash",slice:"Slice",drop_shot:"Drop shot",lob:"Lob",approach:"Aproximação",unknown:"Não identificado"};
+const PHASES={serve:"Saque",serve_return:"Recepção do saque",baseline_rally:"Troca de fundo",attack:"Ataque",defense:"Defesa",transition:"Transição",net_play:"Jogo de rede",unknown:"Indefinida"};
+const HAND={destro:"Destro",canhoto:"Canhoto",indeterminado:"Indeterminada"};
+const CONF={baixa:"baixa",media:"média",alta:"alta"};
+const ZONES={fundo:"Fundo",meio:"Meio",rede:"Rede",transicao:"Transição"};
+const SIDES={esquerda:"Esquerda",centro:"Centro",direita:"Direita"};
+let lastData=null;  // última resposta, p/ salvar/exportar/card no cliente
+
+// ---- main render ----
+function render(d){
+  lastData=d;
+  $("#results").classList.remove("hidden");
+  const m=d.metrics||{}, route=d.route||{};
+  $("#results-title").textContent = route.mode==="clip" ? "Análise técnica do lance" : "Análise estatística da partida";
+
+  // warnings (servidor + nota de baixa confiança no travamento do atleta)
+  const w=$("#warns");
+  const notes=(d.warnings||[]).slice();
+  if(m.subject_lock_confidence==="baixa") notes.push("A IA não teve certeza de ter analisado a pessoa certa — confira a descrição do jogador.");
+  if(notes.length){w.innerHTML="<b>Avisos:</b> "+notes.join(" · ");w.classList.remove("hidden");}
+  else w.classList.add("hidden");
+
+  // chips
+  $("#chips").innerHTML="";
+  const gm=route.gender==="female";
+  addChip(gm?"roxo":"info", "GÊNERO", gm?"Feminino":"Masculino");
+  addChip("green","MODO", route.mode==="clip"?"Clipe (lance)":"Partida");
+  addChip("", "fps", route.fps);
+  addChip("", "media_res", (route.media_resolution||"").replace("MEDIA_RESOLUTION_",""));
+  addChip("", "thinking", route.thinking_level);
+  if(route.weight_model) addChip("", "pesos", route.weight_model);
+  if(route.duration_seconds) addChip("", "duração", route.duration_seconds.toFixed(0)+"s");
+  addChip("", "detecção", route.mode_detection);
+  if(m.action_phase) addChip("info","FASE", PHASES[m.action_phase]||m.action_phase);
+  if(m.handedness && m.handedness!=="indeterminado") addChip("","LATERALIDADE", HAND[m.handedness]||m.handedness);
+  if(m.subject_lock_confidence) addChip(m.subject_lock_confidence==="baixa"?"":"green","TRAVOU NO ALVO", CONF[m.subject_lock_confidence]||m.subject_lock_confidence);
+  if(m.camera_meta&&m.camera_meta.position) addChip("","CÂMERA", m.camera_meta.position);
+  if(d.subject){const s=d.subject;const bits=[s.name,s.outfit,s.side,s.handedness,s.headwear,s.racket_color,s.notes].filter(Boolean).join(" · ");if(bits)addChip("green","ANALISADO",bits);}
+
+  // key improvement
+  renderKey(m);
+
+  // metrics
+  const host=$("#metrics"); host.innerHTML="";
+  if(route.mode==="clip") renderClip(host,m);
+  else renderMatch(host,m,d.benchmarks||{});
+
+  // narrative
+  if(d.narrative){$("#narrative").textContent=d.narrative;$("#narrative-wrap").classList.remove("hidden");}
+  else $("#narrative-wrap").classList.add("hidden");
+
+  // audio
+  if(d.audio_base64){
+    $("#audio-player").src=`data:${d.audio_mime||"audio/wav"};base64,${d.audio_base64}`;
+    $("#audio-wrap").classList.remove("hidden");
+  } else $("#audio-wrap").classList.add("hidden");
+
+  renderShare(d);
+  $("#results").scrollIntoView({behavior:"smooth"});
+}
+function addChip(cls,k,v){$("#chips").append(el("span",{class:"chip "+cls,html:`${k} <b>${v}</b>`}));}
+function renderKey(m){
+  const box=$("#keybox"); box.innerHTML="";
+  if(!m.key_improvement){return;}
+  const k=el("div",{class:"keybox"});
+  k.append(el("div",{class:"lab"},"Principal correção"));
+  k.append(el("div",{class:"txt"},m.key_improvement));
+  if(m.secondary_improvements&&m.secondary_improvements.length){
+    const ul=el("ul"); m.secondary_improvements.forEach(s=>ul.append(el("li",{},s))); k.append(ul);
+  }
+  box.append(k);
+}
+
+// ---- CLIP ----
+function renderClip(host,m){
+  const te=m.technical_execution||{};
+  const axes=Object.keys(te).map(k=>({label:LABELS[k]||k,score:te[k]?.score??0}));
+  const grid=el("div",{class:"grid g2"});
+
+  // radar + global score
+  const left=el("div",{class:"card"});
+  left.append(el("div",{class:"ct"},`Golpe: ${SHOTS[m.shot_identified]||m.shot_identified||"—"}`));
+  const bs=el("div",{class:"big-score"});
+  bs.append(el("span",{class:"num"},num(m.clip_quality_score))); bs.append(el("span",{class:"den"},"/ 10 técnico"));
+  left.append(bs);
+  if(axes.length) left.append(radar(axes));
+  grid.append(left);
+
+  // execution bars
+  grid.append(scoreCard("Execução técnica",te));
+  host.append(grid);
+
+  // other groups
+  const groups=[["footwork_and_movement","Footwork e movimentação"],["biomechanics","Biomecânica"],["tactical_intent","Intenção tática"]]
+    .filter(([k])=>m[k]);
+  if(groups.length){
+    const g=el("div",{class:"grid g3",style:"margin-top:14px"});
+    groups.forEach(([k,t])=>g.append(scoreCard(t,m[k])));
+    host.append(g);
+  }
+
+  // posicionamento (setorização) + "como a IA chegou a isso"
+  const extra=[];
+  const pc=positioningCard(m.positioning); if(pc) extra.push(pc);
+  const ec=evidenceCard(m); if(ec) extra.push(ec);
+  if(extra.length){const g=el("div",{class:"grid g2",style:"margin-top:14px"});extra.forEach(c=>g.append(c));host.append(g);}
+}
+function zoneLabel(z,s){return [ZONES[z]||z||null,SIDES[s]||s||null].filter(Boolean).join(" · ")||"—";}
+function positioningCard(p){
+  if(!p||!(p.observed_zone||p.observed_side||p.recommended_zone||p.recommended_side||p.rationale)) return null;
+  const c=el("div",{class:"card"}); c.append(el("div",{class:"ct"},"Posicionamento (setorização)"));
+  const row=el("div",{class:"pos"});
+  row.append(el("div",{class:"b"},el("div",{class:"lab"},"Onde estava"),el("div",{class:"val"},zoneLabel(p.observed_zone,p.observed_side))));
+  row.append(el("div",{class:"arrow"},"→"));
+  row.append(el("div",{class:"b"},el("div",{class:"lab"},"Posição ideal"),el("div",{class:"val"},zoneLabel(p.recommended_zone,p.recommended_side))));
+  c.append(row);
+  if(p.rationale) c.append(el("div",{class:"obs"},p.rationale));
+  return c;
+}
+function confTag(v){return v?el("span",{class:"conf "+v},CONF[v]||v):null;}
+function evidenceCard(m){
+  const hasAny=m.action_phase||m.shot_identified||m.visual_evidence||m.approx_timestamp_s!=null||m.phase_confidence||m.shot_confidence;
+  if(!hasAny) return null;
+  const c=el("div",{class:"card ev"}); c.append(el("div",{class:"ct"},"Como a IA chegou a isso"));
+  const row=(k,v,conf)=>{if(v==null||v==="")return;const r=el("div",{class:"row"});r.append(el("span",{class:"k"},k));const val=el("span",{},v);if(conf){val.append(document.createTextNode(" "));val.append(conf);}r.append(val);c.append(r);};
+  row("Fase", m.action_phase?(PHASES[m.action_phase]||m.action_phase):null, confTag(m.phase_confidence));
+  row("Golpe", m.shot_identified?(SHOTS[m.shot_identified]||m.shot_identified):null, confTag(m.shot_confidence));
+  if(m.approx_timestamp_s!=null) row("Momento aprox.", `~${num(m.approx_timestamp_s)}s`);
+  if(m.subject_lock_confidence) row("Confiança no alvo", "", confTag(m.subject_lock_confidence));
+  if(m.visual_evidence) c.append(el("div",{class:"obs"},m.visual_evidence));
+  return c;
+}
+function scoreCard(title,obj){
+  const c=el("div",{class:"card"}); c.append(el("div",{class:"ct"},title));
+  Object.keys(obj||{}).forEach(k=>{
+    const so=obj[k]||{};
+    const sb=el("div",{class:"sbar"});
+    sb.append(el("div",{class:"row"},el("span",{},LABELS[k]||k),el("span",{class:"n"},`${so.score??"—"}/10`)));
+    const tr=el("div",{class:"track"}); tr.append(el("div",{class:"fill",style:`width:${(so.score??0)*10}%`})); sb.append(tr);
+    if(so.observation) sb.append(el("div",{class:"obs"},so.observation));
+    c.append(sb);
+  });
+  return c;
+}
+function radar(axes){
+  const W=300,H=240,cx=150,cy=120,R=92,n=axes.length;
+  const NS="http://www.w3.org/2000/svg";
+  const svg=document.createElementNS(NS,"svg");
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`); svg.setAttribute("width","100%");
+  svg.setAttribute("role","img"); svg.setAttribute("aria-label","Radar dos scores técnicos");
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/n;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];};
+  [2,4,6,8,10].forEach(lvl=>{
+    const r=R*lvl/10, pts=axes.map((_,i)=>pt(i,r).join(",")).join(" ");
+    const poly=document.createElementNS(NS,"polygon"); poly.setAttribute("points",pts); poly.setAttribute("class","ring"); svg.append(poly);
+  });
+  axes.forEach((ax,i)=>{
+    const [x,y]=pt(i,R);
+    const ln=document.createElementNS(NS,"line"); ln.setAttribute("x1",cx);ln.setAttribute("y1",cy);ln.setAttribute("x2",x);ln.setAttribute("y2",y);ln.setAttribute("class","axis"); svg.append(ln);
+    const [lx,ly]=pt(i,R+16);
+    const tx=document.createElementNS(NS,"text"); tx.setAttribute("x",lx);tx.setAttribute("y",ly);
+    tx.setAttribute("text-anchor",lx<cx-5?"end":lx>cx+5?"start":"middle"); tx.textContent=ax.label.split(" ")[0]; svg.append(tx);
+  });
+  const dpts=axes.map((ax,i)=>pt(i,R*(ax.score||0)/10).join(",")).join(" ");
+  const poly=document.createElementNS(NS,"polygon"); poly.setAttribute("points",dpts); poly.setAttribute("class","poly"); svg.append(poly);
+  axes.forEach((ax,i)=>{const [x,y]=pt(i,R*(ax.score||0)/10);const d=document.createElementNS(NS,"circle");d.setAttribute("cx",x);d.setAttribute("cy",y);d.setAttribute("r",3);d.setAttribute("class","dot");svg.append(d);});
+  const box=el("div",{style:"margin-top:8px"}); box.append(svg); return box;
+}
+
+// ---- MATCH ----
+function renderMatch(host,m,bench){
+  // weighted score
+  const ws=m.weighted_performance_score;
+  if(ws){
+    const c=el("div",{class:"card"});
+    c.append(el("div",{class:"ct"},`Score ponderado · ${ws.weighting_model||""}`));
+    const bs=el("div",{class:"big-score"});
+    bs.append(el("span",{class:"num"},num(ws.score))); bs.append(el("span",{class:"den"},"/ 100"));
+    c.append(bs);
+    c.append(el("div",{class:"obs"},`${ws.components_present}/${ws.components_total} componentes com dado · contribuições somam o score`));
+    (ws.component_breakdown||[]).forEach(comp=>{
+      const sb=el("div",{class:"sbar"});
+      const lab=`${comp.label||comp.component} · peso ${comp.weight}`;
+      sb.append(el("div",{class:"row"},el("span",{},lab),el("span",{class:"n"},comp.present?`+${comp.contribution_pts}`:"sem dado")));
+      const tr=el("div",{class:"track"}); tr.append(el("div",{class:"fill",style:`width:${comp.present?(comp.normalized*100):0}%`})); sb.append(tr);
+      c.append(sb);
+    });
+    host.append(c);
+  }
+
+  // stat cards
+  const g=el("div",{class:"grid g2",style:"margin-top:14px"});
+  g.append(statCard("Saque",[
+    ["1º saque dentro",pct(m.serve?.first_serve_in_pct)],
+    ["1º saque — pts ganhos",pct(m.serve?.first_serve_points_won_pct),bench.first_serve_points_won_pct],
+    ["2º saque — pts ganhos",pct(m.serve?.second_serve_points_won_pct),bench.second_serve_points_won_pct],
+    ["Aces",num(m.serve?.aces)],["Duplas faltas",num(m.serve?.double_faults)],
+  ],m.serve?.serve_dominance_observation,m.serve?.benchmark_reference));
+  g.append(statCard("Devolução",[
+    ["Pts de devolução ganhos",pct(m.return?.return_points_won_pct),bench.return_points_won_pct],
+    ["Games de devolução",num(m.return?.return_games_won)],
+  ],null,m.return?.benchmark_reference));
+  g.append(statCard("Resultado dos pontos",[
+    ["Winners",num(m.outcome_quality?.winners)],
+    ["Erros não forçados",num(m.outcome_quality?.unforced_errors)],
+    ["Erros forçados",num(m.outcome_quality?.forced_errors)],
+    ["Razão winner/erro",num(m.outcome_quality?.winner_to_ue_ratio)],
+  ],m.outcome_quality?.observation));
+  g.append(statCard("Break points",[
+    ["Enfrentados",num(m.pressure_points?.break_points_faced)],
+    ["Salvos",num(m.pressure_points?.break_points_saved)],
+    ["Oportunidades",num(m.pressure_points?.break_points_opportunities)],
+    ["Convertidos",num(m.pressure_points?.break_points_converted)],
+  ],m.pressure_points?.observation));
+  host.append(g);
+
+  // rally distribution
+  const r=m.rally||{};
+  const rc=el("div",{class:"card",style:"margin-top:14px"});
+  rc.append(el("div",{class:"ct"},`Rally · média ${num(r.avg_rally_length)} golpes/ponto`));
+  [["0-4 golpes",r.rally_0_4_pct,"var(--verde)"],["5-8 golpes",r.rally_5_8_pct,"var(--info)"],["9+ golpes",r.rally_9_plus_pct,"var(--roxo)"]].forEach(([lab,v,col])=>{
+    const sb=el("div",{class:"sbar"});
+    sb.append(el("div",{class:"row"},el("span",{},lab),el("span",{class:"n"},pct(v))));
+    const tr=el("div",{class:"track"}); const f=el("div",{class:"fill",style:`width:${v||0}%;background:${col}`}); tr.append(f); sb.append(tr);
+    rc.append(sb);
+  });
+  rc.append(barCmp("Pts no fundo de quadra",r.baseline_points_won_pct,bench.baseline_points_won_pct));
+  rc.append(barCmp("Pts na rede",r.net_points_won_pct,bench.net_points_won_pct));
+  if(r.benchmark_reference) rc.append(el("div",{class:"bench"},"Referência: "+r.benchmark_reference));
+  host.append(rc);
+}
+function statCard(title,rows,obs,bench){
+  const c=el("div",{class:"card"}); c.append(el("div",{class:"ct"},title));
+  rows.forEach(([k,v,bm])=>{
+    if(bm!=null){c.append(barCmp(k,parseFloat(v),bm));}
+    else{const s=el("div",{class:"stat"}); s.append(el("span",{class:"k"},k)); s.append(el("span",{class:"v"},v)); c.append(s);}
+  });
+  if(obs) c.append(el("div",{class:"obs"},obs));
+  if(bench) c.append(el("div",{class:"bench"},"Referência: "+bench));
+  return c;
+}
+function barCmp(label,value,benchmark){
+  const sb=el("div",{class:"sbar"});
+  const v=isNaN(value)?null:value;
+  sb.append(el("div",{class:"row"},el("span",{},label),el("span",{class:"n"},v==null?"—":num(v)+"%")));
+  const tr=el("div",{class:"track"});
+  tr.append(el("div",{class:"fill",style:`width:${Math.min(v||0,100)}%`}));
+  if(benchmark!=null){const mk=el("div",{class:"mark",style:`left:${Math.min(benchmark,100)}%`,title:`elite ~${benchmark}%`}); tr.append(mk);}
+  sb.append(tr);
+  if(benchmark!=null) sb.append(el("div",{class:"obs",style:"margin-top:4px;font-size:.78rem"},`marca âmbar = elite ~${benchmark}%`));
+  return sb;
+}
+
+// ---- salvar / exportar / compartilhar (spec E1/E2) ----
+function renderShare(d){
+  const wrap=$("#share-wrap"), bar=$("#share-actions");
+  bar.innerHTML=""; $("#card-canvas").classList.add("hidden");
+  const route=d.route||{};
+  const mkBtn=(label,fn)=>{const b=el("button",{class:"btn ghost"},label);b.addEventListener("click",fn);bar.append(b);return b;};
+  mkBtn("⬇ Relatório (.txt)",()=>downloadText(buildTxtReport(d),"bitvar-analise.txt","text/plain;charset=utf-8"));
+  mkBtn("⬇ Dados (.json)",()=>downloadText(JSON.stringify(d,null,2),"bitvar-analise.json","application/json"));
+  if(d.audio_base64) mkBtn("⬇ Áudio (.wav)",()=>downloadDataUrl(`data:${d.audio_mime||"audio/wav"};base64,${d.audio_base64}`,"bitvar-narracao.wav"));
+  if(route.mode==="clip") mkBtn("🎨 Gerar card",()=>buildCard(d));
+  if(navigator.share) mkBtn("📤 Compartilhar",()=>shareReport(d));
+  if(d.persisted_id){
+    const link=new URL("analyses/"+d.persisted_id, location.href).href;
+    const b=mkBtn("🔗 Copiar link",async()=>{
+      try{await navigator.clipboard.writeText(link);flash(b,"copiado!");}
+      catch{prompt("Link da análise (salva no servidor):",link);}
+    });
+  }
+  wrap.classList.remove("hidden");
+}
+function flash(btn,msg){const s=el("span",{class:"copied"},msg);btn.after(s);setTimeout(()=>s.remove(),2200);}
+function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=el("a",{href:url,download:filename});document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);}
+function downloadText(text,filename,mime){downloadBlob(new Blob([text],{type:mime}),filename);}
+function downloadDataUrl(url,filename){const a=el("a",{href:url,download:filename});document.body.append(a);a.click();a.remove();}
+
+function buildTxtReport(d){
+  const m=d.metrics||{}, route=d.route||{}, s=d.subject||{};
+  const L=["BITVAR IA — Análise de Tênis"];
+  if(s.name) L.push("Atleta: "+s.name);
+  L.push(`Gênero: ${route.gender||"—"} · Modo: ${route.mode||"—"}`,"");
+  if(route.mode==="clip"){
+    const bits=[];
+    if(m.shot_identified) bits.push("Golpe: "+(SHOTS[m.shot_identified]||m.shot_identified));
+    if(m.action_phase) bits.push("Fase: "+(PHASES[m.action_phase]||m.action_phase));
+    if(m.clip_quality_score!=null) bits.push("Nota técnica: "+num(m.clip_quality_score)+"/10");
+    if(bits.length) L.push(bits.join(" · "),"");
+    if(m.positioning){const p=m.positioning;L.push(`Posição: estava em ${zoneLabel(p.observed_zone,p.observed_side)} → ideal ${zoneLabel(p.recommended_zone,p.recommended_side)}`);if(p.rationale)L.push(p.rationale);L.push("");}
+  }else{
+    const ws=m.weighted_performance_score;
+    if(ws&&ws.score!=null) L.push(`Score ponderado: ${num(ws.score)}/100 (${ws.weighting_model||""})`,"");
+  }
+  if(m.key_improvement) L.push("PRINCIPAL CORREÇÃO",m.key_improvement,"");
+  if(m.secondary_improvements&&m.secondary_improvements.length){L.push("CORREÇÕES SECUNDÁRIAS");m.secondary_improvements.forEach(v=>L.push("- "+v));L.push("");}
+  if(d.narrative) L.push("RELATÓRIO DO TREINADOR",d.narrative,"");
+  L.push("— gerado por BITVAR IA");
+  return L.join("\n");
+}
+
+function drawCard(d){
+  const m=d.metrics||{}, s=d.subject||{}, W=1080,H=1350,P=80;
+  const cv=$("#card-canvas"); cv.width=W; cv.height=H;
+  const x=cv.getContext("2d");
+  x.fillStyle="#0D1A2B"; x.fillRect(0,0,W,H);
+  x.fillStyle="#34D67B"; x.fillRect(0,0,W,14);
+  x.fillStyle="#8FA9C4"; x.font="600 30px Arial,sans-serif"; x.fillText("BITVAR IA · ANÁLISE DE TÊNIS", P, 120);
+  let y=240;
+  if(s.name){x.fillStyle="#F2F7FC"; x.font="700 72px Arial,sans-serif"; x.fillText(s.name, P, y);}
+  x.fillStyle="#6FB1FF"; x.font="500 40px Arial,sans-serif";
+  const sub=[SHOTS[m.shot_identified]||m.shot_identified||"", m.action_phase?("· "+(PHASES[m.action_phase]||m.action_phase)):""].filter(Boolean).join(" ");
+  y+=70; x.fillText(sub, P, y);
+  y+=215; const sc=num(m.clip_quality_score);
+  x.fillStyle="#34D67B"; x.font="800 200px Arial,sans-serif"; x.fillText(sc, P, y);
+  const w=x.measureText(sc).width;
+  x.fillStyle="#8FA9C4"; x.font="500 52px Arial,sans-serif"; x.fillText("/ 10 técnico", P+w+24, y);
+  y+=120; x.fillStyle="#8FA9C4"; x.font="600 30px Arial,sans-serif"; x.fillText("PRINCIPAL CORREÇÃO", P, y);
+  y+=64; x.fillStyle="#F2F7FC"; x.font="400 46px Arial,sans-serif"; wrapText(x, m.key_improvement||"", P, y, W-2*P, 60);
+  x.fillStyle="#5d7693"; x.font="500 28px Arial,sans-serif"; x.fillText("001.bitvar.illumiai.com/tennis", P, H-60);
+  cv.classList.remove("hidden");
+}
+function wrapText(ctx,text,x,y,maxW,lh){
+  const words=(text||"").split(/\s+/); let line="", yy=y;
+  for(const wd of words){
+    const test=line?line+" "+wd:wd;
+    if(ctx.measureText(test).width>maxW && line){ctx.fillText(line,x,yy);line=wd;yy+=lh;}
+    else line=test;
+  }
+  if(line){ctx.fillText(line,x,yy);yy+=lh;}
+  return yy;
+}
+function buildCard(d){
+  drawCard(d);
+  $("#card-canvas").toBlob(b=>{if(b)downloadBlob(b,"bitvar-card.png");},"image/png");
+}
+async function shareReport(d){
+  try{
+    if((d.route||{}).mode==="clip" && navigator.canShare){
+      drawCard(d);
+      const blob=await new Promise(r=>$("#card-canvas").toBlob(r,"image/png"));
+      const file=new File([blob],"bitvar-card.png",{type:"image/png"});
+      if(blob && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title:"BITVAR IA",text:(d.metrics||{}).key_improvement||"Análise BITVAR IA"});
+        return;
+      }
+    }
+    await navigator.share({title:"BITVAR IA — Análise de Tênis",text:buildTxtReport(d)});
+  }catch(e){/* cancelado ou sem suporte */}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# Traefik v3 — configuração dinâmica (middlewares + auth do dashboard)
+http:
+  middlewares:
+    # Basic auth do dashboard. Gere o hash com:
+    #   infra/scripts/gen-dashboard-auth.sh admin 'SUA_SENHA'
+    # NESTE arquivo use $ simples (NÃO dobrar). Em labels do compose seria $$.
+    dashboard-auth:
+      basicAuth:
+        users:
+          - "admin:$2y$05$EXEMPLO_TROQUE_ESTE_HASH_BCRYPT_AQUI................."
+
+    sec-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+
+    api-ratelimit:
+      rateLimit:
+        average: 50               # req/s médio por IP
+        burst: 100
