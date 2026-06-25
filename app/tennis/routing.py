@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from .benchmarks import numbers_for
 from .config import tennis_settings as cfg
 from .models import ClipAnalysis, Gender, Level, MatchAnalysis, Mode, RouteInfo
+from .quadrants import normalize_quadrant
 from .weights import WEIGHT_MODEL_BY_GENDER
 
 _GENDER_ALIASES = {
@@ -84,17 +85,15 @@ def decide_mode(
     override: Mode | None,
     file_size_bytes: int | None,
 ) -> tuple[Mode, str]:
-    """Retorna (modo, como_foi_decidido)."""
-    if override is not None:
-        return override, f"override={override}"
-    if duration is not None:
-        mode: Mode = "clip" if duration < cfg.clip_max_seconds else "match"
-        return mode, f"duration={duration:.1f}s (limiar {cfg.clip_max_seconds:.0f}s)"
-    if file_size_bytes is not None:
-        limit = cfg.filesize_clip_max_mb * 1024 * 1024
-        mode = "clip" if file_size_bytes < limit else "match"
-        return mode, f"heuristic_filesize={file_size_bytes / 1024 / 1024:.0f}MB"
-    return "clip", "default_clip"
+    """Sempre 'clip' — o modo PARTIDA foi removido (o produto analisa lances/clipes).
+
+    ``duration``/``override``/``file_size_bytes`` ficam na assinatura por compat, mas
+    NÃO escolhem mais o modo: um ``override='match'`` de cliente antigo é silenciosamente
+    tratado como clipe. (A duração ainda é checada à parte, p/ o teto de ``clip_max_seconds``.)
+    """
+    if override == "match":
+        return "clip", "clip_only(override match ignorado)"
+    return "clip", "clip_only"
 
 
 def build_route(
@@ -104,6 +103,9 @@ def build_route(
     override: str | None,
     file_size_bytes: int | None,
     level_in: str | None = None,
+    camera_reference: str | None = None,
+    target_quadrant: object = None,
+    target_appearance: str | None = None,
 ) -> Route:
     """Monta a decisão de roteamento a partir das entradas do usuário."""
     gender = normalize_gender(gender_in)
@@ -122,6 +124,9 @@ def build_route(
             WEIGHT_MODEL_BY_GENDER[gender],
         )
 
+    camera_ref = (camera_reference or "").strip().lower() or None
+    quadrant = normalize_quadrant(target_quadrant)  # tolerante: vira None se inválido
+    appearance = (target_appearance or "").strip() or None
     info = RouteInfo(
         gender=gender,
         mode=mode,
@@ -133,6 +138,9 @@ def build_route(
         weight_model=weight_model,
         duration_seconds=duration,
         mode_detection=detection,
+        camera_reference=camera_ref,
+        target_quadrant=quadrant,
+        target_appearance=appearance,
     )
     return Route(
         info=info,

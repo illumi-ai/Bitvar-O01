@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITVAR IA · Plano de Correção — Seleção do Atleta por Quadrante</title>
+<style>
+  :root{
+    --bg:#0a1119; --bg2:#0c1623; --card:#101d2e; --card2:#0e1a29;
+    --line:#1d2d44; --line2:#26384f;
+    --ink:#e9eff7; --dim:#a3b3c7; --faint:#6c7e95;
+    --green:#34d36a; --green-2:#7fe5a3; --green-glow:rgba(52,211,106,.14);
+    --blue:#5b9bd5; --blue-2:#93c2ec; --blue-glow:rgba(91,155,213,.16);
+    --red:#f4606e; --red-bg:rgba(244,96,110,.10); --red-line:rgba(244,96,110,.35);
+    --grn-bg:rgba(52,211,106,.09); --grn-line:rgba(52,211,106,.34);
+    --blu-bg:rgba(91,155,213,.09); --blu-line:rgba(91,155,213,.34);
+    --amber:#f0b54e; --amber-bg:rgba(240,181,78,.10); --amber-line:rgba(240,181,78,.34);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:
+      radial-gradient(1100px 600px at 80% -10%, rgba(91,155,213,.07), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(52,211,106,.05), transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(91,155,213,.25)}
+  a{color:var(--blue-2); text-decoration:none}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 22px}
+
+  .topbar{position:sticky; top:0; z-index:50; backdrop-filter:blur(12px); background:rgba(8,15,24,.82); border-bottom:1px solid var(--line)}
+  .topbar .row{display:flex; align-items:center; gap:14px; height:58px}
+  .brand{display:flex; align-items:center; gap:9px; font-family:var(--mono); font-weight:700; letter-spacing:.14em; font-size:15px}
+  .dot{width:11px; height:11px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 4px var(--blue-glow), 0 0 14px var(--blue)}
+  .brand small{color:var(--faint); font-weight:500; letter-spacing:.18em}
+  .badge{margin-left:auto; font-family:var(--mono); font-size:11.5px; letter-spacing:.12em; color:var(--blue-2); border:1px solid var(--blu-line); background:var(--blu-bg); padding:5px 11px; border-radius:7px}
+
+  .subnav{position:sticky; top:58px; z-index:40; background:rgba(10,17,25,.9); backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
+  .subnav .row{display:flex; gap:4px; overflow-x:auto; padding:9px 0; scrollbar-width:none}
+  .subnav .row::-webkit-scrollbar{display:none}
+  .subnav a{font-family:var(--mono); font-size:12px; letter-spacing:.06em; color:var(--dim); white-space:nowrap; padding:6px 12px; border-radius:7px; border:1px solid transparent}
+  .subnav a:hover{color:var(--ink); background:rgba(255,255,255,.03); border-color:var(--line)}
+
+  .hero{padding:58px 0 28px}
+  .kicker{font-family:var(--mono); font-size:12.5px; letter-spacing:.2em; color:var(--blue); text-transform:uppercase; margin-bottom:20px; line-height:1.7}
+  .kicker b{color:var(--green-2); font-weight:600}
+  h1{font-size:clamp(28px,5vw,48px); line-height:1.07; margin:0 0 18px; letter-spacing:-.02em; font-weight:800}
+  h1 .g{color:var(--green)} h1 .b{color:var(--blue-2)} h1 .r{color:var(--red)}
+  .lede{font-size:clamp(16px,2vw,19px); color:var(--dim); max-width:800px; margin:0}
+  .lede b{color:var(--ink)}
+  .metaline{display:flex; flex-wrap:wrap; gap:8px; margin-top:26px}
+  .chip{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; color:var(--dim); border:1px solid var(--line2); background:var(--card2); padding:6px 11px; border-radius:999px}
+  .chip b{color:var(--ink)}
+  .chip.g{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+  .chip.b{color:var(--blue-2); border-color:var(--blu-line); background:var(--blu-bg)}
+  .chip.r{color:var(--red); border-color:var(--red-line); background:var(--red-bg)}
+
+  section{padding:30px 0; scroll-margin-top:128px}
+  .sec-h{display:flex; align-items:baseline; gap:14px; margin:0 0 10px; flex-wrap:wrap}
+  .sec-n{font-family:var(--mono); font-size:13px; color:var(--blue); letter-spacing:.1em}
+  .sec-h h2{font-size:clamp(22px,3vw,30px); margin:0; letter-spacing:-.01em; font-weight:750}
+  .sec-sub{color:var(--faint); font-size:14.5px; margin:0 0 24px; max-width:840px}
+  .sec-sub b{color:var(--dim)}
+
+  .card{background:linear-gradient(180deg,var(--card),var(--card2)); border:1px solid var(--line); border-radius:15px; padding:22px}
+  .grid{display:grid; gap:16px}
+  @media(min-width:760px){ .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:1fr 1fr 1fr} .g4{grid-template-columns:repeat(4,1fr)} }
+
+  .lbl{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--blue)}
+  .lbl.grn{color:var(--green)} .lbl.red{color:var(--red)} .lbl.amb{color:var(--amber)}
+
+  .stat{text-align:center}
+  .stat .v{font-family:var(--mono); font-weight:800; font-size:30px; letter-spacing:-.02em; color:var(--blue-2)}
+  .stat .v.g{color:var(--green-2)} .stat .v.a{color:var(--amber)} .stat .v.r{color:var(--red)}
+  .stat .k{font-size:12.5px; color:var(--faint); margin-top:3px}
+
+  .ba{display:grid; gap:12px; margin:6px 0 4px}
+  @media(min-width:720px){ .ba{grid-template-columns:1fr 1fr} }
+  .panel{border-radius:12px; padding:15px 16px; border:1px solid var(--line)}
+  .panel.bad{background:var(--red-bg); border-color:var(--red-line)}
+  .panel.good{background:var(--grn-bg); border-color:var(--grn-line)}
+  .panel h4{margin:0 0 8px; font-size:12px; font-family:var(--mono); letter-spacing:.08em}
+  .panel.bad h4{color:var(--red)} .panel.good h4{color:var(--green-2)}
+  .panel p{margin:0 0 8px; font-size:13.8px; color:var(--ink)} .panel p:last-child{margin-bottom:0}
+  .inl{font-family:var(--mono); font-size:12px; color:var(--blue-2); background:rgba(91,155,213,.08); border:1px solid var(--blu-line); border-radius:5px; padding:1px 5px}
+  .inl.g{color:var(--green-2); background:rgba(52,211,106,.08); border-color:var(--grn-line)}
+
+  blockquote{margin:10px 0; padding:11px 15px; border-left:3px solid var(--line2); background:var(--card2); border-radius:0 10px 10px 0; color:var(--dim); font-size:13.8px; font-style:italic}
+  blockquote.b{border-left-color:var(--blue)} blockquote.r{border-left-color:var(--red)} blockquote.g{border-left-color:var(--green)}
+  blockquote cite{display:block; font-style:normal; font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; color:var(--faint); margin-top:6px}
+  blockquote b{color:var(--ink); font-style:normal}
+
+  ul.clean{margin:8px 0; padding-left:20px; color:var(--dim)} ul.clean li{margin:8px 0; font-size:14px} ul.clean li b{color:var(--ink)}
+
+  .callout{border:1px solid var(--line2); border-left:3px solid var(--blue); background:var(--card2); border-radius:0 12px 12px 0; padding:16px 18px; margin:16px 0}
+  .callout.amber{border-left-color:var(--amber)} .callout.green{border-left-color:var(--green)} .callout.red{border-left-color:var(--red)}
+  .callout .lbl{margin-bottom:7px; display:block}
+  .callout p{margin:0; color:var(--dim); font-size:14.2px} .callout p b{color:var(--ink)}
+
+  /* quadrant maps */
+  .maps{display:grid; gap:16px; margin-top:8px}
+  @media(min-width:720px){ .maps{grid-template-columns:1fr 1fr} }
+  .mapcard{border:1px solid var(--line); border-radius:14px; padding:16px; background:var(--card2)}
+  .mapcard h4{margin:0 0 4px; font-size:15px}
+  .mapcard .cap{margin:0 0 12px; color:var(--faint); font-size:12.5px; font-family:var(--mono); letter-spacing:.04em}
+  .mapcard svg{width:100%; height:auto; display:block; border-radius:10px; background:#0b1422; border:1px solid var(--line)}
+  .qlist{margin:12px 0 0; padding:0; list-style:none; display:grid; gap:6px}
+  .qlist li{font-size:12.8px; color:var(--dim); display:flex; gap:8px; align-items:baseline}
+  .qn{font-family:var(--mono); font-weight:800; font-size:12px; min-width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; color:var(--blue-2); border:1px solid var(--blu-line); background:var(--blu-bg)}
+  .qn.t{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+
+  /* phone mockup */
+  .mock{max-width:330px; margin:0 auto; border:1px solid var(--line2); border-radius:26px; background:#0b1422; padding:14px 14px 18px; box-shadow:0 30px 60px -30px rgba(0,0,0,.7)}
+  .mock .mhead{display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:11px; color:var(--faint); letter-spacing:.1em; padding:2px 4px 12px}
+  .mock .mdot{width:8px;height:8px;border-radius:50%;background:var(--blue)}
+  .mlabel{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--blue); margin:14px 2px 7px}
+  .seg{display:flex; gap:6px}
+  .seg .opt{flex:1; text-align:center; font-size:13px; padding:11px 6px; border-radius:10px; border:1px solid var(--line2); color:var(--dim); background:var(--card)}
+  .seg .opt.on{color:var(--blue-2); border-color:var(--blu-line); background:var(--blu-bg); font-weight:600}
+  .pickmap{margin-top:10px; border:1px solid var(--line2); border-radius:12px; overflow:hidden; background:#0b1422}
+  .pickmap svg{width:100%; height:auto; display:block}
+  .fakefield{margin-top:9px; font-size:12.5px; color:var(--faint); border:1px dashed var(--line2); border-radius:10px; padding:10px 12px}
+  .fakefield b{color:var(--dim)}
+  .selfcheck{margin-top:12px; border-radius:10px; padding:10px 12px; font-size:12.3px; display:flex; gap:8px; align-items:flex-start}
+  .selfcheck.ok{background:var(--grn-bg); border:1px solid var(--grn-line); color:var(--green-2)}
+  .selfcheck.warn{background:var(--amber-bg); border:1px solid var(--amber-line); color:var(--amber)}
+
+  /* steps */
+  .step{display:grid; grid-template-columns:auto 1fr; gap:14px; padding:14px 0; border-top:1px solid var(--line)}
+  .step:first-child{border-top:0}
+  .step .sid{font-family:var(--mono); font-weight:800; font-size:15px; color:var(--blue); border:1px solid var(--blu-line); background:var(--blu-bg); border-radius:10px; min-width:42px; height:42px; display:flex; align-items:center; justify-content:center}
+  .step .t{font-size:14.6px; color:var(--ink); margin:2px 0 3px; font-weight:650} .step .d{font-size:13.4px; color:var(--dim); margin:0}
+  .step .d .inl{font-size:11.5px}
+
+  table{width:100%; border-collapse:collapse; font-size:13.6px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-family:var(--mono); font-size:11px; letter-spacing:.09em; color:var(--faint); text-transform:uppercase; font-weight:600}
+  td b{color:var(--ink)} tr:last-child td{border-bottom:0}
+  .mono{font-family:var(--mono); font-size:12.3px; color:var(--blue-2)}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10px; letter-spacing:.06em; padding:2px 7px; border-radius:6px; border:1px solid var(--line2); color:var(--dim); background:var(--card2)}
+  .tag.new{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+
+  .dod{margin-top:13px; border:1px dashed var(--blu-line); background:var(--blu-bg); border-radius:11px; padding:12px 15px; font-size:13.6px}
+  .dod .lbl{margin-bottom:6px; display:block} .dod b{color:var(--blue-2)}
+
+  .loop{display:grid; gap:12px; margin-top:8px}
+  @media(min-width:760px){ .loop{grid-template-columns:repeat(5,1fr); align-items:stretch} }
+  .lnode{border:1px solid var(--line2); border-radius:12px; padding:14px 12px; background:var(--card)}
+  .lnode .ln{font-family:var(--mono); font-size:11px; color:var(--blue); letter-spacing:.08em}
+  .lnode h5{margin:7px 0 4px; font-size:14px} .lnode p{margin:0; color:var(--dim); font-size:12.5px}
+  .lnode.done{border-color:var(--grn-line); background:var(--grn-bg)} .lnode.done .ln{color:var(--green)}
+  .lnode.hot{border-color:var(--blu-line); background:var(--blu-bg)}
+
+  footer{border-top:1px solid var(--line); margin-top:36px; padding:28px 0 60px; color:var(--faint); font-family:var(--mono); font-size:12px; letter-spacing:.04em; line-height:1.8}
+  .hr{height:1px; background:linear-gradient(90deg,transparent,var(--line2),transparent); margin:0 0 22px}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap row">
+  <span class="dot"></span>
+  <span class="brand">BITVAR&nbsp;IA <small>· PLANO DE CORREÇÃO</small></span>
+  <span class="badge">R2 · DECISÕES OK · 25 JUN</span>
+</div></div>
+
+<nav class="subnav"><div class="wrap row">
+  <a href="#diag">01 · Diagnóstico</a>
+  <a href="#quadrante">02 · Quadrante</a>
+  <a href="#camera">03 · A trava da câmera</a>
+  <a href="#ui">04 · A tela</a>
+  <a href="#impl">05 · Implementação</a>
+  <a href="#aceite">06 · Aceite & loop</a>
+  <a href="#aberto">07 · Decisões</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">o que vamos consertar · trava no atleta certo · resposta aos áudios do <b>Caio</b> de hoje (25 jun)</div>
+  <h1>A análise ficou <span class="g">certa</span>.<br>Falta mirar no <span class="b">atleta certo</span>.</h1>
+  <p class="lede">A calibragem dos 6 eixos funcionou — o laudo de hoje (áudio <span class="inl">00000305</span>) saiu na voz do Juca: lê a <b>recepção</b>, vai na <b>raiz do movimento</b>, mede a base em <b>24%</b>. Sobrou <b>um único bloqueador</b>: com 4 jogadores em quadra, a IA analisa <b>quem ela acha mais saliente</b> — não quem você escolheu. A solução que você e eu fechamos hoje: <b>selecionar o atleta por quadrante</b>, com a câmera travada. Este é o plano pra virar código.</p>
+  <div class="metaline">
+    <span class="chip g">calibragem ✓ validada</span>
+    <span class="chip g">decisões do Caio ✓ incorporadas</span>
+    <span class="chip b">quadrante · 1·2 fundo / 3·4 frente · 1 atleta</span>
+    <span class="chip">modelo já em <b>gemini-3.1-pro</b> · ~24fps</span>
+  </div>
+</div></header>
+
+<!-- 01 DIAGNOSTICO -->
+<section id="diag"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">01</span><h2>O diagnóstico de hoje</h2></div>
+  <p class="sec-sub">Separar o que já está resolvido do que falta — para não mexer no que funciona. Tudo abaixo sai dos <b>seus áudios e prints de hoje</b>.</p>
+
+  <div class="grid g4" style="margin-bottom:18px">
+    <div class="card stat"><div class="v g">✓</div><div class="k">análise técnica (tom Juca, raiz do movimento)</div></div>
+    <div class="card stat"><div class="v g">3.1‑pro</div><div class="k">modelo subiu de flash → pro</div></div>
+    <div class="card stat"><div class="v g">~24fps</div><div class="k">amostragem subiu de 4 → 24 fps</div></div>
+    <div class="card stat"><div class="v r">atleta</div><div class="k">o alvo errado é o que falta travar</div></div>
+  </div>
+
+  <div class="ba">
+    <div class="panel good">
+      <h4>✓ O QUE JÁ FUNCIONA</h4>
+      <p>O laudo de hoje abriu pela <b>recepção do saque</b>, falou de <b>split step</b>, joelhos estendidos, <b>bola que flutua</b> e base em <b>24%</b> — exatamente a rubrica do Juca. A troca pro modelo <span class="inl g">gemini-3.1-pro-preview</span> e o aumento de frames (<b>4 → ~24 fps</b>) elevaram muito a qualidade.</p>
+      <blockquote class="g">"Agora ela fez a análise certa." · "Já analisou certo, só que analisou o cara errado."<cite>Caio — áudios 00000306 / 00000319</cite></blockquote>
+    </div>
+    <div class="panel bad">
+      <h4>✕ O ÚNICO BLOQUEADOR</h4>
+      <p>A IA travou no <b>atleta errado</b>. Você quer o César (de azul, fundo-esquerda); ela analisou <b>o parceiro que recebeu a bola</b>. Em outras rodadas, analisou <b>os dois ao mesmo tempo</b>.</p>
+      <blockquote class="r">"Ela tá analisando o cara ao contrário, o cara que tá recebendo a bolinha. O cara que eu quero analisar é o da esquerda, o que finaliza o ponto."<cite>Caio — áudio 00000306</cite></blockquote>
+    </div>
+  </div>
+
+  <div class="callout red">
+    <span class="lbl red">a raiz do problema — por que aparência não basta</span>
+    <p>Hoje a âncora é só <b>aparência</b> ("o cara de azul"). Com <b>4 jogadores</b>, <b>quadra adjacente ativa</b> (tem gente jogando do lado, na imagem) e <b>rally rápido</b>, isso é frágil. A prova: ao reanalisar o mesmo vídeo, <b>a própria IA e você divergem sobre quem fez o quê</b> — ela leu o atleta de azul como <b>recebedor</b>; você diz que ele é o <b>finalizador</b>. Se humano e máquina discordam, "o cara de azul" é instrução ambígua demais. Precisamos de uma âncora <b>geométrica e explícita</b>, definida <b>antes</b> da análise.</p>
+  </div>
+</div></section>
+
+<!-- 02 QUADRANTE -->
+<section id="quadrante"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">02</span><h2>A solução — selecionar por quadrante</h2></div>
+  <p class="sec-sub">A sua ideia (áudio <b>00000313</b>): dividir a quadra numa cruz de <b>4 quadrantes</b> e o usuário aponta <b>onde o atleta-alvo começa o ponto</b>. Foi exatamente o que você desenhou no print de hoje.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <span class="lbl">o princípio</span>
+      <ul class="clean" style="margin-top:10px">
+        <li><b>Quadrante = âncora de identidade.</b> Em vez de "o de azul", o sistema recebe "o atleta que <b>começa</b> o ponto no quadrante 3".</li>
+        <li><b>Aparência = continuidade.</b> A cor (azul) deixa de ser o seletor e vira só o fio para <b>seguir</b> o mesmo atleta enquanto ele anda pela quadra.</li>
+        <li>Como você mesmo apontou: <span class="inl">"se pegar os quadrantes, a característica da pessoa nem vai importar tanto"</span> (Mateus, áudio 00000314). O quadrante carrega o peso; a cor confirma.</li>
+        <li>Definido <b>uma vez, antes de subir o vídeo</b> — não depende de a IA "adivinhar" no meio do rally.</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:var(--blu-line)">
+      <span class="lbl">o que muda na prática</span>
+      <div class="ba" style="grid-template-columns:1fr">
+        <div class="panel bad"><h4>✕ HOJE</h4><p>"Analise o atleta de azul" → a IA escolhe o jogador mais ativo / que recebeu / a dupla inteira.</p></div>
+        <div class="panel good"><h4>✓ COM QUADRANTE</h4><p>"O alvo começa em <b>Q3</b> (esquerda, perto da câmera), camisa/short azul. Siga <b>só ele</b> do início ao fim. Ignore os outros 3 e a quadra do lado."</p></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- 03 CAMERA -->
+<section id="camera"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">03</span><h2>A trava da câmera — resolvida na própria tela</h2></div>
+  <p class="sec-sub">O risco que eu levantei (áudio <b>00000314</b>) era o quadrante <b>inverter conforme o ângulo</b>. Sua decisão de hoje fecha isso pela raiz: <b>o quadrante é escolhido na tela, antes da análise</b> — então filmar de fundo ou da lateral deixa de ser um problema.</p>
+
+  <div class="callout green">
+    <span class="lbl grn">por que lateral ou normal não muda mais nada</span>
+    <p>A seleção é <b>relativa ao quadro</b>, não à quadra. Você vê o <b>primeiro frame do seu vídeo</b> e toca onde o atleta começa o ponto. O sistema manda pro Gemini "<b>o atleta que começa no canto inferior‑esquerdo da imagem</b>" — e o Gemini enxerga <b>exatamente o mesmo quadro</b>. Como a referência é a imagem (e não o mundo real), tanto faz a câmera estar atrás ou na lateral: o canto que você tocou é o mesmo que ele vê.</p>
+  </div>
+
+  <div class="maps" style="grid-template-columns:1fr; max-width:520px">
+    <div class="mapcard">
+      <h4>Numeração — <span style="color:var(--green-2)">confirmada pelo Caio</span></h4>
+      <p class="cap">1·2 no fundo · 3·4 na frente · grade 2×2 sobre o frame</p>
+      <svg viewBox="0 0 400 300" role="img" aria-label="Mapa de quadrantes — 1 e 2 no fundo, 3 e 4 na frente">
+        <polygon points="110,55 290,55 372,255 28,255" fill="#0e1a29" stroke="#26384f" stroke-width="2"/>
+        <line x1="71" y1="150" x2="329" y2="150" stroke="#5b9bd5" stroke-width="2.5" stroke-dasharray="5 4"/>
+        <line x1="200" y1="55" x2="200" y2="255" stroke="#26384f" stroke-width="1.6"/>
+        <text x="150" y="112" fill="#93c2ec" font-family="monospace" font-size="26" font-weight="800" text-anchor="middle">1</text>
+        <text x="250" y="112" fill="#93c2ec" font-family="monospace" font-size="26" font-weight="800" text-anchor="middle">2</text>
+        <text x="120" y="222" fill="#7fe5a3" font-family="monospace" font-size="26" font-weight="800" text-anchor="middle">3</text>
+        <text x="282" y="222" fill="#93c2ec" font-family="monospace" font-size="26" font-weight="800" text-anchor="middle">4</text>
+        <circle cx="120" cy="195" r="9" fill="#34d36a" stroke="#0b1422" stroke-width="2"/>
+        <text x="200" y="285" fill="#6c7e95" font-family="monospace" font-size="11" text-anchor="middle">▲ câmera (fundo)</text>
+      </svg>
+      <ul class="qlist">
+        <li><span class="qn">1</span> fundo‑esquerda <span style="color:var(--faint)">(topo do frame · adversário)</span></li>
+        <li><span class="qn">2</span> fundo‑direita <span style="color:var(--faint)">(topo do frame · adversário)</span></li>
+        <li><span class="qn t">3</span> frente‑esquerda <span style="color:var(--green-2)">← César (azul) começa aqui</span></li>
+        <li><span class="qn">4</span> frente‑direita <span style="color:var(--faint)">(base do frame · parceiro)</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout">
+    <span class="lbl">filmou da lateral?</span>
+    <p>Mesma tela, mesmo toque — <b>não precisa de mapa separado nem de vídeo de referência</b>. Você toca no atleta sobre o seu próprio quadro e o sistema usa a posição na imagem. A opção "<b>fundo ou lateral</b>" segue disponível (você pediu no áudio <b>00000320</b>), mas só pra rotular o laudo; quem trava o atleta é o toque no quadrante.</p>
+  </div>
+</div></section>
+
+<!-- 04 UI -->
+<section id="ui"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">04</span><h2>A tela — um seletor visual, dois toques</h2></div>
+  <p class="sec-sub">Nada de o usuário fazer conta de cabeça. Ele <b>escolhe a referência</b>, <b>toca no quadrante</b> onde o atleta começa e confirma a cor. Entra logo abaixo de <span class="inl">Gênero / Nível / Modo</span>, na mesma tela de envio.</p>
+
+  <div class="mock">
+    <div class="mhead"><span class="mdot"></span> BITVAR IA · enviar vídeo</div>
+    <div class="mlabel">Referência de câmera</div>
+    <div class="seg">
+      <div class="opt on">FUNDO</div>
+      <div class="opt">LATERAL</div>
+    </div>
+    <div class="mlabel">Quadrante do atleta‑alvo · toque no 1º quadro</div>
+    <div class="pickmap">
+      <svg viewBox="0 0 320 200" role="img" aria-label="Toque no quadrante do atleta">
+        <polygon points="92,18 228,18 292,182 28,182" fill="#0e1a29" stroke="#26384f" stroke-width="2"/>
+        <line x1="60" y1="100" x2="260" y2="100" stroke="#5b9bd5" stroke-width="2" stroke-dasharray="4 4"/>
+        <line x1="160" y1="18" x2="160" y2="182" stroke="#26384f" stroke-width="1.4"/>
+        <!-- selected Q3 highlight -->
+        <polygon points="46,100 160,100 160,182 28,182" fill="rgba(52,211,106,.16)" stroke="#34d36a" stroke-width="2"/>
+        <text x="120" y="70" fill="#5d6f86" font-family="monospace" font-size="20" font-weight="800" text-anchor="middle">1</text>
+        <text x="200" y="70" fill="#5d6f86" font-family="monospace" font-size="20" font-weight="800" text-anchor="middle">2</text>
+        <text x="96" y="156" fill="#7fe5a3" font-family="monospace" font-size="20" font-weight="800" text-anchor="middle">3</text>
+        <text x="224" y="156" fill="#5d6f86" font-family="monospace" font-size="20" font-weight="800" text-anchor="middle">4</text>
+        <circle cx="96" cy="132" r="7" fill="#34d36a" stroke="#0b1422" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="fakefield">Atleta‑alvo · <b>Q3 · camisa e short azul</b> · "César"</div>
+    <div class="selfcheck ok">✓ auto‑check: a IA diz que o atleta analisado começou na <b>esquerda</b> = Q3 — atleta certo.</div>
+    <div class="selfcheck warn" style="margin-top:7px">⚠ exemplo de alerta: a IA diz <b>direita</b> ≠ Q3 — pode ter pego o parceiro, refazer.</div>
+  </div>
+
+  <div class="callout green" style="margin-top:22px">
+    <span class="lbl grn">de brinde: a posição que já sai no laudo vira auto‑verificação</span>
+    <p>O laudo <b>já devolve a posição</b> do atleta ("POSICIONAMENTO / SETORIZAÇÃO" — está no seu print de hoje). Com o quadrante de entrada, a gente pede pra IA <b>dizer em qual canto do frame o atleta analisado começou</b> e compara com o que você tocou: <b>bateu</b> ✓ travou no certo; <b>divergiu</b> (ex.: você tocou na esquerda e ela analisou alguém da direita) ⚠ avisa "possível atleta errado" <b>antes</b> de ir pro Juca. Fecha o loop sozinho.</p>
+  </div>
+</div></section>
+
+<!-- 05 IMPLEMENTACAO -->
+<section id="impl"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">05</span><h2>Implementação — onde encosta no código</h2></div>
+  <p class="sec-sub">Encaixa na mesma arquitetura da calibragem (<span class="inl">app/tennis/</span>). Campo novo é <b>opcional</b> — vídeo sem quadrante continua rodando como hoje. Nada de reescrever o motor.</p>
+
+  <div class="card" style="padding:4px 18px; margin-bottom:18px">
+    <div class="step"><div class="sid">1</div><div>
+      <p class="t">Entrada visual na tela de envio <span class="tag">frontend</span></p>
+      <p class="d">Segmento <b>Referência de câmera</b> (FUNDO·LATERAL) + <b>mapa clicável</b> de 4 quadrantes que troca conforme a referência + confirmação de cor. Arquivo: <span class="inl">app/static/tennis/index.html</span>.</p>
+    </div></div>
+    <div class="step"><div class="sid">2</div><div>
+      <p class="t">Modelo de dados <span class="tag">schema</span></p>
+      <p class="d"><span class="inl">CameraReference</span> (fundo·lateral), <span class="inl">target_quadrant</span> (1–4) e <span class="inl">target_appearance</span> entram em <span class="inl">RouteInfo</span> — opcionais. Arquivo: <span class="inl">app/tennis/models.py</span>.</p>
+    </div></div>
+    <div class="step"><div class="sid">3</div><div>
+      <p class="t">Mapa quadrante → canto do frame <span class="tag new">novo</span></p>
+      <p class="d">Um <span class="inl">quadrants.py</span> que traduz o quadrante numa <b>posição relativa à imagem</b> pro prompt — ex.: <i>Q3 = "canto inferior‑esquerdo do quadro"</i>. Relativo ao frame ⇒ não depende de a câmera ser de fundo ou lateral.</p>
+    </div></div>
+    <div class="step"><div class="sid">4</div><div>
+      <p class="t">Âncora dura no prompt <span class="tag">prompts.py</span></p>
+      <p class="d">Substitui a âncora só‑aparência (eixo 6) por: <i>"o atleta‑alvo <b>começa o ponto</b> em {região}; vestindo {cor}; <b>siga só ele</b> por todos os quadrantes; <b>ignore</b> os outros 3 e a quadra adjacente; se não houver atleta começando ali, diga isso com confiança baixa — <b>não troque</b> por outro jogador."</i></p>
+    </div></div>
+    <div class="step"><div class="sid">5</div><div>
+      <p class="t">Fios pelo serviço <span class="tag">routing · service · router</span></p>
+      <p class="d">Levar referência+quadrante do formulário até o prompt (<span class="inl">normalize_*</span> tolerante, igual o nível). Arquivos: <span class="inl">routing.py</span>, <span class="inl">service.py</span>, <span class="inl">router.py</span>.</p>
+    </div></div>
+    <div class="step"><div class="sid">6</div><div>
+      <p class="t">Auto‑check de setor <span class="tag new">novo</span></p>
+      <p class="d">No <span class="inl">service.py</span>: comparar a <b>setorização de saída</b> com o <b>quadrante de entrada</b>. Divergiu → marca <span class="inl">target_mismatch</span> e vira aviso no laudo (nunca erro).</p>
+    </div></div>
+    <div class="step"><div class="sid">7</div><div>
+      <p class="t">Regressão <span class="tag new">novo fixture</span></p>
+      <p class="d">Caso‑ouro deste vídeo com <span class="inl">target_quadrant=3</span>: o sujeito do laudo é o atleta de azul do fundo‑esquerda do início ao fim — e <b>nunca</b> narra o parceiro/adversário como alvo. Arquivo: <span class="inl">tests/fixtures/</span>.</p>
+    </div></div>
+  </div>
+
+  <div class="card" style="padding:6px 6px">
+    <table>
+      <thead><tr><th>Arquivo</th><th>Papel no conserto</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">app/static/tennis/index.html</td><td>Seletor visual (referência + mapa clicável + cor). <b>Maior peça.</b></td></tr>
+        <tr><td class="mono">app/tennis/quadrants.py <span class="tag new">novo</span></td><td>Quadrante → canto da imagem (frame‑relativo) pro prompt; agnóstico de câmera.</td></tr>
+        <tr><td class="mono">app/tennis/prompts.py</td><td>Âncora dura no atleta‑alvo por quadrante; reforço do "ignore quadra adjacente".</td></tr>
+        <tr><td class="mono">app/tennis/models.py</td><td><b>CameraReference</b>, <b>target_quadrant</b>, <b>target_appearance</b> em RouteInfo (opcionais).</td></tr>
+        <tr><td class="mono">app/tennis/routing.py · service.py · router.py</td><td>Threading do quadrante + auto‑check setor de saída × quadrante de entrada.</td></tr>
+        <tr><td class="mono">tests/ <span class="tag new">+fixture</span></td><td>Regressão determinística: trava no atleta de Q3, não deriva pro parceiro.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- 06 ACEITE -->
+<section id="aceite"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">06</span><h2>Aceite & o loop dos 95–98%</h2></div>
+  <p class="sec-sub">Como saber que consertou — e onde isso te coloca na reta do produto vendável que você definiu (<b>≥95% de confiança</b>, áudio 00000240).</p>
+
+  <div class="dod">
+    <span class="lbl">✓ Critério de aceite (no seu vídeo de hoje)</span>
+    Subir o mesmo lance com <b>câmera=FUNDO</b>, <b>quadrante=3</b> (esquerda, perto da câmera), <b>cor=azul</b> →
+    <b>(a)</b> o sujeito do laudo é o atleta de azul do Q3 <b>do começo ao fim</b>;
+    <b>(b)</b> ele <b>não</b> narra o parceiro (recebedor) nem o adversário como alvo;
+    <b>(c)</b> a IA confirma que o atleta analisado começou na <b>esquerda</b> — o mesmo Q3 que você tocou;
+    <b>(d)</b> o Juca confirma que é o atleta certo.
+  </div>
+
+  <div class="loop" style="margin-top:20px">
+    <div class="lnode done"><span class="ln">01 ✓</span><h5>Calibragem</h5><p>6 eixos + modelo pro + 24fps. Feito.</p></div>
+    <div class="lnode hot"><span class="ln">02 ←</span><h5>Seleção por quadrante</h5><p>Este plano. Trava no atleta certo.</p></div>
+    <div class="lnode"><span class="ln">03</span><h5>Sobe o vídeo</h5><p>Mesmo lance, agora com o alvo travado.</p></div>
+    <div class="lnode"><span class="ln">04</span><h5>Juca compara</h5><p>Confere golpe a golpe e atleta certo.</p></div>
+    <div class="lnode"><span class="ln">05</span><h5>≥95% → vende</h5><p>Bateu o aceite → comercializa.</p></div>
+  </div>
+  <div class="callout" style="margin-top:18px">
+    <span class="lbl">o ganho estratégico</span>
+    <p>Hoje o bloqueador saiu da <b>qualidade da análise</b> (resolvida) e virou <b>seleção do alvo</b>. É um problema <b>menor e bem definido</b> — exatamente o tipo que trava com uma boa interface, não com mais IA. Resolvido isso, você tem o "<b>produto viável</b>" que descreveu pra começar a mostrar pro mercado sem perder o timing (áudio 00000237).</p>
+  </div>
+</div></section>
+
+<!-- 07 DECISOES -->
+<section id="aberto"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">07</span><h2>Decisões — fechadas em 25 jun</h2></div>
+  <p class="sec-sub">Os 3 pontos que estavam em aberto você já decidiu. Nada mais trava a execução.</p>
+  <div class="grid g3">
+    <div class="card" style="border-color:var(--grn-line)">
+      <span class="lbl grn">1 · lateral vs normal ✓</span>
+      <p style="color:var(--dim); margin:.5em 0 0; font-size:14px">Resolvido <b>na própria tela</b>: o quadrante é escolhido <b>antes da análise</b>, relativo ao frame. Lateral ou de fundo não muda o resultado — <b>sem vídeo de referência extra</b>.</p>
+    </div>
+    <div class="card" style="border-color:var(--grn-line)">
+      <span class="lbl grn">2 · numeração ✓</span>
+      <p style="color:var(--dim); margin:.5em 0 0; font-size:14px"><b>1 e 2 no fundo, 3 e 4 na frente.</b> Fechado — entra como tabela fixa no código.</p>
+    </div>
+    <div class="card" style="border-color:var(--grn-line)">
+      <span class="lbl grn">3 · modo dupla → depois</span>
+      <p style="color:var(--dim); margin:.5em 0 0; font-size:14px">Fora do escopo agora. A IA analisa <b>uma pessoa só</b>, no quadrante escolhido. Dupla fica pra uma fase futura.</p>
+    </div>
+  </div>
+  <div class="callout green" style="margin-top:18px">
+    <span class="lbl grn">estado · verde pra execução</span>
+    <p>Decisões fechadas. Próximo passo é <b>codar a seleção por quadrante</b> — frontend com o toque no frame + âncora no prompt + auto‑check de setor — e rodar o seu vídeo de novo travando o <b>Q3</b> (César, azul). É só dar o start.</p>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="hr"></div>
+  BITVAR IA · plano de correção — seleção do atleta por quadrante · resposta aos áudios do Caio de 25 jun 2026<br>
+  calibragem ✓ validada · seleção por quadrante (1·2 fundo / 3·4 frente · relativo ao frame) · 1 atleta por quadrante · decisões fechadas 25 jun · verde pra execução<br>
+  gerado por illumi · 25 jun 2026 · uso interno
+</div></footer>
+
+</body>
+</html>

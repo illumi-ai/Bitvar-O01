@@ -81,6 +81,10 @@ PASSO 1 — IDENTIFIQUE A FASE ANTES DO GOLPE.
   exato pode cair entre quadros).
 
 PASSO 2 — TRAVE NA PESSOA CERTA E NA QUADRA CERTA.
+- ÂNCORA GEOMÉTRICA (precedência): se houver um QUADRANTE-ALVO informado mais abaixo,
+  ele é a âncora PRIMÁRIA e tem precedência sobre a aparência — o atleta a analisar é
+  o que COMEÇA O PONTO naquele canto do QUADRO, não o mais saliente nem o que recebe a
+  bola. Use a aparência só para SEGUIR a mesma pessoa entre os quadros.
 - DELIMITE A QUADRA-ALVO: é a quadra onde está o atleta a analisar, fechada pelas
   suas 4 linhas (duas laterais, duas de fundo) e cortada pela REDE no meio.
   Analise SOMENTE o que acontece DENTRO dessa quadra.
@@ -212,7 +216,7 @@ def build_subject_block(
     *,
     handedness: str | None = None, headwear: str | None = None,
     racket_color: str | None = None, glasses: bool | None = None,
-    hair: str | None = None,
+    hair: str | None = None, quadrant_active: bool = False,
 ) -> str | None:
     """Bloco de identificação do jogador a analisar (ANCORAGEM POR APARÊNCIA).
 
@@ -221,13 +225,20 @@ def build_subject_block(
     convenção de rótulo para o modelo seguir a mesma pessoa entre os frames, mesmo
     que ela troque de lado da quadra. NÃO é reconhecimento facial: o "nome" é apenas
     um rótulo de saudação, jamais derivado do rosto. Retorna None se nada foi informado.
+
+    ``quadrant_active=True`` (há QUADRANTE-alvo) muda o PAPEL deste bloco: quem ESCOLHE
+    o atleta passa a ser o quadrante (precedência), então a aparência vira só FIO DE
+    CONTINUIDADE para seguir a mesma pessoa — o bloco deixa de se apresentar como
+    seletor concorrente e omite o 'lado da quadra' (texto livre quadra-relativo que
+    poderia contradizer a âncora de quadrante, frame-relativa, e disparar falso
+    'target_mismatch').
     """
     parts = []
     if name and name.strip():
         parts.append(f"Nome (apenas para se dirigir ao atleta): {name.strip()}")
     if outfit and outfit.strip():
         parts.append(f"Roupa/aparência: {outfit.strip()}")
-    if side and side.strip():
+    if side and side.strip() and not quadrant_active:
         parts.append(f"Posição / lado da quadra: {side.strip()}")
     if handedness and str(handedness).strip():
         parts.append(f"Lateralidade (mão da raquete): {str(handedness).strip()}")
@@ -243,6 +254,18 @@ def build_subject_block(
         parts.append(f"Outras dicas: {notes.strip()}")
     if not parts:
         return None
+    if quadrant_active:
+        # Quem escolhe é o quadrante; estes atributos só ajudam a SEGUIR o mesmo atleta.
+        return (
+            "ATRIBUTOS DE CONTINUIDADE DO ATLETA-ALVO — quem ESCOLHE o atleta é o "
+            "QUADRANTE informado acima (tem precedência); use os atributos abaixo APENAS "
+            "para SEGUIR a MESMA pessoa entre os quadros do INÍCIO AO FIM do lance, NÃO "
+            "para escolher outra. Continue ignorando o parceiro, os adversários e QUALQUER "
+            "pessoa de uma QUADRA AO LADO/adjacente. Se ficar em dúvida, baixe "
+            "'subject_lock_confidence' e registre em 'visual_evidence'. Siga pela "
+            "APARÊNCIA — nunca por reconhecimento facial:\n- "
+            + "\n- ".join(parts)
+        )
     return (
         "IDENTIFICAÇÃO DO JOGADOR A ANALISAR — o vídeo pode conter VÁRIAS pessoas. "
         "Fixe esta convenção logo no início e SIGA A MESMA PESSOA por estes atributos "
@@ -258,17 +281,48 @@ def build_subject_block(
     )
 
 
-def build_camera_block(camera_position: str | None) -> str | None:
+def build_camera_block(camera_position: str | None, frame_relative: bool = False) -> str | None:
     """Convenção espacial ancorada na câmera (spec B1, feedback Caio 13/06).
 
     Registra qual câmera embasa a leitura e, para a câmera central (atrás do
     fundo), fixa o mapeamento "lado esquerdo do vídeo ↔ lado direito da quadra".
     Sempre em zonas qualitativas — sem coordenadas. Retorna None se não informado.
+
+    ``frame_relative=True`` (ligado quando há QUADRANTE-alvo) força a leitura RELATIVA
+    AO FRAME para QUALQUER câmera (fundo, lateral, central…): o lado é sempre o da
+    IMAGEM (esquerda/direita do quadro), sem inverter para a quadra. A inversão
+    quadra-relativa ('central' legado) contradiria a âncora de quadrante e o auto-check
+    de setor (que leem ``observed_side`` em termos de IMAGEM). Sem quadrante, 'central'
+    mantém a convenção de inversão legada e a câmera de FUNDO segue frame-relativa.
     """
     pos = (camera_position or "").strip().lower()
     if not pos:
         return None
-    if pos in ("central", "centro", "center", "centre"):
+    fundo_like = pos in ("fundo", "atras", "atrás", "back", "baseline")
+    lateral_like = pos in ("lateral", "lado", "side")
+    central_like = pos in ("central", "centro", "center", "centre")
+    if fundo_like:
+        nice = "de FUNDO (atrás da linha de fundo)"
+    elif lateral_like:
+        nice = "da LATERAL (na lateral da quadra)"
+    elif central_like:
+        nice = "pela câmera CENTRAL (atrás da linha de fundo)"
+    else:
+        nice = f"da posição '{camera_position.strip()}'"
+    if fundo_like or frame_relative:
+        # FUNDO (sempre) ou QUALQUER câmera sob âncora de QUADRANTE (plano 25/06): a
+        # leitura é RELATIVA AO FRAME — sem a inversão esquerda↔direita quadra-relativa.
+        # O quadrante tocado pelo usuário e o que o modelo vê são o MESMO canto da
+        # imagem; inverter aqui quebraria o auto-check de setor.
+        return (
+            f"REFERÊNCIA DE CÂMERA: filmado {nice}. Descreva a posição do atleta em zonas "
+            "qualitativas RELATIVAS À IMAGEM (fundo/meio/rede, esquerda/centro/direita DO "
+            "QUADRO) — nunca coordenadas. O lado ESQUERDO da imagem é 'esquerda' e o "
+            "DIREITO é 'direita' (não inverta para a quadra). A quadra-alvo é a que "
+            "aparece no enquadramento, fechada pelas 4 linhas e pela rede; IGNORE "
+            "qualquer quadra ao lado/adjacente no quadro."
+        )
+    if central_like:
         return (
             "REFERÊNCIA DE CÂMERA: filmado pela CÂMERA CENTRAL, atrás da linha de fundo. "
             "Trate o lado ESQUERDO do vídeo como o lado DIREITO da quadra (do ponto de "
@@ -289,12 +343,18 @@ def analysis_system_prompt(
     gender: str, mode: str,
     subject_block: str | None = None, camera_block: str | None = None,
     rules_block: str | None = None, fps: int | None = None,
+    quadrant_block: str | None = None,
 ) -> str:
-    """System prompt da chamada 1, por (gênero × modo), com identificação, câmera e regras opcionais.
+    """System prompt da chamada 1, por (gênero × modo), com identificação, câmera, quadrante e regras opcionais.
 
     ``fps`` é a taxa de amostragem REAL (clip ou match; default: ``cfg.clip_fps`` /
     ``cfg.match_fps`` conforme o modo), injetada no prompt para o modelo saber quantos
     quadros/segundo recebe — em vez de um número fixo que sairia do ar quando a taxa muda.
+
+    ``quadrant_block`` (:func:`app.tennis.quadrants.build_quadrant_block`) é a âncora
+    GEOMÉTRICA do atleta-alvo: injetada logo após a referência de câmera e ANTES da
+    identificação por aparência, porque tem precedência sobre ela (o quadrante escolhe;
+    a aparência só dá continuidade).
     """
     gender_pt = _GENDER_PT[gender]
     if mode == "clip":
@@ -309,6 +369,8 @@ def analysis_system_prompt(
         )
     if camera_block:
         prompt += "\n\n" + camera_block
+    if quadrant_block:
+        prompt += "\n\n" + quadrant_block
     if subject_block:
         prompt += "\n\n" + subject_block
     if rules_block:

@@ -26,7 +26,7 @@ class TennisSettings(BaseSettings):
     narrative_thinking_level: str = "high"            # high tb na narrativa (pedido do usuário)
 
     # ----- roteamento clip × match (blueprint §02) -----
-    clip_max_seconds: float = 75.0                    # < limiar → clip; ≥ → match
+    clip_max_seconds: float = 180.0                   # duração MÁXIMA do clipe; acima disso rejeita (modo partida removido)
     clip_fps: int = 24                                # eixo temporal — 24 fps (TESTE; pega o instante do contato)
     match_fps: int = 24                               # 24 fps (TESTE — ⚠ partida de poucos seg já estoura o contexto de 1M)
     clip_media_resolution: str = "MEDIA_RESOLUTION_MEDIUM"   # MEDIUM p/ compensar o custo dos 12 fps

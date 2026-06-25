@@ -68,6 +68,25 @@
   .field input::placeholder{color:#5d7693}
   .field select{width:100%;background:var(--noite-code);color:var(--refletor);border:1px solid var(--linha);border-radius:7px;padding:9px 11px;font-family:'Source Sans 3',sans-serif;font-size:.92rem}
   .field select:focus{outline:none;border-color:var(--info)}
+  /* seleção do atleta-alvo por quadrante (relativo ao frame) */
+  .quadbox{margin-top:16px;border:1px solid var(--linha);border-radius:var(--radius);padding:14px 16px;background:var(--noite)}
+  .quadbox .qhead{font-family:'Archivo',sans-serif;font-weight:700;font-size:1rem}
+  .quadbox .hint{color:var(--arquibancada);font-size:.88rem;margin:6px 0 12px}
+  .quadwrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+  .pickmap{flex:0 0 auto;border:1px solid var(--linha);border-radius:10px;background:var(--noite-code);padding:8px}
+  .pickmap svg{width:280px;max-width:74vw;height:auto;display:block}
+  .pickmap .court{fill:#0e1a29;stroke:var(--linha);stroke-width:2}
+  .pickmap .net{stroke:var(--info);stroke-width:2;stroke-dasharray:5 4}
+  .pickmap .mid{stroke:var(--linha);stroke-width:1.4}
+  .pickmap .qhit{fill:transparent;cursor:pointer;stroke:transparent;stroke-width:2.5;transition:fill .12s}
+  .pickmap .qhit:hover{fill:rgba(111,177,255,.12)}
+  .pickmap .qhit.on{fill:rgba(52,214,123,.22);stroke:var(--verde)}
+  .pickmap .qn{fill:var(--arquibancada);font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;pointer-events:none}
+  .pickmap .qn.on{fill:var(--verde)}
+  .pickmap .cam{fill:#5d7693;font-family:'JetBrains Mono',monospace;font-size:11px;pointer-events:none}
+  .qside{flex:1;min-width:200px}
+  .qsummary{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--arquibancada);border:1px dashed var(--linha);border-radius:8px;padding:9px 11px;margin-bottom:12px}
+  .qsummary b{color:var(--verde)}
   /* save / share */
   .btn.ghost{background:transparent;color:var(--refletor);border:1px solid var(--linha);font-family:'JetBrains Mono',monospace;font-weight:500;font-size:.85rem;padding:10px 16px}
   .btn.ghost:hover{border-color:var(--info);filter:none}
@@ -160,9 +179,9 @@
 </div></nav>
 
 <header class="hero"><div class="wrap">
-  <p class="eyebrow">Análise de tênis por vídeo · <b>M / F · clipe / partida</b></p>
-  <h1>Um motor, <span class="hl">dois jogos,</span> três saídas.</h1>
-  <p>Suba um vídeo, escolha o gênero e receba <strong>métricas visuais</strong>, um <strong>relatório de coach em PT-BR</strong> e o <strong>áudio</strong> da narrativa. Clipe curto vira análise técnica do golpe; partida vira estatística com pesos da literatura.</p>
+  <p class="eyebrow">Análise de tênis por vídeo · <b>M / F · clipe (lance) · até 180s</b></p>
+  <h1>Um lance, <span class="hl">três saídas.</span></h1>
+  <p>Suba o clipe de um lance, escolha o gênero e receba <strong>métricas visuais</strong>, um <strong>relatório de coach em PT-BR</strong> e o <strong>áudio</strong> da narrativa. Cada clipe (até 180s) vira uma análise técnica do golpe.</p>
 </div></header>
 
 <section><div class="wrap">
@@ -171,7 +190,7 @@
   <div class="panel">
     <div id="drop" class="drop" tabindex="0" role="button" aria-label="Selecionar vídeo">
       <div class="big">Arraste um vídeo aqui ou clique para escolher</div>
-      <div class="small">MP4/MOV · clipe de lance (≈&lt;75s) ou partida com placar</div>
+      <div class="small">MP4/MOV · clipe de um lance (até 180s)</div>
       <div id="fname" class="fname"></div>
       <input id="file" type="file" accept="video/*" class="hidden">
     </div>
@@ -191,26 +210,68 @@
           <button type="button" data-v="profissional" aria-pressed="false">PROFISSIONAL</button>
         </div>
       </div>
+      <!-- modo removido: somente clipe (partida desativada) -->
       <div class="field">
-        <label>Modo</label>
-        <div class="seg" id="mode" role="group" aria-label="Modo de análise">
-          <button type="button" data-v="auto" aria-pressed="true">AUTO</button>
-          <button type="button" data-v="clip" aria-pressed="false">CLIPE</button>
-          <button type="button" data-v="match" aria-pressed="false">PARTIDA</button>
+        <label>Referência de câmera</label>
+        <div class="seg" id="camera" role="group" aria-label="Referência de câmera">
+          <button type="button" data-v="fundo" aria-pressed="true">FUNDO</button>
+          <button type="button" data-v="lateral" aria-pressed="false">LATERAL</button>
         </div>
-      </div>
-      <div class="field">
-        <label>Câmera (referência espacial)</label>
-        <select id="camera">
-          <option value="central" selected>Central (atrás do fundo)</option>
-          <option value="lateral">Lateral</option>
-          <option value="outra">Outra</option>
-          <option value="">Não informar</option>
-        </select>
       </div>
       <div class="field">
         <label>Áudio (TTS)</label>
         <label class="chk"><input type="checkbox" id="audio" checked> Gerar narração em voz (Vindemiatrix)</label>
+      </div>
+    </div>
+
+    <div class="quadbox" id="quadbox">
+      <div class="qhead">Quadrante do atleta‑alvo <span class="opt" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada);font-weight:400">(toque onde ele começa o ponto, olhando o 1º quadro do seu vídeo)</span></div>
+      <p class="hint">Escolha <strong>primeiro a câmera</strong>, depois toque no atleta. Com 4 jogadores em quadra, isto trava a IA <strong>no atleta certo</strong>. O toque é no <strong>mesmo lugar da tela</strong>; a câmera só diz ao sistema <strong>como ler</strong> aquele toque — a numeração se reorganiza sozinha. <span style="color:var(--arquibancada)" id="quadhint-extra">Rede horizontal · 1·2 no fundo (adversário) · 3·4 na frente (seu time) · câmera atrás.</span></p>
+      <div class="quadwrap">
+        <div class="pickmap">
+          <svg viewBox="0 0 320 224" role="group" aria-label="Mapa de quadrantes — toque no quadrante do atleta">
+            <!-- vista FUNDO: câmera atrás da linha de fundo · rede horizontal ·
+                 1·2 no fundo (adversário) / 3·4 na frente (seu time) -->
+            <g id="cam-fundo">
+              <polygon class="court" points="92,18 228,18 296,198 24,198"/>
+              <line class="net" x1="58" y1="108" x2="262" y2="108"/>
+              <line class="mid" x1="160" y1="18" x2="160" y2="198"/>
+              <polygon class="qhit" data-q="1" data-corner="tl" points="92,18 160,18 160,108 58,108" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 1 — fundo esquerda (adversário)"/>
+              <polygon class="qhit" data-q="2" data-corner="tr" points="160,18 228,18 262,108 160,108" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 2 — fundo direita (adversário)"/>
+              <polygon class="qhit" data-q="3" data-corner="bl" points="58,108 160,108 160,198 24,198" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 3 — frente esquerda (seu time)"/>
+              <polygon class="qhit" data-q="4" data-corner="br" points="160,108 262,108 296,198 160,198" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 4 — frente direita (seu time)"/>
+              <text class="qn" data-corner="tl" x="118" y="72" text-anchor="middle">1</text>
+              <text class="qn" data-corner="tr" x="202" y="72" text-anchor="middle">2</text>
+              <text class="qn" data-corner="bl" x="98" y="164" text-anchor="middle">3</text>
+              <text class="qn" data-corner="br" x="222" y="164" text-anchor="middle">4</text>
+              <text class="cam" x="160" y="216" text-anchor="middle">▲ câmera</text>
+            </g>
+            <!-- vista LATERAL: câmera na lateral · rede vertical · quadra recua p/ a
+                 direita · 1·2 = time da esquerda / 3·4 = time da direita (numeração por
+                 COLUNAS: o inferior-esquerdo, que é Q3 de fundo, vira Q2 aqui) -->
+            <g id="cam-lateral" style="display:none">
+              <polygon class="court" points="70,34 300,78 300,148 70,194"/>
+              <line class="net" x1="185" y1="56" x2="185" y2="171"/>
+              <line class="mid" x1="70" y1="114" x2="300" y2="113"/>
+              <polygon class="qhit" data-q="1" data-corner="tl" points="70,34 185,56 185,113 70,114" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 1 — time da esquerda, ao fundo"/>
+              <polygon class="qhit" data-q="2" data-corner="bl" points="70,114 185,113 185,171 70,194" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 2 — time da esquerda, perto da câmera"/>
+              <polygon class="qhit" data-q="3" data-corner="tr" points="185,56 300,78 300,113 185,113" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 3 — time da direita, ao fundo"/>
+              <polygon class="qhit" data-q="4" data-corner="br" points="185,113 300,113 300,148 185,171" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 4 — time da direita, perto da câmera"/>
+              <text class="qn" data-corner="tl" x="128" y="82" text-anchor="middle">1</text>
+              <text class="qn" data-corner="bl" x="128" y="150" text-anchor="middle">2</text>
+              <text class="qn" data-corner="tr" x="242" y="90" text-anchor="middle">3</text>
+              <text class="qn" data-corner="br" x="242" y="138" text-anchor="middle">4</text>
+              <text class="cam" x="6" y="118" text-anchor="start">câmera ▶</text>
+            </g>
+          </svg>
+        </div>
+        <div class="qside">
+          <div class="qsummary" id="qsummary" aria-live="polite">Atleta‑alvo: <b>nenhum quadrante selecionado</b> <span style="color:var(--arquibancada)">(opcional — sem isto a IA escolhe quem analisar)</span></div>
+          <div class="field">
+            <label>Cor / aparência do alvo (fio de continuidade)</label>
+            <input id="target-appearance" type="text" placeholder="ex.: camisa e short azul">
+          </div>
+        </div>
       </div>
     </div>
 
@@ -271,7 +332,19 @@
 
 <script>
 const $ = s => document.querySelector(s);
-const state = { file:null, gender:"male", level:"amador", mode:"auto" };
+const state = { file:null, gender:"male", level:"amador", mode:"clip", camera:"fundo", target_quadrant:null, target_corner:null };  // só clipe (partida removida)
+// numeração e rótulos POR CÂMERA — o mesmo canto físico vira número diferente (spec
+// quadrante×câmera: inferior-esquerdo é Q3 de fundo, Q2 na lateral).
+const CORNER_Q = {            // canto físico (tl/tr/bl/br) → número do quadrante
+  fundo:   {tl:1, tr:2, bl:3, br:4},
+  lateral: {tl:1, tr:3, bl:2, br:4},
+};
+const QUADLABELS = {          // número do quadrante → rótulo humano, por câmera
+  fundo:   {1:"fundo‑esquerda",2:"fundo‑direita",3:"frente‑esquerda",4:"frente‑direita"},
+  lateral: {1:"esquerda‑fundo",2:"esquerda‑perto",3:"direita‑fundo",4:"direita‑perto"},
+};
+const quadLabelFor = (cam,q) => (QUADLABELS[cam]||QUADLABELS.fundo)[q] || "";
+const quadLabel = q => quadLabelFor(state.camera, q);
 
 // ---- segmented controls ----
 function bindSeg(id, key){
@@ -283,7 +356,50 @@ function bindSeg(id, key){
     });
   });
 }
-bindSeg("gender","gender"); bindSeg("level","level"); bindSeg("mode","mode");
+bindSeg("gender","gender"); bindSeg("level","level"); bindSeg("camera","camera");  // modo removido: sempre clipe
+
+// ---- seletor de quadrante (âncora do atleta-alvo) ----
+// A seleção é guardada pelo CANTO FÍSICO da tela (tl/tr/bl/br), invariante à câmera; o
+// NÚMERO submetido (state.target_quadrant) é derivado da câmera atual. Assim, trocar a
+// câmera mantém o atleta no mesmo lugar da tela e só reescreve o número.
+function selectByCorner(corner){
+  state.target_corner=corner;
+  state.target_quadrant=CORNER_Q[state.camera][corner];
+  document.querySelectorAll("#quadbox .qhit").forEach(x=>{const on=x.dataset.corner===corner;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on?"true":"false");});
+  document.querySelectorAll("#quadbox .qn").forEach(x=>x.classList.toggle("on",x.dataset.corner===corner));
+  updateQuadSummary();
+}
+function updateQuadSummary(){
+  const q=state.target_quadrant, ta=$("#target-appearance").value.trim();
+  const box=$("#qsummary");
+  if(!q){box.innerHTML='Atleta‑alvo: <b>nenhum quadrante selecionado</b> <span style="color:var(--arquibancada)">(opcional — sem isto a IA escolhe quem analisar)</span>';return;}
+  box.innerHTML=`Atleta‑alvo: <b>Q${q} · ${quadLabel(q)}</b>${ta?` · ${ta.replace(/[<>&]/g,"")}`:""}`;
+}
+document.querySelectorAll("#quadbox .qhit").forEach(h=>{
+  const corner=h.dataset.corner;
+  h.addEventListener("click",()=>selectByCorner(corner));
+  h.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectByCorner(corner);}});
+});
+$("#target-appearance").addEventListener("input",updateQuadSummary);
+
+// O desenho E a numeração acompanham a referência de câmera (fundo × lateral): a rede
+// vira de horizontal p/ vertical e o número de cada canto muda. O TOQUE continua no
+// mesmo lugar da tela — reaplicamos a seleção pelo CANTO físico e só reescrevemos o nº.
+function applyCameraView(){
+  const lateral = state.camera==="lateral";
+  $("#cam-fundo").style.display   = lateral ? "none" : "";
+  $("#cam-lateral").style.display = lateral ? "" : "none";
+  const ex=$("#quadhint-extra");
+  if(ex) ex.textContent = lateral
+    ? "Rede vertical · 1·2 = time da esquerda · 3·4 = time da direita · câmera na lateral."
+    : "Rede horizontal · 1·2 no fundo (adversário) · 3·4 na frente (seu time) · câmera atrás.";
+  if(state.target_corner){                 // mantém o canto; só reescreve o número/rótulo
+    state.target_quadrant=CORNER_Q[state.camera][state.target_corner];
+    updateQuadSummary();
+  }
+}
+document.querySelectorAll("#camera button").forEach(b=>b.addEventListener("click",applyCameraView));
+applyCameraView();
 
 // ---- file pick / drag-drop ----
 const drop=$("#drop"), fileInput=$("#file");
@@ -293,11 +409,24 @@ fileInput.addEventListener("change",()=>setFile(fileInput.files[0]));
 ["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag");}));
 ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
 drop.addEventListener("drop",e=>{if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);});
+const MAX_CLIP_S=180;  // teto de duração do clipe (espelha clip_max_seconds no backend)
 function setFile(f){
   if(!f) return;
   state.file=f;
   $("#fname").textContent=`${f.name} · ${(f.size/1024/1024).toFixed(1)} MB`;
   $("#go").disabled=false;
+  $("#error").classList.add("hidden");
+  // pré-checagem de duração (best-effort; o servidor é a autoridade): bloqueia >180s
+  try{
+    const v=document.createElement("video"); v.preload="metadata";
+    v.onloadedmetadata=()=>{ URL.revokeObjectURL(v.src);
+      if(isFinite(v.duration) && v.duration>MAX_CLIP_S){
+        $("#error").textContent=`Esse vídeo tem ${Math.round(v.duration)}s — o limite é ${MAX_CLIP_S}s por clipe (lance). Envie um trecho mais curto.`;
+        $("#error").classList.remove("hidden"); $("#go").disabled=true;
+      }
+    };
+    v.src=URL.createObjectURL(f);
+  }catch(e){/* sem metadata: o servidor valida */}
 }
 
 // ---- health ----
@@ -319,7 +448,9 @@ $("#go").addEventListener("click",async()=>{
   fd.append("level",state.level);
   fd.append("mode",state.mode);
   fd.append("with_audio",$("#audio").checked?"true":"false");
-  const cam=$("#camera").value; if(cam) fd.append("camera_position",cam);
+  if(state.camera) fd.append("camera_position",state.camera);
+  if(state.target_quadrant) fd.append("target_quadrant",String(state.target_quadrant));
+  const ta=$("#target-appearance").value.trim(); if(ta) fd.append("target_appearance",ta);
   [["p-name","player_name"],["p-outfit","player_outfit"],["p-side","player_side"],["p-notes","player_notes"],
    ["p-handedness","player_handedness"],["p-headwear","player_headwear"],["p-racket","player_racket_color"],["p-hair","player_hair"]
   ].forEach(([id,field])=>{const v=$("#"+id).value.trim();if(v)fd.append(field,v);});
@@ -382,6 +513,14 @@ function render(d){
   if(m.handedness && m.handedness!=="indeterminado") addChip("","LATERALIDADE", HAND[m.handedness]||m.handedness);
   if(m.subject_lock_confidence) addChip(m.subject_lock_confidence==="baixa"?"":"green","TRAVOU NO ALVO", CONF[m.subject_lock_confidence]||m.subject_lock_confidence);
   if(m.camera_meta&&m.camera_meta.position) addChip("","CÂMERA", m.camera_meta.position);
+  // âncora por quadrante + auto-check de setor (travou no atleta certo?)
+  if(route.target_quadrant){
+    const q=route.target_quadrant;
+    addChip("info","ALVO", `Q${q} · ${quadLabelFor(route.camera_reference,q)}`+(route.target_appearance?` · ${route.target_appearance}`:""));
+    if(m.target_mismatch) addChip("","⚠ SETOR","divergente — confira o atleta");
+    else if(m.positioning&&(m.positioning.observed_side==="esquerda"||m.positioning.observed_side==="direita")) addChip("green","SETOR","confere ✓");
+    else if(m.positioning&&m.positioning.observed_side==="centro") addChip("","SETOR","inconclusivo (centro)");
+  }
   if(d.subject){const s=d.subject;const bits=[s.name,s.outfit,s.side,s.handedness,s.headwear,s.racket_color,s.notes].filter(Boolean).join(" · ");if(bits)addChip("green","ANALISADO",bits);}
 
   // key improvement

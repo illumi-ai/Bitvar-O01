@@ -22,7 +22,7 @@ from . import store
 from .config import tennis_settings as cfg
 from .gemini import GeminiError
 from .models import SubjectHint, TennisAnalysisResponse
-from .service import EmptyUpload, TennisService, UploadTooLarge
+from .service import ClipTooLong, EmptyUpload, TennisService, UploadTooLarge
 
 router = APIRouter(prefix="/tennis", tags=["tennis"])
 service = TennisService(cfg)
@@ -70,7 +70,9 @@ async def analyze(
     player_racket_color: str | None = Form(None, description="Cor/marca da raquete."),
     player_glasses: bool | None = Form(None, description="Usa óculos?"),
     player_hair: str | None = Form(None, description="Cabelo (cor/comprimento)."),
-    camera_position: str | None = Form(None, description="Posição da câmera: central | lateral | outra."),
+    camera_position: str | None = Form(None, description="Posição da câmera: fundo | lateral | central | outra."),
+    target_quadrant: str | None = Form(None, description="Quadrante onde o atleta-alvo começa o ponto (1-4)."),
+    target_appearance: str | None = Form(None, description="Cor/aparência do alvo (fio de continuidade; ex.: camisa e short azul)."),
 ):
     if not cfg.configured:
         raise HTTPException(503, "GEMINI_API_KEY não configurada — análise indisponível.")
@@ -92,8 +94,12 @@ async def analyze(
             persist=persist,
             subject=subject,
             camera_position=camera_position,
+            target_quadrant=target_quadrant,
+            target_appearance=target_appearance,
         )
     except UploadTooLarge as e:
+        raise HTTPException(413, str(e))
+    except ClipTooLong as e:
         raise HTTPException(413, str(e))
     except EmptyUpload:
         raise HTTPException(400, "envie um arquivo de vídeo.")

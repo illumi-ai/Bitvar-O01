@@ -44,14 +44,14 @@ def test_normalize_gender_aliases():
         normalize_gender("nope")
 
 
-def test_decide_mode_threshold_and_override():
+def test_decide_mode_always_clip():
+    # modo PARTIDA removido: qualquer entrada vira clip
     assert decide_mode(30, None, None)[0] == "clip"
-    assert decide_mode(75, None, None)[0] == "match"      # >= limiar
+    assert decide_mode(600, None, None)[0] == "clip"               # antes seria match
     assert decide_mode(74.9, None, None)[0] == "clip"
-    assert decide_mode(600, "clip", None)[0] == "clip"     # override vence a duração
-    assert decide_mode(None, None, 10 * 1024 * 1024)[0] == "clip"   # heurística
-    assert decide_mode(None, None, 300 * 1024 * 1024)[0] == "match"
-    assert decide_mode(None, None, None)[0] == "clip"      # default
+    assert decide_mode(None, None, 300 * 1024 * 1024)[0] == "clip"  # arquivo grande tb é clip
+    assert decide_mode(None, None, None)[0] == "clip"              # default
+    assert decide_mode(600, "match", None)[0] == "clip"            # override 'match' antigo é ignorado
 
 
 def test_mode_override_normalization():
@@ -62,16 +62,16 @@ def test_mode_override_normalization():
         normalize_mode_override("bogus")
 
 
-def test_build_route_clip_and_match():
+def test_build_route_is_always_clip():
     clip = build_route("male", duration=10, override=None, file_size_bytes=5_000_000)
     assert clip.info.mode == "clip" and clip.info.fps == cfg.clip_fps
     assert clip.info.media_resolution == cfg.clip_media_resolution
     assert clip.schema_model is ClipAnalysis and clip.weight_model is None
 
-    match = build_route("female", duration=600, override=None, file_size_bytes=3 * 10**8)
-    assert match.info.mode == "match" and match.info.fps == cfg.match_fps
-    assert match.schema_model is MatchAnalysis
-    assert match.weight_model == FEMALE_MODEL
+    # vídeo longo (antes 'match') e override 'match' agora também caem em clip
+    longo = build_route("female", duration=600, override="match", file_size_bytes=3 * 10**8)
+    assert longo.info.mode == "clip" and longo.schema_model is ClipAnalysis
+    assert longo.weight_model is None
 
 
 # --------------------------------------------------------------------------- #
@@ -412,22 +412,43 @@ def test_analyze_without_subject_has_null_subject(client):
     assert r.json()["subject"] is None
 
 
-def test_analyze_match_has_weighted_score(client):
+def test_analyze_match_override_forced_to_clip(client):
+    # modo PARTIDA removido: pedir mode=match retorna um CLIP (forçado), não erro
     r = client.post(
         "/tennis/analyze",
-        files={"file": ("match.mp4", b"\x00" * 2048, "video/mp4")},
+        files={"file": ("x.mp4", b"\x00" * 2048, "video/mp4")},
         data={"gender": "female", "mode": "match", "with_audio": "false"},
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["route"]["mode"] == "match"
-    assert body["route"]["weight_model"] == FEMALE_MODEL
-    ws = body["metrics"]["weighted_performance_score"]
-    assert 0 <= ws["score"] <= 100
-    assert ws["weighting_model"] == FEMALE_MODEL
-    assert "return" in body["metrics"]        # alias preservado
-    assert body["benchmarks"]["second_serve_points_won_pct"] == 50.0
-    assert body["audio_base64"] is None       # áudio desligado
+    assert body["route"]["mode"] == "clip"                 # forçado a clip
+    assert body["metrics"]["clip_quality_score"] == 7.4    # veio o _clip_result do mock
+    assert body["audio_base64"] is None
+
+
+def test_clip_too_long_rejected(client, monkeypatch):
+    # duração conhecida acima de clip_max_seconds (180s) → 413 (ClipTooLong)
+    from app.tennis import service as svc
+    monkeypatch.setattr(svc, "probe_duration_seconds", lambda p: cfg.clip_max_seconds + 30)
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("longo.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "with_audio": "false"},
+    )
+    assert r.status_code == 413, r.text
+
+
+def test_clip_within_limit_ok(client, monkeypatch):
+    # duração dentro do teto → segue normal (clip)
+    from app.tennis import service as svc
+    monkeypatch.setattr(svc, "probe_duration_seconds", lambda p: 30.0)
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("curto.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "with_audio": "false"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["route"]["mode"] == "clip"
 
 
 def test_analyze_without_key_returns_503(client, monkeypatch):
@@ -936,6 +957,381 @@ def test_analyze_clip_defensive_phase_weighs_base_e2e(client, monkeypatch):
     assert "axis_incomplete" not in ws             # base presente => nota confiável
     # contato/raquete altos (8/8) NÃO salvam a nota: a base manda na fase defensiva
     assert ws["score"] < 55, ws["score"]
+
+
+# --------------------------------------------------------------------------- #
+# QUADRANTE — seleção do atleta-alvo por âncora geométrica (plano 25/06)        #
+# --------------------------------------------------------------------------- #
+def test_normalize_quadrant_tolerant():
+    from app.tennis.quadrants import normalize_quadrant
+    assert normalize_quadrant(3) == 3
+    assert normalize_quadrant("3") == 3
+    assert normalize_quadrant("Q3") == 3
+    assert normalize_quadrant(" q4 ") == 4
+    assert normalize_quadrant(None) is None
+    assert normalize_quadrant("") is None          # vazio → desliga a âncora, não levanta
+    assert normalize_quadrant("5") is None          # fora de 1-4
+    assert normalize_quadrant(0) is None
+    assert normalize_quadrant("abc") is None        # lixo → None (tolerante)
+
+
+def test_quadrant_frame_side_and_label():
+    from app.tennis.quadrants import quadrant_frame_side, quadrant_label
+    # 1·2 fundo / 3·4 frente; ímpar=esquerda, par=direita (decisão Caio 25/06)
+    assert quadrant_frame_side(1) == "esquerda"
+    assert quadrant_frame_side(2) == "direita"
+    assert quadrant_frame_side(3) == "esquerda"
+    assert quadrant_frame_side(4) == "direita"
+    assert quadrant_frame_side(None) is None
+    assert quadrant_label(3) == "frente-esquerda"
+    assert quadrant_label(1) == "fundo-esquerda"
+
+
+def test_build_quadrant_block_anchors_target():
+    from app.tennis.quadrants import build_quadrant_block
+    assert build_quadrant_block(None) is None       # sem quadrante → degrada p/ só-aparência
+    blk = build_quadrant_block(3, "camisa e short azul")
+    assert "canto inferior-esquerdo" in blk         # Q3 = frente-esquerda do FRAME
+    assert "PRECEDÊNCIA" in blk                      # quadrante vence a aparência
+    assert "camisa e short azul" in blk             # cor entra como fio de continuidade
+    assert "SIGA SOMENTE ELE" in blk
+    assert "adjacente" in blk.lower()               # ignora quadra ao lado
+    assert "observed_side" in blk                   # alimenta o auto-check de setor
+    assert "subject_lock_confidence" in blk         # não troca de jogador: baixa a confiança
+    bare = build_quadrant_block(2)                  # sem aparência: bloco existe, sem linha de cor
+    assert bare and "canto superior-direito" in bare
+    assert "veste" not in bare.lower()
+
+
+def test_build_camera_block_fundo_is_frame_relative():
+    from app.tennis.prompts import build_camera_block
+    fundo = build_camera_block("fundo")
+    assert fundo and "FUNDO" in fundo
+    assert "não inverta" in fundo.lower()           # frame-relativo: SEM flip de quadra
+    assert "adjacente" in fundo.lower()
+    # a convenção 'central' (legado) AINDA inverte esquerda↔direita
+    central = build_camera_block("central")
+    assert "DIREITO da quadra" in central or "vice-versa" in central.lower()
+
+
+def test_analysis_prompt_injects_quadrant_block():
+    from app.tennis.prompts import analysis_system_prompt
+    from app.tennis.quadrants import build_quadrant_block
+    qb = build_quadrant_block(3, "azul")
+    sp = analysis_system_prompt("male", "clip", None, None, None, quadrant_block=qb)
+    assert "canto inferior-esquerdo" in sp
+    # PASSO 2 sempre cita a precedência da âncora geométrica (mesmo sem bloco)
+    assert "ÂNCORA GEOMÉTRICA" in analysis_system_prompt("male", "clip")
+    # mas o canto específico só aparece quando há quadrante
+    assert "canto inferior-esquerdo" not in analysis_system_prompt("male", "clip")
+
+
+def test_route_info_carries_quadrant_optional():
+    from app.tennis.models import RouteInfo
+    ri = RouteInfo(gender="male", mode="clip", fps=24, media_resolution="x",
+                   thinking_level="high", schema_name="male·clip", mode_detection="clip_only")
+    assert ri.target_quadrant is None and ri.target_appearance is None and ri.camera_reference is None
+
+
+def test_build_route_threads_quadrant():
+    r = build_route("male", duration=10, override=None, file_size_bytes=5_000_000,
+                    camera_reference="FUNDO", target_quadrant="3", target_appearance="azul")
+    assert r.info.target_quadrant == 3
+    assert r.info.target_appearance == "azul"
+    assert r.info.camera_reference == "fundo"       # normalizado p/ minúsculas
+    # quadrante inválido vira None (tolerante), não derruba o roteamento
+    r2 = build_route("male", duration=10, override=None, file_size_bytes=5_000_000,
+                     target_quadrant="bogus")
+    assert r2.info.target_quadrant is None
+    # sem quadrante: campos ficam None (retrocompatível)
+    r3 = build_route("male", duration=10, override=None, file_size_bytes=5_000_000)
+    assert r3.info.target_quadrant is None and r3.info.camera_reference is None
+
+
+def test_check_target_sector_logic():
+    from app.tennis.service import _check_target_sector
+    assert _check_target_sector({}, None) is None                                   # sem quadrante
+    assert _check_target_sector({"positioning": {"observed_side": "centro"}}, 3) is None  # inconclusivo
+    assert _check_target_sector({"positioning": {}}, 3) is None                     # setor ausente
+    assert _check_target_sector({}, 3) is None                                      # sem positioning
+    assert _check_target_sector({"positioning": {"observed_side": "esquerda"}}, 3) is None  # bateu Q3
+    bad = _check_target_sector({"positioning": {"observed_side": "direita"}}, 3)    # Q3 esq × dir
+    assert bad and bad["expected_side"] == "esquerda" and bad["observed_side"] == "direita"
+    assert "atleta errado" in bad["message"]
+
+
+def test_analyze_echoes_quadrant_gold_case(client, monkeypatch):
+    # CASO-OURO do plano 25/06: alvo no Q3 (frente-esquerda, César azul, câmera de
+    # fundo). A IA reporta o atleta começando na ESQUERDA do quadro → bate com Q3 →
+    # SEM aviso de setor. E a âncora geométrica de fato chega ao prompt da chamada 1.
+    so = lambda n: ScoreObs(score=n, observation="x")  # noqa: E731
+    cesar = ClipAnalysis(
+        analysis_mode="clip", gender_profile="male", shot_identified="forehand",
+        action_phase="attack", subject_lock_confidence="alta",
+        positioning=PositioningRead(observed_zone="rede", observed_side="esquerda",
+                                    recommended_zone="rede", recommended_side="centro",
+                                    rationale="finalizou pela esquerda"),
+        technical_execution=TechnicalExecution(preparation=so(7), contact_point=so(7),
+            follow_through=so(7), balance_and_posture=so(7), racket_path=so(7)),
+        clip_quality_score=7.2, key_improvement="Suba mais cedo para o contato.",
+    )
+
+    class _FakeGeminiQuad(_FakeGemini):
+        def analyze(self, file, *, schema_model, system_prompt, fps, media_resolution):
+            # a âncora geométrica (Q3 = canto inferior-esquerdo) precisa estar no prompt
+            assert "canto inferior-esquerdo" in system_prompt
+            assert "camisa e short azul" in system_prompt
+            return cesar if schema_model is ClipAnalysis else _match_result()
+
+    monkeypatch.setattr(trouter.service, "gemini", _FakeGeminiQuad())
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("cesar.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false",
+              "camera_position": "fundo", "target_quadrant": "3",
+              "target_appearance": "camisa e short azul"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["route"]["target_quadrant"] == 3
+    assert body["route"]["target_appearance"] == "camisa e short azul"
+    assert body["route"]["camera_reference"] == "fundo"
+    m = body["metrics"]
+    assert "target_mismatch" not in m
+    assert not any("atleta errado" in w for w in body["warnings"])
+
+
+def test_analyze_quadrant_mismatch_warns_not_errors(client):
+    # Alvo no Q3 (esquerda) mas a IA descreve o atleta começando na DIREITA
+    # (_clip_result() padrão tem observed_side='direita') → AVISO 'possível atleta
+    # errado', marcado em target_mismatch — NUNCA erro, NUNCA troca de atleta.
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("x.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false",
+              "camera_position": "fundo", "target_quadrant": "3"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    mm = body["metrics"]["target_mismatch"]
+    assert mm["expected_side"] == "esquerda" and mm["observed_side"] == "direita"
+    assert mm["target_quadrant"] == 3
+    assert any("atleta errado" in w for w in body["warnings"])
+
+
+def test_analyze_quadrant_matching_side_no_mismatch(client):
+    # Mesmo _clip_result() (observed_side='direita'), mas alvo no Q4 (direita) → bate.
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("x.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false",
+              "target_quadrant": "4"},
+    )
+    assert r.status_code == 200, r.text
+    assert "target_mismatch" not in r.json()["metrics"]
+
+
+def test_analyze_without_quadrant_unchanged(client):
+    # retrocompat: sem quadrante, nada de mismatch e route sem âncora
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("x.mp4", b"\x00" * 512, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["route"]["target_quadrant"] is None
+    assert "target_mismatch" not in body["metrics"]
+
+
+def test_build_camera_block_central_frame_relative_under_quadrant():
+    # review-fix: 'central' inverte por padrão (legado), MAS sob quadrante ativo
+    # (frame_relative=True) NÃO inverte — senão contradiz a âncora e o auto-check.
+    from app.tennis.prompts import build_camera_block
+    flip = build_camera_block("central")
+    assert "DIREITO da quadra" in flip                   # legado: court-relative
+    frame = build_camera_block("central", frame_relative=True)
+    assert "não inverta" in frame.lower() and "RELATIVAS À IMAGEM" in frame
+    # fundo é sempre frame-relativo, com ou sem flag
+    assert "não inverta" in build_camera_block("fundo").lower()
+
+
+def test_lateral_camera_frame_relative_under_quadrant():
+    # review-fix: lateral SEM quadrante é genérico/vago; COM quadrante vira
+    # frame-relativo (lado pela IMAGEM), alinhando com o auto-check de setor.
+    from app.tennis.prompts import build_camera_block
+    plain = build_camera_block("lateral")
+    assert "lateral" in plain.lower()
+    fr = build_camera_block("lateral", frame_relative=True)
+    assert "RELATIVAS À IMAGEM" in fr and "não inverta" in fr.lower()
+    assert "LATERAL" in fr                                # nomeia a câmera correta
+
+
+def test_subject_block_continuity_only_under_quadrant():
+    # review-fix: com quadrante, a aparência deixa de ser SELETOR e vira só fio de
+    # continuidade; o 'lado da quadra' (quadra-relativo) é omitido.
+    from app.tennis.prompts import build_subject_block
+    sel = build_subject_block(outfit="camiseta azul", side="direita")
+    assert "Analise SOMENTE este jogador" in sel and "lado da quadra" in sel.lower()
+    cont = build_subject_block(outfit="camiseta azul", side="direita", quadrant_active=True)
+    assert "camiseta azul" in cont
+    assert "CONTINUIDADE" in cont and "QUADRANTE" in cont
+    assert "Analise SOMENTE este jogador" not in cont    # não é mais o seletor
+    assert "lado da quadra" not in cont.lower()           # lado quadra-relativo omitido
+    assert "reconhecimento facial" in cont.lower()        # segue sem biometria
+
+
+def test_central_camera_with_quadrant_is_frame_relative_no_false_mismatch(client, monkeypatch):
+    # review-fix (findings 1/3): central + quadrante NÃO injeta o flip esquerda↔direita
+    # no prompt, então o auto-check de setor não dispara falso 'atleta errado'.
+    seen = {}
+    so = lambda n: ScoreObs(score=n, observation="x")  # noqa: E731
+    left = ClipAnalysis(
+        analysis_mode="clip", gender_profile="male", shot_identified="forehand",
+        action_phase="attack",
+        positioning=PositioningRead(observed_zone="rede", observed_side="esquerda"),
+        technical_execution=TechnicalExecution(preparation=so(7), contact_point=so(7),
+            follow_through=so(7), balance_and_posture=so(7), racket_path=so(7)),
+        clip_quality_score=7.0, key_improvement="Suba mais cedo para o contato.",
+    )
+
+    class _FG(_FakeGemini):
+        def analyze(self, file, *, schema_model, system_prompt, fps, media_resolution):
+            seen["sp"] = system_prompt
+            return left if schema_model is ClipAnalysis else _match_result()
+
+    monkeypatch.setattr(trouter.service, "gemini", _FG())
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("x.mp4", b"\x00" * 1024, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false",
+              "camera_position": "central", "target_quadrant": "3"},
+    )
+    assert r.status_code == 200, r.text
+    sp = seen["sp"]
+    assert "RELATIVAS À IMAGEM" in sp                     # bloco de câmera frame-relativo
+    assert "lado DIREITO da quadra" not in sp             # flip legado suprimido sob quadrante
+    assert "target_mismatch" not in r.json()["metrics"]   # Q3 esq × observado esq → confere
+
+
+def test_quadrant_appearance_falls_back_to_outfit(client, monkeypatch):
+    # review-fix: o fio de continuidade vem de target_appearance OU, na falta, da
+    # roupa do subject. Asserção mira a LINHA do quadrant block (não a do subject),
+    # então remover o 'or subject.outfit' quebra o teste.
+    seen = {}
+
+    class _FG(_FakeGemini):
+        def analyze(self, file, *, schema_model, system_prompt, fps, media_resolution):
+            seen["sp"] = system_prompt
+            return _clip_result() if schema_model is ClipAnalysis else _match_result()
+
+    monkeypatch.setattr(trouter.service, "gemini", _FG())
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("x.mp4", b"\x00" * 1024, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false",
+              "target_quadrant": "3", "player_outfit": "camiseta verde"},  # sem target_appearance
+    )
+    assert r.status_code == 200, r.text
+    assert "veste camiseta verde" in seen["sp"]           # outfit virou o fio do quadrant block
+
+
+def test_build_route_normalizes_blank_appearance_and_camera():
+    r = build_route("male", duration=10, override=None, file_size_bytes=5_000_000,
+                    target_appearance="   ", camera_reference="   ", target_quadrant="3")
+    assert r.info.target_appearance is None               # vazio/branco → None
+    assert r.info.camera_reference is None
+    assert r.info.target_quadrant == 3
+
+
+# --------------------------------------------------------------------------- #
+# QUADRANTE × CÂMERA — a numeração depende do ângulo (spec 25/06)              #
+# o MESMO canto da tela vira número diferente de fundo × lateral; o parâmetro  #
+# do prompt e o auto-check de setor são parametrizados pela câmera.            #
+# --------------------------------------------------------------------------- #
+def test_normalize_camera_axis():
+    from app.tennis.quadrants import normalize_camera_axis
+    assert normalize_camera_axis("lateral") == "lateral"
+    assert normalize_camera_axis(" LADO ") == "lateral"
+    assert normalize_camera_axis("side") == "lateral"
+    assert normalize_camera_axis("fundo") == "fundo"
+    assert normalize_camera_axis("central") == "fundo"     # central → eixo fundo (rede horizontal)
+    assert normalize_camera_axis("atras") == "fundo"
+    assert normalize_camera_axis(None) == "fundo"          # default seguro, não levanta
+    assert normalize_camera_axis("") == "fundo"
+    assert normalize_camera_axis("xyz") == "fundo"
+
+
+def test_quadrant_numbering_is_camera_dependent():
+    # A PROVA do Caio: o MESMO canto da tela vira número diferente conforme a câmera.
+    from app.tennis.quadrants import quadrant_frame_side, quadrant_label
+    # FUNDO: numeração por LINHAS — ímpar=esquerda, par=direita
+    assert [quadrant_frame_side(q, "fundo") for q in (1, 2, 3, 4)] == \
+        ["esquerda", "direita", "esquerda", "direita"]
+    # LATERAL: numeração por COLUNAS — 1·2 = esquerda, 3·4 = direita (Q2/Q3 trocam de lado!)
+    assert [quadrant_frame_side(q, "lateral") for q in (1, 2, 3, 4)] == \
+        ["esquerda", "esquerda", "direita", "direita"]
+    # canto inferior-esquerdo: Q3 de fundo, Q2 na lateral — mesmo lugar, nº diferente
+    assert quadrant_label(3, "fundo") == "frente-esquerda"
+    assert quadrant_label(2, "lateral") == "esquerda-perto"
+    # sem câmera → eixo fundo (retrocompat dos chamadores antigos)
+    assert quadrant_frame_side(2) == quadrant_frame_side(2, "fundo") == "direita"
+
+
+def test_build_quadrant_block_varies_with_camera():
+    # o PARÂMETRO do prompt muda dinamicamente com a câmera selecionada no front
+    from app.tennis.quadrants import build_quadrant_block
+    fundo3 = build_quadrant_block(3, "azul", "fundo")
+    lat3 = build_quadrant_block(3, "azul", "lateral")
+    assert "canto inferior-esquerdo" in fundo3 and "HORIZONTAL" in fundo3
+    assert "canto superior-direito" in lat3 and "VERTICAL" in lat3   # Q3 lateral = sup-dir
+    assert fundo3 != lat3                                            # de fato diverge
+    # Q2: superior-direito de fundo × inferior-esquerdo na lateral
+    assert "canto superior-direito" in build_quadrant_block(2, camera="fundo")
+    assert "canto inferior-esquerdo" in build_quadrant_block(2, camera="lateral")
+
+
+def test_check_target_sector_is_camera_dependent():
+    from app.tennis.service import _check_target_sector
+    pos = lambda s: {"positioning": {"observed_side": s}}  # noqa: E731
+    # Q3 + observado 'direita': ACUSA de fundo (Q3=esquerda), NÃO na lateral (Q3=direita)
+    assert _check_target_sector(pos("direita"), 3, "fundo") is not None
+    assert _check_target_sector(pos("direita"), 3, "lateral") is None
+    # Q2 + observado 'direita': bate de fundo (Q2=direita), ACUSA na lateral (Q2=esquerda)
+    assert _check_target_sector(pos("direita"), 2, "fundo") is None
+    bad = _check_target_sector(pos("direita"), 2, "lateral")
+    assert bad and bad["expected_side"] == "esquerda"
+
+
+def test_analyze_lateral_quadrant_no_false_mismatch(client):
+    # e2e: câmera LATERAL + Q3 (= direita na lateral) com a IA reportando 'direita'
+    # (_clip_result padrão) → SEM mismatch. Em fundo, o MESMO Q3+direita acusaria
+    # (test_analyze_quadrant_mismatch_warns_not_errors) — prova a parametrização por câmera.
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("x.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false",
+              "camera_position": "lateral", "target_quadrant": "3"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["route"]["camera_reference"] == "lateral"
+    assert "target_mismatch" not in body["metrics"]
+
+
+def test_analyze_lateral_quadrant_mismatch_warns(client):
+    # e2e espelho: câmera LATERAL + Q2 (= esquerda na lateral) com a IA em 'direita' →
+    # AVISA. O mesmo Q2 em fundo (=direita) NÃO acusaria — o eixo lateral inverte a expectativa.
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("x.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false",
+              "camera_position": "lateral", "target_quadrant": "2"},
+    )
+    assert r.status_code == 200, r.text
+    mm = r.json()["metrics"]["target_mismatch"]
+    assert mm["expected_side"] == "esquerda" and mm["observed_side"] == "direita"
+    assert mm["target_quadrant"] == 2
 
 
 def test_narrative_prompt_match_is_statistical_not_point():

@@ -376,6 +376,19 @@ class RouteInfo(BaseModel):
     weight_model: str | None = None
     duration_seconds: float | None = None
     mode_detection: str = Field(description="Como o modo foi decidido (duração/override/heurística).")
+    # --- seleção do atleta-alvo por QUADRANTE (plano de correção 25/06) ---
+    # Âncora GEOMÉTRICA do alvo, definida antes da análise e relativa ao FRAME (ver
+    # :mod:`app.tennis.quadrants`). Parâmetros de ENTRADA — não são response_schema;
+    # entram pelo form e são expostos aqui p/ transparência (igual gender/level).
+    camera_reference: str | None = Field(
+        default=None, description="Referência de câmera (fundo|lateral|…) — rótulo do laudo."
+    )
+    target_quadrant: int | None = Field(
+        default=None, ge=1, le=4, description="Quadrante onde o atleta-alvo começa o ponto (1-4)."
+    )
+    target_appearance: str | None = Field(
+        default=None, description="Cor/aparência do alvo — fio de continuidade p/ seguir o mesmo atleta."
+    )
 
 
 class SubjectHint(BaseModel):
