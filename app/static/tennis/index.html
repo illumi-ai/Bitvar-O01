@@ -69,9 +69,17 @@
   .field select{width:100%;background:var(--noite-code);color:var(--refletor);border:1px solid var(--linha);border-radius:7px;padding:9px 11px;font-family:'Source Sans 3',sans-serif;font-size:.92rem}
   .field select:focus{outline:none;border-color:var(--info)}
   /* seleção do atleta-alvo por quadrante (relativo ao frame) */
-  .quadbox{margin-top:16px;border:1px solid var(--linha);border-radius:var(--radius);padding:14px 16px;background:var(--noite)}
-  .quadbox .qhead{font-family:'Archivo',sans-serif;font-weight:700;font-size:1rem}
+  .quadbox{margin-top:16px;border:1px solid var(--info);border-radius:var(--radius);padding:16px;background:var(--noite)}
+  .quadbox .qhead{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.04rem}
   .quadbox .hint{color:var(--arquibancada);font-size:.88rem;margin:6px 0 12px}
+  .quadbox .qsub{color:var(--arquibancada);font-size:.9rem;margin:6px 0 6px}
+  /* fluxo de 2 passos (câmera → quadrante), espelha a doc quadrante×câmera */
+  .qstep{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--linha)}
+  .qstep:first-of-type{padding-top:6px}
+  .qstep-n{flex:0 0 auto;width:25px;height:25px;border-radius:50%;background:var(--info);color:#06121f;font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .qstep-body{flex:1;min-width:0}
+  .qstep-label{display:block;font-family:'Archivo',sans-serif;font-weight:700;font-size:.95rem;margin-bottom:9px}
+  .qstep .seg{max-width:320px}
   .quadwrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
   .pickmap{flex:0 0 auto;border:1px solid var(--linha);border-radius:10px;background:var(--noite-code);padding:8px}
   .pickmap svg{width:280px;max-width:74vw;height:auto;display:block}
@@ -211,13 +219,7 @@
         </div>
       </div>
       <!-- modo removido: somente clipe (partida desativada) -->
-      <div class="field">
-        <label>Referência de câmera</label>
-        <div class="seg" id="camera" role="group" aria-label="Referência de câmera">
-          <button type="button" data-v="fundo" aria-pressed="true">FUNDO</button>
-          <button type="button" data-v="lateral" aria-pressed="false">LATERAL</button>
-        </div>
-      </div>
+      <!-- câmera movida p/ dentro da caixa de quadrante (passo 1), como na doc -->
       <div class="field">
         <label>Áudio (TTS)</label>
         <label class="chk"><input type="checkbox" id="audio" checked> Gerar narração em voz (Vindemiatrix)</label>
@@ -225,9 +227,29 @@
     </div>
 
     <div class="quadbox" id="quadbox">
-      <div class="qhead">Quadrante do atleta‑alvo <span class="opt" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada);font-weight:400">(toque onde ele começa o ponto, olhando o 1º quadro do seu vídeo)</span></div>
-      <p class="hint">Escolha <strong>primeiro a câmera</strong>, depois toque no atleta. Com 4 jogadores em quadra, isto trava a IA <strong>no atleta certo</strong>. O toque é no <strong>mesmo lugar da tela</strong>; a câmera só diz ao sistema <strong>como ler</strong> aquele toque — a numeração se reorganiza sozinha. <span style="color:var(--arquibancada)" id="quadhint-extra">Rede horizontal · 1·2 no fundo (adversário) · 3·4 na frente (seu time) · câmera atrás.</span></p>
-      <div class="quadwrap">
+      <div class="qhead">Atleta‑alvo: câmera + quadrante <span class="opt" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada);font-weight:400">(opcional — com 4 em quadra, trava a IA no jogador certo)</span></div>
+      <p class="qsub">Dois toques, nesta ordem (como na régua câmera × quadrante): <strong>1)</strong> diga de onde filmou e o mapa se reorganiza sozinho; <strong>2)</strong> toque no quadrante onde o atleta começa o ponto.</p>
+
+      <!-- PASSO 1 · câmera: define qual mapa de quadrante o sistema usa -->
+      <div class="qstep">
+        <span class="qstep-n" aria-hidden="true">1</span>
+        <div class="qstep-body">
+          <span class="qstep-label">Como o vídeo foi filmado?</span>
+          <div class="seg" id="camera" role="group" aria-label="Referência de câmera">
+            <button type="button" data-v="fundo" aria-pressed="true">FUNDO</button>
+            <button type="button" data-v="lateral" aria-pressed="false">LATERAL</button>
+          </div>
+          <p class="hint" style="margin:9px 0 0"><span id="quadhint-extra">Rede horizontal · 1·2 no fundo (adversário) · 3·4 na frente (seu time) · câmera atrás.</span></p>
+        </div>
+      </div>
+
+      <!-- PASSO 2 · quadrante: trava no atleta-alvo (numeração já ajustada à câmera) -->
+      <div class="qstep">
+        <span class="qstep-n" aria-hidden="true">2</span>
+        <div class="qstep-body">
+          <span class="qstep-label">Toque no quadrante do atleta‑alvo</span>
+          <p class="hint" style="margin:0 0 12px">O toque é no <strong>mesmo lugar da tela</strong>; a câmera só diz ao sistema <strong>como ler</strong> aquele toque — a numeração se reorganiza sozinha.</p>
+          <div class="quadwrap">
         <div class="pickmap">
           <svg viewBox="0 0 320 224" role="group" aria-label="Mapa de quadrantes — toque no quadrante do atleta">
             <!-- vista FUNDO: câmera atrás da linha de fundo · rede horizontal ·
@@ -270,6 +292,8 @@
           <div class="field">
             <label>Cor / aparência do alvo (fio de continuidade)</label>
             <input id="target-appearance" type="text" placeholder="ex.: camisa e short azul">
+          </div>
+        </div>
           </div>
         </div>
       </div>
