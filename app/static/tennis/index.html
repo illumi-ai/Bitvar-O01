@@ -79,7 +79,12 @@
   .qstep-n{flex:0 0 auto;width:25px;height:25px;border-radius:50%;background:var(--info);color:#06121f;font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;margin-top:1px}
   .qstep-body{flex:1;min-width:0}
   .qstep-label{display:block;font-family:'Archivo',sans-serif;font-weight:700;font-size:.95rem;margin-bottom:9px}
-  .qstep .seg{max-width:320px}
+  .qstep .seg{max-width:340px}
+  /* 4 posições de câmera (2 fundos + 2 laterais) em grade 2×2 */
+  .seg.seg4{flex-wrap:wrap}
+  .seg.seg4 button{flex:1 1 46%;font-size:.74rem;line-height:1.2}
+  .seg.seg4 button:nth-child(odd){border-right:1px solid var(--linha)}
+  .seg.seg4 button:nth-child(-n+2){border-bottom:1px solid var(--linha)}
   .quadwrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
   .pickmap{flex:0 0 auto;border:1px solid var(--linha);border-radius:10px;background:var(--noite-code);padding:8px}
   .pickmap svg{width:280px;max-width:74vw;height:auto;display:block}
@@ -234,12 +239,14 @@
       <div class="qstep">
         <span class="qstep-n" aria-hidden="true">1</span>
         <div class="qstep-body">
-          <span class="qstep-label">Como o vídeo foi filmado?</span>
-          <div class="seg" id="camera" role="group" aria-label="Referência de câmera">
-            <button type="button" data-v="fundo" aria-pressed="true">FUNDO</button>
-            <button type="button" data-v="lateral" aria-pressed="false">LATERAL</button>
+          <span class="qstep-label">De onde a câmera filmou? <span class="opt" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--arquibancada);font-weight:400">(um lado da quadra)</span></span>
+          <div class="seg seg4" id="camera" role="group" aria-label="Posição da câmera">
+            <button type="button" data-v="fundo_meu"   aria-pressed="true">FUNDO · meu lado</button>
+            <button type="button" data-v="fundo_adv"   aria-pressed="false">FUNDO · adversário</button>
+            <button type="button" data-v="lateral_esq" aria-pressed="false">LATERAL · esq.</button>
+            <button type="button" data-v="lateral_dir" aria-pressed="false">LATERAL · dir.</button>
           </div>
-          <p class="hint" style="margin:9px 0 0"><span id="quadhint-extra">Rede horizontal · 1·2 no fundo (adversário) · 3·4 na frente (seu time) · câmera atrás.</span></p>
+          <p class="hint" style="margin:9px 0 0"><span id="quadhint-extra">Rede horizontal · em cima = adversário (fundo) · embaixo = seu time (perto) · você filmou atrás do SEU time.</span></p>
         </div>
       </div>
 
@@ -252,38 +259,41 @@
           <div class="quadwrap">
         <div class="pickmap">
           <svg viewBox="0 0 320 224" role="group" aria-label="Mapa de quadrantes — toque no quadrante do atleta">
-            <!-- vista FUNDO: câmera atrás da linha de fundo · rede horizontal ·
-                 1·2 no fundo (adversário) / 3·4 na frente (seu time) -->
+            <!-- vista FUNDO: câmera atrás de uma linha de fundo · rede horizontal ·
+                 1·2 no fundo / 3·4 na frente (team-neutro; o lado vem da posição) -->
             <g id="cam-fundo">
               <polygon class="court" points="92,18 228,18 296,198 24,198"/>
               <line class="net" x1="58" y1="108" x2="262" y2="108"/>
               <line class="mid" x1="160" y1="18" x2="160" y2="198"/>
-              <polygon class="qhit" data-q="1" data-corner="tl" points="92,18 160,18 160,108 58,108" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 1 — fundo esquerda (adversário)"/>
-              <polygon class="qhit" data-q="2" data-corner="tr" points="160,18 228,18 262,108 160,108" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 2 — fundo direita (adversário)"/>
-              <polygon class="qhit" data-q="3" data-corner="bl" points="58,108 160,108 160,198 24,198" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 3 — frente esquerda (seu time)"/>
-              <polygon class="qhit" data-q="4" data-corner="br" points="160,108 262,108 296,198 160,198" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 4 — frente direita (seu time)"/>
+              <polygon class="qhit" data-q="1" data-corner="tl" points="92,18 160,18 160,108 58,108" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 1 — fundo esquerda do quadro"/>
+              <polygon class="qhit" data-q="2" data-corner="tr" points="160,18 228,18 262,108 160,108" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 2 — fundo direita do quadro"/>
+              <polygon class="qhit" data-q="3" data-corner="bl" points="58,108 160,108 160,198 24,198" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 3 — frente esquerda do quadro"/>
+              <polygon class="qhit" data-q="4" data-corner="br" points="160,108 262,108 296,198 160,198" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 4 — frente direita do quadro"/>
               <text class="qn" data-corner="tl" x="118" y="72" text-anchor="middle">1</text>
               <text class="qn" data-corner="tr" x="202" y="72" text-anchor="middle">2</text>
               <text class="qn" data-corner="bl" x="98" y="164" text-anchor="middle">3</text>
               <text class="qn" data-corner="br" x="222" y="164" text-anchor="middle">4</text>
-              <text class="cam" x="160" y="216" text-anchor="middle">▲ câmera</text>
+              <text class="cam" id="f-top" x="160" y="12" text-anchor="middle">▲ fundo · adversário (longe)</text>
+              <text class="cam" id="f-bot" x="160" y="216" text-anchor="middle">▼ câmera · seu time (perto)</text>
             </g>
-            <!-- vista LATERAL: câmera na lateral · rede vertical · quadra recua p/ a
-                 direita · 1·2 = time da esquerda / 3·4 = time da direita (numeração por
-                 COLUNAS: o inferior-esquerdo, que é Q3 de fundo, vira Q2 aqui) -->
+            <!-- vista LATERAL: câmera na lateral · rede vertical · 1·2 = lado esquerdo /
+                 3·4 = lado direito (numeração por COLUNAS: o inferior-esquerdo, que é Q3
+                 de fundo, vira Q2 aqui). Times vêm da posição (lateral_esq/dir) via JS. -->
             <g id="cam-lateral" style="display:none">
               <polygon class="court" points="70,34 300,78 300,148 70,194"/>
               <line class="net" x1="185" y1="56" x2="185" y2="171"/>
               <line class="mid" x1="70" y1="114" x2="300" y2="113"/>
-              <polygon class="qhit" data-q="1" data-corner="tl" points="70,34 185,56 185,113 70,114" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 1 — time da esquerda, ao fundo"/>
-              <polygon class="qhit" data-q="2" data-corner="bl" points="70,114 185,113 185,171 70,194" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 2 — time da esquerda, perto da câmera"/>
-              <polygon class="qhit" data-q="3" data-corner="tr" points="185,56 300,78 300,113 185,113" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 3 — time da direita, ao fundo"/>
-              <polygon class="qhit" data-q="4" data-corner="br" points="185,113 300,113 300,148 185,171" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 4 — time da direita, perto da câmera"/>
+              <polygon class="qhit" data-q="1" data-corner="tl" points="70,34 185,56 185,113 70,114" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 1 — lado esquerdo do quadro, ao fundo"/>
+              <polygon class="qhit" data-q="2" data-corner="bl" points="70,114 185,113 185,171 70,194" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 2 — lado esquerdo do quadro, perto"/>
+              <polygon class="qhit" data-q="3" data-corner="tr" points="185,56 300,78 300,113 185,113" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 3 — lado direito do quadro, ao fundo"/>
+              <polygon class="qhit" data-q="4" data-corner="br" points="185,113 300,113 300,148 185,171" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 4 — lado direito do quadro, perto"/>
               <text class="qn" data-corner="tl" x="128" y="82" text-anchor="middle">1</text>
               <text class="qn" data-corner="bl" x="128" y="150" text-anchor="middle">2</text>
               <text class="qn" data-corner="tr" x="242" y="90" text-anchor="middle">3</text>
               <text class="qn" data-corner="br" x="242" y="138" text-anchor="middle">4</text>
-              <text class="cam" x="6" y="118" text-anchor="start">câmera ▶</text>
+              <text class="cam" id="l-teamL" x="127" y="26" text-anchor="middle">time esq.</text>
+              <text class="cam" id="l-teamR" x="242" y="26" text-anchor="middle">time dir.</text>
+              <text class="cam" id="l-cam" x="6" y="210" text-anchor="start">câmera ▶</text>
             </g>
           </svg>
         </div>
@@ -356,18 +366,34 @@
 
 <script>
 const $ = s => document.querySelector(s);
-const state = { file:null, gender:"male", level:"amador", mode:"clip", camera:"fundo", target_quadrant:null, target_corner:null };  // só clipe (partida removida)
-// numeração e rótulos POR CÂMERA — o mesmo canto físico vira número diferente (spec
-// quadrante×câmera: inferior-esquerdo é Q3 de fundo, Q2 na lateral).
+const state = { file:null, gender:"male", level:"amador", mode:"clip", camera:"fundo_meu", target_quadrant:null, target_corner:null };  // só clipe (partida removida)
+// 4 POSIÇÕES de câmera (uma por lado da quadra) → 2 EIXOS de mapa. As 2 de fundo e as 2
+// laterais compartilham a numeração (relativa ao FRAME); o lado só espelha os RÓTULOS.
+const axisOf = c => { const s=(c?String(c):"").toLowerCase(); return (s.startsWith("lateral")||s==="lado"||s==="side") ? "lateral" : "fundo"; };  // espelha normalize_camera_axis (Py)
+const cameraAxis = () => axisOf(state.camera);
+const CAMS = {
+  fundo_meu:   {axis:"fundo",   ftop:"▲ fundo · adversário (longe)", fbot:"▼ câmera · seu time (perto)",
+                hint:"Rede horizontal · em cima = adversário (fundo) · embaixo = seu time (perto) · você filmou atrás do SEU time."},
+  fundo_adv:   {axis:"fundo",   ftop:"▲ fundo · seu time (longe)",   fbot:"▼ câmera · adversário (perto)",
+                hint:"Rede horizontal · em cima = seu time (fundo) · embaixo = adversário (perto) · você filmou atrás do ADVERSÁRIO."},
+  lateral_esq: {axis:"lateral", lL:"time esq.", lR:"time dir.", lcamX:6,   lcamY:210, lcamA:"start", lcam:"câmera ▶",
+                hint:"Rede vertical · 1·2 = lado esquerdo · 3·4 = lado direito · câmera na lateral ESQUERDA."},
+  lateral_dir: {axis:"lateral", lL:"time dir.", lR:"time esq.", lcamX:314, lcamY:210, lcamA:"end",   lcam:"◀ câmera",
+                hint:"Rede vertical · 1·2 = lado esquerdo · 3·4 = lado direito · câmera na lateral DIREITA."},
+};
+// rótulo amigável da câmera p/ o chip do resultado (evita vazar o enum cru ao usuário)
+const CAMLABEL = {fundo_meu:"Fundo · meu lado", fundo_adv:"Fundo · adversário", lateral_esq:"Lateral esquerda", lateral_dir:"Lateral direita"};
+// numeração e rótulos por EIXO — o mesmo canto físico vira número diferente entre fundo
+// e lateral (inferior-esquerdo é Q3 de fundo, Q2 na lateral).
 const CORNER_Q = {            // canto físico (tl/tr/bl/br) → número do quadrante
   fundo:   {tl:1, tr:2, bl:3, br:4},
   lateral: {tl:1, tr:3, bl:2, br:4},
 };
-const QUADLABELS = {          // número do quadrante → rótulo humano, por câmera
+const QUADLABELS = {          // número do quadrante → rótulo humano, por eixo
   fundo:   {1:"fundo‑esquerda",2:"fundo‑direita",3:"frente‑esquerda",4:"frente‑direita"},
   lateral: {1:"esquerda‑fundo",2:"esquerda‑perto",3:"direita‑fundo",4:"direita‑perto"},
 };
-const quadLabelFor = (cam,q) => (QUADLABELS[cam]||QUADLABELS.fundo)[q] || "";
+const quadLabelFor = (cam,q) => (QUADLABELS[axisOf(cam)])[q] || "";  // aceita posição (4-valor) ou eixo
 const quadLabel = q => quadLabelFor(state.camera, q);
 
 // ---- segmented controls ----
@@ -388,7 +414,7 @@ bindSeg("gender","gender"); bindSeg("level","level"); bindSeg("camera","camera")
 // câmera mantém o atleta no mesmo lugar da tela e só reescreve o número.
 function selectByCorner(corner){
   state.target_corner=corner;
-  state.target_quadrant=CORNER_Q[state.camera][corner];
+  state.target_quadrant=CORNER_Q[cameraAxis()][corner];
   document.querySelectorAll("#quadbox .qhit").forEach(x=>{const on=x.dataset.corner===corner;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on?"true":"false");});
   document.querySelectorAll("#quadbox .qn").forEach(x=>x.classList.toggle("on",x.dataset.corner===corner));
   updateQuadSummary();
@@ -410,15 +436,21 @@ $("#target-appearance").addEventListener("input",updateQuadSummary);
 // vira de horizontal p/ vertical e o número de cada canto muda. O TOQUE continua no
 // mesmo lugar da tela — reaplicamos a seleção pelo CANTO físico e só reescrevemos o nº.
 function applyCameraView(){
-  const lateral = state.camera==="lateral";
-  $("#cam-fundo").style.display   = lateral ? "none" : "";
-  $("#cam-lateral").style.display = lateral ? "" : "none";
-  const ex=$("#quadhint-extra");
-  if(ex) ex.textContent = lateral
-    ? "Rede vertical · 1·2 = time da esquerda · 3·4 = time da direita · câmera na lateral."
-    : "Rede horizontal · 1·2 no fundo (adversário) · 3·4 na frente (seu time) · câmera atrás.";
-  if(state.target_corner){                 // mantém o canto; só reescreve o número/rótulo
-    state.target_quadrant=CORNER_Q[state.camera][state.target_corner];
+  const cam = CAMS[state.camera] || CAMS.fundo_meu;
+  const isLat = cam.axis==="lateral";
+  $("#cam-fundo").style.display   = isLat ? "none" : "";
+  $("#cam-lateral").style.display = isLat ? "" : "none";
+  if(!isLat){                               // fundo: troca só os rótulos de cima/baixo
+    $("#f-top").textContent = cam.ftop;
+    $("#f-bot").textContent = cam.fbot;
+  }else{                                    // lateral: troca os times das colunas + lado da câmera
+    $("#l-teamL").textContent = cam.lL;
+    $("#l-teamR").textContent = cam.lR;
+    const lc=$("#l-cam"); lc.textContent=cam.lcam; lc.setAttribute("x",cam.lcamX); lc.setAttribute("y",cam.lcamY); lc.setAttribute("text-anchor",cam.lcamA);
+  }
+  const ex=$("#quadhint-extra"); if(ex) ex.textContent = cam.hint;
+  if(state.target_corner){                  // mantém o canto físico; só reescreve número/rótulo
+    state.target_quadrant=CORNER_Q[cam.axis][state.target_corner];
     updateQuadSummary();
   }
 }
@@ -536,7 +568,7 @@ function render(d){
   if(m.action_phase) addChip("info","FASE", PHASES[m.action_phase]||m.action_phase);
   if(m.handedness && m.handedness!=="indeterminado") addChip("","LATERALIDADE", HAND[m.handedness]||m.handedness);
   if(m.subject_lock_confidence) addChip(m.subject_lock_confidence==="baixa"?"":"green","TRAVOU NO ALVO", CONF[m.subject_lock_confidence]||m.subject_lock_confidence);
-  if(m.camera_meta&&m.camera_meta.position) addChip("","CÂMERA", m.camera_meta.position);
+  if(m.camera_meta&&m.camera_meta.position) addChip("","CÂMERA", CAMLABEL[m.camera_meta.position]||m.camera_meta.position);
   // âncora por quadrante + auto-check de setor (travou no atleta certo?)
   if(route.target_quadrant){
     const q=route.target_quadrant;

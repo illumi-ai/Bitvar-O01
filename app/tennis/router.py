@@ -70,7 +70,7 @@ async def analyze(
     player_racket_color: str | None = Form(None, description="Cor/marca da raquete."),
     player_glasses: bool | None = Form(None, description="Usa óculos?"),
     player_hair: str | None = Form(None, description="Cabelo (cor/comprimento)."),
-    camera_position: str | None = Form(None, description="Posição da câmera: fundo | lateral | central | outra."),
+    camera_position: str | None = Form(None, description="Posição da câmera (1 por lado): fundo_meu | fundo_adv | lateral_esq | lateral_dir (aceita também fundo/lateral/central legados)."),
     target_quadrant: str | None = Form(None, description="Quadrante onde o atleta-alvo começa o ponto (1-4)."),
     target_appearance: str | None = Form(None, description="Cor/aparência do alvo (fio de continuidade; ex.: camisa e short azul)."),
 ):

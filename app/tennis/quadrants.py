@@ -12,12 +12,19 @@ Por que o mapa depende da CÂMERA (spec "quadrante × câmera", áudio + vídeo 
 Caio 25/06): o MESMO canto da tela vira NÚMERO diferente conforme o ângulo, porque a
 numeração segue os TIMES e o eixo que separa os times muda com a câmera —
 
-* Câmera de FUNDO — a rede aparece HORIZONTAL no quadro; os times ficam em CIMA (fundo,
-  adversário) e EMBAIXO (frente, seu time). Numeração por LINHAS: 1·2 no fundo, 3·4 na
-  frente (ímpar = esquerda, par = direita).
-* Câmera LATERAL — a rede aparece VERTICAL no quadro; os times ficam à ESQUERDA e à
-  DIREITA. Numeração por COLUNAS: 1·2 = time da esquerda, 3·4 = time da direita (em
+* Câmera de FUNDO — a rede aparece HORIZONTAL no quadro; uma quadra fica em CIMA e a
+  outra EMBAIXO. Numeração por LINHAS: 1·2 no fundo, 3·4 na frente (ímpar = esquerda,
+  par = direita).
+* Câmera LATERAL — a rede aparece VERTICAL no quadro; uma quadra fica à ESQUERDA e a
+  outra à DIREITA. Numeração por COLUNAS: 1·2 = lado esquerdo, 3·4 = lado direito (em
   cima = fundo, embaixo = perto da câmera).
+
+São 4 POSIÇÕES físicas (uma por lado da quadra) — ``fundo_meu``/``fundo_adv`` e
+``lateral_esq``/``lateral_dir`` —, mas só 2 EIXOS de numeração: as 2 de fundo
+compartilham o mapa horizontal e as 2 laterais o vertical. O lado físico só ESPELHA os
+RÓTULOS de time (quem é adversário/seu time, qual time em cada coluna), nunca a grade —
+por isso os ``reading``/``label`` aqui são TEAM-NEUTROS (relativos ao quadro), e a
+identidade de time fica no front. :func:`normalize_camera_axis` reduz as 4 ao eixo.
 
 Consequência cravada pelo Caio: o canto INFERIOR-ESQUERDO da tela é **Q3 visto de
 fundo, mas Q2 visto da lateral**. O dedo toca o mesmo lugar; só o sistema sabe traduzir
@@ -45,41 +52,41 @@ class Quadrant(TypedDict):
     reading: str        # leitura na quadra p/ o laudo (ex.: "fundo · esquerda")
 
 
-# Só a LATERAL tem mapa próprio (rede vertical, times esq/dir). Fundo, central, atrás
-# e QUALQUER outro/desconhecido caem em 'fundo' (rede horizontal, times cima/baixo) — o
-# default seguro, que casa com o vídeo de fundo e nunca derruba o roteamento.
-_LATERAL_ALIASES = {"lateral", "lado", "side", "lateralizado", "lateralizada"}
-
-
 def normalize_camera_axis(value: object) -> str:
     """Reduz a referência de câmera ao EIXO do mapa de quadrantes: 'lateral' ou 'fundo'.
 
-    Tolerante (espelha :func:`normalize_quadrant`): qualquer coisa que não seja lateral
-    (fundo, central, atrás, vazio, ``None``, lixo) vira ``'fundo'`` — o eixo default.
+    São 4 POSIÇÕES físicas (uma por lado da quadra), mas só 2 EIXOS de numeração: as duas
+    de fundo (``fundo_meu``/``fundo_adv``) compartilham o mapa de rede HORIZONTAL e as duas
+    laterais (``lateral_esq``/``lateral_dir``) o de rede VERTICAL — o lado só espelha os
+    RÓTULOS de time, não a grade (que é relativa ao FRAME). Por isso aqui basta o eixo.
+
+    Tolerante (espelha :func:`normalize_quadrant`): qualquer coisa que comece por
+    ``lateral`` (ou ``lado``/``side``) vira ``'lateral'``; o resto — ``fundo*``, ``central``,
+    ``atrás``, vazio, ``None``, lixo — vira ``'fundo'`` (eixo default, nunca derruba o roteamento).
     """
     s = (str(value) if value is not None else "").strip().lower()
-    return "lateral" if s in _LATERAL_ALIASES else "fundo"
+    return "lateral" if (s.startswith("lateral") or s in {"lado", "side"}) else "fundo"
 
 
 # Fonte de verdade da numeração — UM MAPA POR CÂMERA. Grade 2×2 sobre o FRAME:
-#   FUNDO   (rede ⎯ horizontal):   1 2   ·  1·2 no fundo (adversário) / 3·4 na frente
+#   FUNDO   (rede ⎯ horizontal):   1 2   ·  1·2 no fundo / 3·4 na frente do quadro
 #                                   3 4
-#   LATERAL (rede ⏐ vertical):     1 3   ·  1·2 = time da esquerda / 3·4 = time da direita
+#   LATERAL (rede ⏐ vertical):     1 3   ·  1·2 = lado esquerdo / 3·4 = lado direito
 #                                   2 4      (em cima = fundo · embaixo = perto da câmera)
 # Cravado na tabela "quadrante × câmera" do Caio (25/06): o inferior-esquerdo é Q3 de
 # fundo, Q2 na lateral — mesmo canto, número diferente.
 QUADRANT_MAPS: dict[str, dict[int, Quadrant]] = {
     "fundo": {
-        1: {"label": "fundo-esquerda",  "frame_corner": "canto superior-esquerdo", "frame_side": "esquerda", "reading": "fundo · esquerda (adversário)"},
-        2: {"label": "fundo-direita",   "frame_corner": "canto superior-direito",  "frame_side": "direita",  "reading": "fundo · direita (adversário)"},
-        3: {"label": "frente-esquerda", "frame_corner": "canto inferior-esquerdo", "frame_side": "esquerda", "reading": "frente · esquerda (seu time)"},
-        4: {"label": "frente-direita",  "frame_corner": "canto inferior-direito",  "frame_side": "direita",  "reading": "frente · direita (seu time)"},
+        1: {"label": "fundo-esquerda",  "frame_corner": "canto superior-esquerdo", "frame_side": "esquerda", "reading": "fundo · esquerda"},
+        2: {"label": "fundo-direita",   "frame_corner": "canto superior-direito",  "frame_side": "direita",  "reading": "fundo · direita"},
+        3: {"label": "frente-esquerda", "frame_corner": "canto inferior-esquerdo", "frame_side": "esquerda", "reading": "frente · esquerda"},
+        4: {"label": "frente-direita",  "frame_corner": "canto inferior-direito",  "frame_side": "direita",  "reading": "frente · direita"},
     },
     "lateral": {
-        1: {"label": "esquerda-fundo", "frame_corner": "canto superior-esquerdo", "frame_side": "esquerda", "reading": "time da esquerda · ao fundo"},
-        2: {"label": "esquerda-perto", "frame_corner": "canto inferior-esquerdo", "frame_side": "esquerda", "reading": "time da esquerda · perto da câmera"},
-        3: {"label": "direita-fundo",  "frame_corner": "canto superior-direito",  "frame_side": "direita",  "reading": "time da direita · ao fundo"},
-        4: {"label": "direita-perto",  "frame_corner": "canto inferior-direito",  "frame_side": "direita",  "reading": "time da direita · perto da câmera"},
+        1: {"label": "esquerda-fundo", "frame_corner": "canto superior-esquerdo", "frame_side": "esquerda", "reading": "lado esquerdo da imagem · ao fundo"},
+        2: {"label": "esquerda-perto", "frame_corner": "canto inferior-esquerdo", "frame_side": "esquerda", "reading": "lado esquerdo da imagem · perto"},
+        3: {"label": "direita-fundo",  "frame_corner": "canto superior-direito",  "frame_side": "direita",  "reading": "lado direito da imagem · ao fundo"},
+        4: {"label": "direita-perto",  "frame_corner": "canto inferior-direito",  "frame_side": "direita",  "reading": "lado direito da imagem · perto"},
     },
 }
 
@@ -89,9 +96,9 @@ VALID_QUADRANTS = tuple(QUADRANT_MAPS["fundo"])  # (1, 2, 3, 4)
 # 'esquerda/direita' na orientação certa. Muda dinamicamente com a seleção do front.
 _AXIS_PROMPT = {
     "fundo": (
-        "A câmera filma de FUNDO (atrás da linha de fundo): a REDE corta o QUADRO na "
-        "HORIZONTAL — o fundo da quadra (adversários) aparece em CIMA da imagem e a "
-        "frente (seu time) EMBAIXO. 'Esquerda' e 'direita' são os lados DA IMAGEM."
+        "A câmera filma de FUNDO (atrás de uma das linhas de fundo): a REDE corta o "
+        "QUADRO na HORIZONTAL — uma das quadras aparece na METADE DE CIMA da imagem e a "
+        "outra na METADE DE BAIXO. 'Esquerda' e 'direita' são os lados DA IMAGEM."
     ),
     "lateral": (
         "A câmera filma da LATERAL: a REDE corta o QUADRO na VERTICAL — um time fica à "

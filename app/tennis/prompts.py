@@ -298,8 +298,10 @@ def build_camera_block(camera_position: str | None, frame_relative: bool = False
     pos = (camera_position or "").strip().lower()
     if not pos:
         return None
-    fundo_like = pos in ("fundo", "atras", "atrás", "back", "baseline")
-    lateral_like = pos in ("lateral", "lado", "side")
+    # casa por PREFIXO (espelha quadrants.normalize_camera_axis): as 4 posições
+    # (fundo_meu/fundo_adv/lateral_esq/lateral_dir) reduzem aos 2 eixos de leitura.
+    fundo_like = pos.startswith("fundo") or pos in ("atras", "atrás", "back", "baseline")
+    lateral_like = pos.startswith("lateral") or pos in ("lado", "side")
     central_like = pos in ("central", "centro", "center", "centre")
     if fundo_like:
         nice = "de FUNDO (atrás da linha de fundo)"
@@ -333,7 +335,7 @@ def build_camera_block(camera_position: str | None, frame_relative: bool = False
             "pela rede; IGNORE qualquer quadra ao lado/adjacente que apareça no quadro."
         )
     return (
-        f"REFERÊNCIA DE CÂMERA: posição '{camera_position.strip()}'. Descreva a posição "
+        f"REFERÊNCIA DE CÂMERA: filmado {nice}. Descreva a posição "
         "do atleta em zonas qualitativas relativas a esta câmera (fundo/meio/rede, "
         "esquerda/centro/direita) — nunca como coordenadas ou medidas exatas."
     )

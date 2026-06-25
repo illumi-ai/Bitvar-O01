@@ -1260,6 +1260,43 @@ def test_normalize_camera_axis():
     assert normalize_camera_axis(None) == "fundo"          # default seguro, não levanta
     assert normalize_camera_axis("") == "fundo"
     assert normalize_camera_axis("xyz") == "fundo"
+    # 4 POSIÇÕES físicas (uma por lado) → 2 eixos: fundos→fundo, laterais→lateral
+    assert normalize_camera_axis("fundo_meu") == "fundo"
+    assert normalize_camera_axis("fundo_adv") == "fundo"
+    assert normalize_camera_axis("lateral_esq") == "lateral"
+    assert normalize_camera_axis("lateral_dir") == "lateral"
+
+
+def test_mirror_camera_positions_share_axis_and_side():
+    # As 2 posições de fundo (e as 2 laterais) compartilham numeração/lado — o lado físico
+    # só espelha rótulos, não a grade (relativa ao FRAME). Garante que o auto-check de setor
+    # NÃO muda entre o fundo do meu time e o fundo do adversário.
+    from app.tennis.quadrants import quadrant_frame_side, quadrant_label
+    for q in (1, 2, 3, 4):
+        assert quadrant_frame_side(q, "fundo_meu") == quadrant_frame_side(q, "fundo_adv")
+        assert quadrant_frame_side(q, "lateral_esq") == quadrant_frame_side(q, "lateral_dir")
+        assert quadrant_label(q, "fundo_adv") == quadrant_label(q, "fundo")        # mesmo eixo
+        assert quadrant_label(q, "lateral_dir") == quadrant_label(q, "lateral")
+    # e o canto inferior-esquerdo segue Q3 nos fundos, Q2 nas laterais
+    assert quadrant_frame_side(3, "fundo_adv") == "esquerda"
+    assert quadrant_frame_side(2, "lateral_dir") == "esquerda"
+
+
+def test_build_camera_block_accepts_4_position_vocab():
+    # review-fix (front-back/prompt HIGH): build_camera_block casava por igualdade exata e
+    # NÃO reconhecia os 4 valores que o front envia (fundo_meu/...), perdendo o bloco
+    # frame-relativo no fluxo default e vazando o enum cru. Agora casa por prefixo.
+    from app.tennis.prompts import build_camera_block
+    for cam in ("fundo_meu", "fundo_adv"):
+        blk = build_camera_block(cam)                       # SEM quadrante (fluxo default)
+        assert "FUNDO" in blk and "não inverta" in blk.lower()   # frame-relativo preservado
+        assert cam not in blk                               # enum cru NÃO vaza
+        assert "posição '" not in blk                       # nem o fallback genérico cru
+    for cam in ("lateral_esq", "lateral_dir"):
+        plain = build_camera_block(cam)
+        assert "LATERAL" in plain and cam not in plain
+        fr = build_camera_block(cam, frame_relative=True)   # COM quadrante
+        assert "RELATIVAS À IMAGEM" in fr and "LATERAL" in fr and cam not in fr
 
 
 def test_quadrant_numbering_is_camera_dependent():
