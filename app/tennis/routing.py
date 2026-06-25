@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from .benchmarks import numbers_for
 from .config import tennis_settings as cfg
-from .models import ClipAnalysis, Gender, MatchAnalysis, Mode, RouteInfo
+from .models import ClipAnalysis, Gender, Level, MatchAnalysis, Mode, RouteInfo
 from .weights import WEIGHT_MODEL_BY_GENDER
 
 _GENDER_ALIASES = {
@@ -34,6 +34,27 @@ def normalize_gender(value: str | None) -> Gender:
     if g is None:
         raise ValueError(f"gênero inválido: {value!r} (use 'male' ou 'female')")
     return g  # type: ignore[return-value]
+
+
+_LEVEL_ALIASES = {
+    "amador": "amador", "amadora": "amador", "amateur": "amador", "am": "amador",
+    "recreativo": "amador", "iniciante": "amador", "hobby": "amador",
+    "profissional": "profissional", "profissionais": "profissional",
+    "pro": "profissional", "pró": "profissional", "professional": "profissional",
+    "elite": "profissional", "competitivo": "profissional",
+}
+
+
+def normalize_level(value: str | None) -> Level:
+    """Aceita amador/amateur/am e profissional/pro/elite… Default: amador (tolerante).
+
+    Diferente de :func:`normalize_gender`, NÃO levanta em valor desconhecido: nível
+    é uma dica de cobrança de regras, não um eixo crítico — um valor estranho cai
+    para 'amador' (categoria mais conservadora, que nunca penaliza regra de pro).
+    """
+    if not value:
+        return "amador"
+    return _LEVEL_ALIASES.get(value.strip().lower(), "amador")  # type: ignore[return-value]
 
 
 def normalize_mode_override(value: str | None) -> Mode | None:
@@ -82,9 +103,11 @@ def build_route(
     duration: float | None,
     override: str | None,
     file_size_bytes: int | None,
+    level_in: str | None = None,
 ) -> Route:
     """Monta a decisão de roteamento a partir das entradas do usuário."""
     gender = normalize_gender(gender_in)
+    level = normalize_level(level_in)
     mode, detection = decide_mode(
         duration, normalize_mode_override(override), file_size_bytes
     )
@@ -102,6 +125,7 @@ def build_route(
     info = RouteInfo(
         gender=gender,
         mode=mode,
+        level=level,
         fps=fps,
         media_resolution=media_res,
         thinking_level=cfg.analysis_thinking_level,

@@ -20,12 +20,12 @@ from app.tennis import gemini as gem  # noqa: E402
 from app.tennis import router as trouter  # noqa: E402
 from app.tennis.config import tennis_settings as cfg  # noqa: E402
 from app.tennis.models import (  # noqa: E402
-    Biomechanics, ClipAnalysis, FootworkMovement, MatchAnalysis, OutcomeQuality,
-    PositioningRead, PressurePoints, RallyStats, ReturnStats, ScoreObs, ServeStats,
-    SubjectHint, TacticalIntent, TechnicalExecution,
+    Biomechanics, ClipAnalysis, FootworkMovement, LowerBodyBase, MatchAnalysis,
+    OutcomeQuality, PositioningRead, PressurePoints, RallyStats, ReturnStats,
+    ScoreObs, ServeStats, SubjectHint, TacticalEvent, TacticalIntent, TechnicalExecution,
 )
 from app.tennis.routing import (  # noqa: E402
-    build_route, decide_mode, normalize_gender, normalize_mode_override,
+    build_route, decide_mode, normalize_gender, normalize_level, normalize_mode_override,
 )
 from app.tennis.service import EmptyUpload, TennisService, UploadTooLarge  # noqa: E402
 from app.tennis.weights import (  # noqa: E402
@@ -244,6 +244,18 @@ def _clip_result() -> ClipAnalysis:
         ),
         biomechanics=Biomechanics(kinetic_chain=so(7), hip_shoulder_rotation=so(6), weight_transfer=so(7)),
         tactical_intent=TacticalIntent(shot_placement_quality=so(7), shot_selection=so(8)),
+        lower_body_base=LowerBodyBase(
+            defensive_base_flexion=so(7), movement_base_flexion=so(6),
+            stability_center_of_gravity=so(7),
+        ),
+        floating_ball_fault=False,
+        tactical_events=[
+            TacticalEvent(event_type="finta", actor="adversario", approx_timestamp_s=2.1,
+                          description="adversário amagou a finalização e errou o tempo da finta"),
+            TacticalEvent(event_type="espaco_livre", actor="alvo", approx_timestamp_s=3.0,
+                          description="alvo finalizou no vazio aberto pelo deslocamento da dupla"),
+        ],
+        point_outcome_link="não caiu na finta, aproveitou o deslocamento da dupla e finalizou no espaço livre",
         clip_quality_score=7.4, key_improvement="Gire mais o quadril no contato.",
         secondary_improvements=["Antecipe o split step."],
     )
@@ -491,3 +503,453 @@ def test_subject_provided_detects_new_fields():
     assert SubjectHint(glasses=True).provided() is True
     assert SubjectHint(glasses=False).provided() is False   # False não conta como dica
     assert SubjectHint(racket_color="preta").provided() is True
+
+
+# --------------------------------------------------------------------------- #
+# WF1 — classificação FASE→GOLPE (taxonomia, smash proibido, phase_alternative) #
+# --------------------------------------------------------------------------- #
+def test_clip_prompt_bans_smash_outside_attack():
+    # a taxonomia golpe-por-fase e a regra dura precisam chegar ao modelo na chamada 1.
+    from app.tennis.prompts import analysis_system_prompt
+    sp = analysis_system_prompt("male", "clip")
+    low = sp.lower()
+    assert "overhead_smash" in sp
+    assert "proibido" in low
+    assert "attack" in sp and "net_play" in sp
+    assert "drop_shot" in sp and "deixadinha" in low
+    assert "defesa" in low and "ataque" in low
+    assert "saque" in low and "morre" in low
+    assert "joelhos" in low
+    # o match NÃO recebe essa taxonomia (é estatística, não golpe-por-fase)
+    assert "deixadinha" not in analysis_system_prompt("male", "match").lower()
+
+
+def test_clip_phase_alternative_is_optional():
+    # invariante 1: campos novos de fase são Optional com default None.
+    c = _clip_result()  # não seta os novos campos de fase alternativa
+    assert c.phase_alternative is None
+    assert c.phase_alternative_rationale is None
+    c2 = ClipAnalysis(
+        analysis_mode="clip", gender_profile="male", shot_identified="return",
+        action_phase="serve_return", phase_alternative="defense",
+        phase_alternative_rationale="bola vem do saque adversario; pode ser defesa.",
+        phase_confidence="baixa",
+        technical_execution=_clip_result().technical_execution,
+        clip_quality_score=5.0, key_improvement="Ajuste o split step na recepcao.",
+    )
+    assert c2.phase_alternative == "defense"
+    assert c2.model_dump()["phase_alternative"] == "defense"
+
+
+def test_phase_first_correction_no_smash_in_report(client, monkeypatch):
+    # DoD WF1 (vídeo 00000201): recepção defensiva com deixadinha NÃO pode sair
+    # como 'smash em ataque'. Mock devolve o contrato pós-correção.
+    so = lambda n: ScoreObs(score=n, observation="base baixa, joelhos flexionados")  # noqa: E731
+    corrected = ClipAnalysis(
+        analysis_mode="clip", gender_profile="male", shot_identified="drop_shot",
+        action_phase="serve_return", phase_confidence="baixa", shot_confidence="media",
+        phase_alternative="defense",
+        phase_alternative_rationale="bola vem do saque adversario e ele recua; recepcao, nao ataque.",
+        visual_evidence="bola alta vinda do saque adversario; toque curto que morre perto da rede",
+        subject_lock_confidence="media", handedness="destro",
+        floating_ball_fault=True,
+        technical_execution=TechnicalExecution(
+            preparation=so(5), contact_point=so(5), follow_through=so(5),
+            balance_and_posture=so(4), racket_path=so(5),
+        ),
+        lower_body_base=LowerBodyBase(defensive_base_flexion=so(3), stability_center_of_gravity=so(3)),
+        clip_quality_score=4.5,
+        key_improvement="Na recepcao, abaixe a base e devolva profundo em vez da deixadinha.",
+        secondary_improvements=["Antecipe o split step na devolucao."],
+    )
+
+    class _FakeGeminiPhase(_FakeGemini):
+        def analyze(self, file, *, schema_model, system_prompt, fps, media_resolution):
+            return corrected if schema_model is ClipAnalysis else _match_result()
+
+        def narrate(self, metrics, *, gender, mode, player_name=None):
+            return "Na recepcao voce leu bem a bola, mas devolva mais profundo."
+
+    monkeypatch.setattr(trouter.service, "gemini", _FakeGeminiPhase())
+
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("00000201.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false"},
+    )
+    assert r.status_code == 200, r.text
+    m = r.json()["metrics"]
+    assert m["action_phase"] in ("defense", "serve_return")
+    assert m["shot_identified"] in ("drop_shot", "return")
+    assert m["phase_alternative"] == "defense"
+    narrative = r.json()["narrative"] or ""
+    assert "smash" not in m["key_improvement"].lower()
+    assert "smash" not in narrative.lower()
+    from app.tennis.router import _render_txt_report
+    rec = {"id": 201, "gender": "male", "mode": "clip", "created_at": "2026-06-24T00:00:00Z",
+           "result_json": {"metrics": m, "narrative": narrative}}
+    txt = _render_txt_report(rec).lower()
+    assert "smash" not in txt
+    assert "drop_shot" in txt or "deixadinha" in m["key_improvement"].lower()
+    # guard-rail REAL (não só a string do mock): o prompt de narrativa desta fase
+    # defensiva de fato bane 'smash' e ancora na base — fecha o gap "testa o mock".
+    from app.tennis.prompts import build_narrative_prompt
+    real_prompt = build_narrative_prompt(m, "male", "clip")
+    assert 'NÃO use a palavra "smash"' in real_prompt and "MEMBROS INFERIORES" in real_prompt
+
+
+# --------------------------------------------------------------------------- #
+# WF2 — eixo de NÍVEL (amador|profissional) + gate de regras por categoria      #
+# --------------------------------------------------------------------------- #
+def test_normalize_level_tolerant():
+    assert normalize_level("profissional") == "profissional"
+    assert normalize_level("PRO") == "profissional"
+    assert normalize_level("amateur") == "amador"
+    assert normalize_level(None) == "amador"
+    assert normalize_level("") == "amador"
+    assert normalize_level("qualquer-coisa") == "amador"  # tolerante, não levanta
+
+
+def test_applicable_rules_intersection():
+    from app.tennis.rules import applicable_rules
+    pro = applicable_rules("male", "profissional")
+    assert any("PARCEIRO DO SACADOR" in r for r in pro)
+    assert applicable_rules("male", "amador") == []
+    assert applicable_rules("female", "profissional") == []
+    assert applicable_rules("female", "amador") == []
+
+
+def test_rules_block_gate_by_category():
+    from app.tennis.rules import build_rules_block
+    assert build_rules_block("male", "amador") is None
+    blk = build_rules_block("male", "profissional")
+    assert blk is not None
+    assert "PARCEIRO DO SACADOR" in blk and "rede" in blk
+    assert "APENAS" in blk
+    assert build_rules_block("female", "profissional") is None
+
+
+def test_analysis_prompt_injects_rules_only_for_pro():
+    from app.tennis.prompts import analysis_system_prompt
+    from app.tennis.rules import build_rules_block
+    pro_block = build_rules_block("male", "profissional")
+    sp_pro = analysis_system_prompt("male", "clip", None, None, pro_block)
+    assert "PARCEIRO DO SACADOR" in sp_pro
+    am_block = build_rules_block("male", "amador")
+    sp_am = analysis_system_prompt("male", "clip", None, None, am_block)
+    assert "PARCEIRO DO SACADOR" not in sp_am
+    sp_match = analysis_system_prompt("male", "match", None, None, pro_block)
+    assert "PARCEIRO DO SACADOR" in sp_match
+
+
+def test_build_route_threads_level():
+    r = build_route("male", duration=10, override=None, file_size_bytes=5_000_000, level_in="pro")
+    assert r.info.level == "profissional"
+    r2 = build_route("male", duration=10, override=None, file_size_bytes=5_000_000)
+    assert r2.info.level == "amador"
+
+
+def test_analyze_echoes_level(client):
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("clip.mp4", b"\x00" * 1024, "video/mp4")},
+        data={"gender": "male", "level": "profissional", "mode": "clip", "with_audio": "false"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["route"]["level"] == "profissional"
+    r2 = client.post(
+        "/tennis/analyze",
+        files={"file": ("clip.mp4", b"\x00" * 1024, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false"},
+    )
+    assert r2.json()["route"]["level"] == "amador"
+
+
+# --------------------------------------------------------------------------- #
+# WF3 — reponderação da nota do CLIP para a base/membros inferiores             #
+# --------------------------------------------------------------------------- #
+def test_clip_weight_models_sum_to_one():
+    from app.tennis.weights import CLIP_WEIGHT_MODELS
+    for name, spec in CLIP_WEIGHT_MODELS.items():
+        total = round(sum(w for w, _, _ in spec.values()), 6)
+        assert total == 1.0, f"{name} soma {total}"
+
+
+def test_clip_defensive_model_prioritizes_base_over_arm():
+    from app.tennis.weights import CLIP_WEIGHT_MODELS, DEFENSIVE_CLIP_MODEL
+    spec = CLIP_WEIGHT_MODELS[DEFENSIVE_CLIP_MODEL]
+    base_keys = {"defensive_base_flexion", "stability_center_gravity",
+                 "floating_ball_control", "split_step", "court_positioning",
+                 "recovery_after_shot"}
+    arm_keys = {"balance_and_posture", "contact_point", "preparation",
+                "follow_through", "racket_path"}
+    base_w = sum(w for k, (w, _, _) in spec.items() if k in base_keys)
+    arm_w = sum(w for k, (w, _, _) in spec.items() if k in arm_keys)
+    # 'base DOMINA' não pode degradar para 'base empata': piso explícito (era só >).
+    assert base_w >= 0.70 and arm_w <= 0.25, f"base DOMINA? base={base_w} braço={arm_w}"
+
+
+def test_clip_phase_routes_to_correct_model():
+    from app.tennis.weights import (
+        DEFENSIVE_CLIP_MODEL, NEUTRAL_CLIP_MODEL, OFFENSIVE_CLIP_MODEL,
+        clip_weight_model_for_phase,
+    )
+    assert clip_weight_model_for_phase("serve_return") == DEFENSIVE_CLIP_MODEL
+    assert clip_weight_model_for_phase("defense") == DEFENSIVE_CLIP_MODEL
+    assert clip_weight_model_for_phase("attack") == OFFENSIVE_CLIP_MODEL
+    assert clip_weight_model_for_phase("net_play") == OFFENSIVE_CLIP_MODEL
+    assert clip_weight_model_for_phase("baseline_rally") == NEUTRAL_CLIP_MODEL
+    assert clip_weight_model_for_phase(None) == NEUTRAL_CLIP_MODEL
+    assert clip_weight_model_for_phase("xpto") == NEUTRAL_CLIP_MODEL
+
+
+def test_compute_clip_weighted_score_shape_and_sum():
+    from app.tennis.weights import compute_clip_weighted_score
+    metrics = {
+        "lower_body_base": {
+            "defensive_base_flexion": {"score": 8, "observation": "x"},
+            "stability_center_of_gravity": {"score": 7, "observation": "x"},
+        },
+        "footwork_and_movement": {"split_step": {"score": 6, "observation": "x"}},
+        "technical_execution": {"contact_point": {"score": 5, "observation": "x"}},
+        "floating_ball_fault": False,
+    }
+    ws = compute_clip_weighted_score(metrics, "serve_return", "male")
+    assert set(ws) == {"score", "weighting_model", "component_breakdown",
+                       "components_present", "components_total"}
+    assert 0 <= ws["score"] <= 100
+    assert ws["weighting_model"] == "clip_defensive_base_v1"
+    csum = round(sum(c["contribution_pts"] for c in ws["component_breakdown"]), 1)
+    assert abs(csum - ws["score"]) < 0.2
+    missing = [c for c in ws["component_breakdown"] if not c["present"]]
+    assert missing and all(c["contribution_pts"] == 0.0 for c in missing)
+
+
+def test_floating_ball_fault_lowers_clip_score():
+    from app.tennis.weights import compute_clip_weighted_score
+    base = {
+        "lower_body_base": {"defensive_base_flexion": {"score": 5, "observation": "x"}},
+        "footwork_and_movement": {"split_step": {"score": 5, "observation": "x"}},
+    }
+    clean = compute_clip_weighted_score({**base, "floating_ball_fault": False}, "serve_return")
+    fault = compute_clip_weighted_score({**base, "floating_ball_fault": True}, "serve_return")
+    assert clean["score"] > fault["score"]
+
+
+def test_clip_low_base_high_legs_yields_low_defensive_score():
+    from app.tennis.weights import compute_clip_weighted_score
+    recepcao_ruim = {
+        "lower_body_base": {
+            "defensive_base_flexion": {"score": 2, "observation": "pernas estendidas"},
+            "movement_base_flexion": {"score": 3, "observation": "x"},
+            "stability_center_of_gravity": {"score": 3, "observation": "x"},
+        },
+        "footwork_and_movement": {
+            "split_step": {"score": 3, "observation": "x"},
+            "court_positioning": {"score": 4, "observation": "x"},
+            "recovery_after_shot": {"score": 4, "observation": "x"},
+        },
+        "technical_execution": {
+            "contact_point": {"score": 9, "observation": "x"},
+            "racket_path": {"score": 9, "observation": "x"},
+            "balance_and_posture": {"score": 4, "observation": "x"},
+            "preparation": {"score": 6, "observation": "x"},
+        },
+        "floating_ball_fault": True,
+        "floating_ball_observation": "base alta + raquete baixa, bola flutuou",
+    }
+    ws = compute_clip_weighted_score(recepcao_ruim, "serve_return")
+    assert ws["score"] < 45, ws["score"]
+
+
+def test_analyze_clip_has_weighted_score_phase_conditioned(client):
+    # ponta-a-ponta: o ramo clip do service atacha a nota oficial calibrada por
+    # fase ao metrics, preservando clip_quality_score do VLM.
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("clip.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false"},
+    )
+    assert r.status_code == 200, r.text
+    m = r.json()["metrics"]
+    assert m["clip_quality_score"] == 7.4               # referência do VLM preservada
+    ws = m["weighted_performance_score"]                # nota oficial Python
+    assert 0 <= ws["score"] <= 100
+    # _clip_result() tem action_phase='baseline_rally' => modelo neutro
+    assert ws["weighting_model"] == "clip_neutral_balanced_v1"
+
+
+# --------------------------------------------------------------------------- #
+# WF4 — leitura tática do ponto (tactical_events + point_outcome_link)          #
+# --------------------------------------------------------------------------- #
+def test_tactical_event_schema_accepts_relational_events():
+    so = lambda n: ScoreObs(score=n, observation="x")  # noqa: E731
+    te = TechnicalExecution(preparation=so(7), contact_point=so(7), follow_through=so(7),
+                            balance_and_posture=so(7), racket_path=so(7))
+    clip = ClipAnalysis(
+        analysis_mode="clip", gender_profile="male", shot_identified="drop_shot",
+        action_phase="serve_return", technical_execution=te, clip_quality_score=6.0,
+        key_improvement="leia o vazio antes de finalizar",
+        tactical_events=[
+            TacticalEvent(event_type="finta", actor="adversario", approx_timestamp_s=2.1,
+                          description="adversário tentou a finta e perdeu o tempo"),
+            TacticalEvent(event_type="aproveitamento_deslocamento", actor="alvo",
+                          description="alvo explorou a dupla fora de posição"),
+            TacticalEvent(event_type="espaco_livre", actor="alvo",
+                          description="finalizou no espaço livre"),
+        ],
+        point_outcome_link="não caiu na finta, aproveitou o deslocamento e finalizou no espaço livre",
+    )
+    assert clip.tactical_events is not None and len(clip.tactical_events) == 3
+    assert clip.tactical_events[0].event_type == "finta"
+    assert clip.tactical_events[0].actor == "adversario"
+    assert "espaço livre" in clip.point_outcome_link
+    bare = ClipAnalysis(analysis_mode="clip", gender_profile="male", shot_identified="forehand",
+                        technical_execution=te, clip_quality_score=7.0, key_improvement="ok")
+    assert bare.tactical_events is None and bare.point_outcome_link is None
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        ClipAnalysis(analysis_mode="clip", gender_profile="male", shot_identified="forehand",
+                     technical_execution=te, clip_quality_score=7.0, key_improvement="ok",
+                     tactical_events=[TacticalEvent(event_type="outro", description=f"e{i}")
+                                      for i in range(6)])
+
+
+def test_clip_prompt_cites_tactical_catalog():
+    from app.tennis.prompts import analysis_system_prompt
+    sp = analysis_system_prompt("male", "clip")
+    low = sp.lower()
+    assert "finta" in low
+    assert "espaço livre" in low or "espaco_livre" in low
+    assert "deslocamento" in low
+    assert "quatro jogadores" in low or "4 jogadores" in low
+    assert "tactical_events" in sp and "point_outcome_link" in sp
+    assert "finta" not in analysis_system_prompt("female", "match").lower()
+
+
+def test_narrative_prompt_mentions_tactical_reading():
+    from app.tennis.prompts import build_narrative_prompt
+    p = build_narrative_prompt({}, "male", "clip")
+    assert "tactical_events" in p and "point_outcome_link" in p
+    assert "espaço livre" in p.lower()
+
+
+# --------------------------------------------------------------------------- #
+# WF5 — tom do coach (esqueleto 4-tempos + few-shot Juca + anti-smash/hype)     #
+# --------------------------------------------------------------------------- #
+def test_narrative_prompt_juca_skeleton_fewshot_and_anti_smash():
+    from app.tennis.prompts import JUCA_FEWSHOT, build_narrative_prompt
+    recepcao = {
+        "action_phase": "serve_return",
+        "shot_identified": "drop_shot",
+        "key_improvement": "Abaixe a base na recepcao: joelhos flexionados.",
+        "technical_execution": {"balance_and_posture": {"score": 4,
+                                 "observation": "pernas estendidas, raquete baixa"}},
+    }
+    p = build_narrative_prompt(recepcao, "male", "clip", player_name="Cesar")
+    assert "ESTRUTURA OBRIGATÓRIA" in p
+    assert "NOMEIE A FASE" in p
+    assert "MEMBROS INFERIORES" in p
+    assert "Traga a REGRA de contexto" in p
+    assert "CORREÇÃO objetiva" in p
+    assert p.index("NOMEIE A FASE") < p.index("MEMBROS INFERIORES") < p.index("CORREÇÃO objetiva")
+    assert JUCA_FEWSHOT in p
+    assert "bola flutuante" in p
+    assert "raiz do movimento" in p
+    assert 'NÃO use a palavra "smash"' in p
+    assert "superlativos vazios" in p and "'belo'" in p and "'excelente'" in p
+    assert "Juca" in p and "SEM hype" in p
+    assert "Cesar" in p
+    ataque = {"action_phase": "attack", "shot_identified": "overhead_smash",
+              "key_improvement": "Suba mais cedo para o contato."}
+    pa = build_narrative_prompt(ataque, "male", "clip")
+    assert 'NÃO use a palavra "smash"' not in pa
+    assert "NOMEIE A FASE" in pa and JUCA_FEWSHOT in pa
+    assert "superlativos vazios" in pa
+    pe = build_narrative_prompt({}, "male", "clip", player_name="João")
+    assert "João" in pe and "NOMEIE A FASE" in pe and JUCA_FEWSHOT in pe
+    assert 'NÃO use a palavra "smash"' not in pe
+
+
+# --------------------------------------------------------------------------- #
+# WF6 — travar no atleta-alvo e ignorar a quadra ao lado/adjacente             #
+# --------------------------------------------------------------------------- #
+def test_clip_prompt_ignores_adjacent_court():
+    from app.tennis.prompts import analysis_system_prompt, build_camera_block, build_subject_block
+    sp = analysis_system_prompt("male", "clip")
+    low = sp.lower()
+    assert ("quadra ao lado" in low) or ("quadra adjacente" in low) or ("adjacente" in low)
+    assert ("ignore" in low) or ("descarte" in low)
+    assert "rede" in low and "linha" in low
+    assert "início ao fim" in low
+    block = build_subject_block(outfit="camiseta azul")
+    blow = block.lower()
+    assert "adjacente" in blow and "início ao fim" in blow
+    assert "reconhecimento facial" in blow
+    cam = build_camera_block("central").lower()
+    assert "adjacente" in cam and ("ignore" in cam)
+    sp2 = analysis_system_prompt("male", "clip", block, build_camera_block("central")).lower()
+    assert "adjacente" in sp2 and ("ignore" in sp2 or "descarte" in sp2)
+
+
+# --------------------------------------------------------------------------- #
+# pós-revisão — caminho de PRODUÇÃO do score defensivo + narrativa por modo     #
+# --------------------------------------------------------------------------- #
+def test_analyze_clip_defensive_phase_weighs_base_e2e(client, monkeypatch):
+    # contrato models.py <-> weights.py pela serialização REAL do service
+    # (ClipAnalysis.model_dump). Os outros testes de peso usam dicts à mão; um rename
+    # de campo passaria batido. Aqui um clipe DEFENSIVO precisa cair no modelo
+    # defensivo e a flexão de base entra como componente PRESENTE.
+    so = lambda n: ScoreObs(score=n, observation="x")  # noqa: E731
+    defensive = ClipAnalysis(
+        analysis_mode="clip", gender_profile="male", shot_identified="drop_shot",
+        action_phase="serve_return",
+        technical_execution=TechnicalExecution(
+            preparation=so(5), contact_point=so(8), follow_through=so(5),
+            balance_and_posture=so(4), racket_path=so(8),
+        ),
+        footwork_and_movement=FootworkMovement(
+            split_step=so(3), court_positioning=so(4), recovery_after_shot=so(4)
+        ),
+        lower_body_base=LowerBodyBase(
+            defensive_base_flexion=so(3), stability_center_of_gravity=so(3)
+        ),
+        floating_ball_fault=True,
+        clip_quality_score=4.5, key_improvement="Abaixe a base na recepção.",
+    )
+
+    class _FakeGeminiDef(_FakeGemini):
+        def analyze(self, file, *, schema_model, system_prompt, fps, media_resolution):
+            return defensive if schema_model is ClipAnalysis else _match_result()
+
+    monkeypatch.setattr(trouter.service, "gemini", _FakeGeminiDef())
+    r = client.post(
+        "/tennis/analyze",
+        files={"file": ("00000201.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"gender": "male", "mode": "clip", "with_audio": "false"},
+    )
+    assert r.status_code == 200, r.text
+    ws = r.json()["metrics"]["weighted_performance_score"]
+    assert ws["weighting_model"] == "clip_defensive_base_v1"
+    present = {c["component"] for c in ws["component_breakdown"] if c["present"]}
+    assert "defensive_base_flexion" in present     # eixo dominante REALMENTE entrou
+    assert "axis_incomplete" not in ws             # base presente => nota confiável
+    # contato/raquete altos (8/8) NÃO salvam a nota: a base manda na fase defensiva
+    assert ws["score"] < 55, ws["score"]
+
+
+def test_narrative_prompt_match_is_statistical_not_point():
+    # review #1: a narrativa de PARTIDA não pode herdar o esqueleto de UM ponto
+    # (fase do ponto / bola flutuante) nem o few-shot single-point do clipe.
+    from app.tennis.prompts import JUCA_FEWSHOT, build_narrative_prompt
+    pm = build_narrative_prompt(
+        {"serve": {"first_serve_points_won_pct": 68}, "key_improvement": "Suba a 1ª de saque."},
+        "male", "match",
+    )
+    assert "NOMEIE A FASE do ponto" not in pm      # esqueleto de UM ponto fora do match
+    assert "bola flutuante" not in pm              # falha single-shot não cabe em estatística
+    assert JUCA_FEWSHOT not in pm                  # few-shot single-point só no clipe
+    assert "NOMEIE O PADRÃO da partida" in pm and "break points" in pm
+    # o clipe, ao contrário, mantém o esqueleto de ponto + few-shot
+    pc = build_narrative_prompt({"action_phase": "serve_return"}, "male", "clip")
+    assert "NOMEIE A FASE do ponto" in pc and JUCA_FEWSHOT in pc

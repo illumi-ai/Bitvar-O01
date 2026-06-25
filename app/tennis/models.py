@@ -27,6 +27,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 Gender = Literal["male", "female"]
 Mode = Literal["clip", "match"]
+# Eixo de NÍVEL/categoria (amador|profissional) — parâmetro de ENTRADA, igual a
+# Gender/Mode (calibragem Caio 24/06, eixo WF2). NÃO é campo de response_schema:
+# entra pelo form e é exposto em RouteInfo para transparência. Usado por
+# app.tennis.rules para decidir quais regras táticas são cobráveis.
+Level = Literal["amador", "profissional"]
 
 ShotType = Literal[
     "forehand", "backhand", "serve", "return", "volley",
@@ -57,6 +62,25 @@ Confidence = Literal["baixa", "media", "alta"]
 CourtZone = Literal["fundo", "meio", "rede", "transicao"]
 LateralPosition = Literal["esquerda", "centro", "direita"]
 Handedness = Literal["destro", "canhoto", "indeterminado"]
+
+# Catálogo FECHADO de eventos táticos relacionais que o treinador lê e o protótipo
+# ignora (calibragem Caio 24/06, eixo WF4). O modelo hoje parte do GOLPE do alvo e
+# perde a LEITURA DO PONTO: a finta do adversário, o vazio que se abre, o
+# aproveitamento do deslocamento da dupla. Enumerar fecha o vocabulário e evita
+# rótulos soltos. "outro" é a válvula de escape honesta (sem inventar categoria).
+TacticalEventType = Literal[
+    "finta",                        # amago/dissimulação para enganar o adversário
+    "aproveitamento_deslocamento",  # explora a dupla adversária fora de posição
+    "espaco_livre",                 # finaliza no vazio aberto na quadra adversária
+    "colocacao",                    # bola colocada com intenção (ângulo/cantinho)
+    "quebra_de_ritmo",              # muda o tempo do ponto (deixadinha, bola lenta)
+    "outro",
+]
+
+# QUEM protagoniza o evento — leitura relacional dos 4 jogadores do ponto (no beach
+# tennis em duplas: alvo + parceiro × dois adversários). "indefinido" quando a
+# perspectiva da câmera não permite atribuir com confiança.
+TacticalActor = Literal["alvo", "adversario", "parceiro", "indefinido"]
 
 
 # --------------------------------------------------------------------------- #
@@ -90,6 +114,62 @@ class Biomechanics(BaseModel):
     kinetic_chain: ScoreObs
     hip_shoulder_rotation: ScoreObs
     weight_transfer: ScoreObs
+
+
+class LowerBodyBase(BaseModel):
+    """A 'raiz do movimento' — MEMBROS INFERIORES / BASE (eixo WF3, Caio 24/06).
+
+    O especialista lê a qualidade do lance pela BASE (joelhos flexionados, centro
+    de gravidade baixo, estabilidade), não pelo braço — é a raiz técnica real do
+    erro do 00000201. Estes campos tornam a flexão/estabilidade avaliáveis e
+    ponderáveis (:mod:`app.tennis.weights`); ``floating_ball_fault`` (em
+    ``ClipAnalysis``) é o detector explícito do padrão 'pernas altas/estendidas +
+    raquete baixa => bola que flutua'. Todos os campos são opcionais: o modelo só
+    preenche o que viu, e o score re-normaliza sobre os presentes.
+    """
+
+    defensive_base_flexion: ScoreObs | None = Field(
+        default=None,
+        description="Flexão de joelhos/quadril na RECEPÇÃO ou DEFESA — base baixa e estável recebe melhor (10 = base baixa ideal).",
+    )
+    movement_base_flexion: ScoreObs | None = Field(
+        default=None,
+        description="Flexão da base no DESLOCAMENTO até a bola (split step com joelhos flexionados, não pernas retas).",
+    )
+    stability_center_of_gravity: ScoreObs | None = Field(
+        default=None,
+        description="Estabilidade do centro de gravidade no contato (base firme x desequilíbrio por pernas altas).",
+    )
+
+
+class TacticalEvent(BaseModel):
+    """Um evento tático RELACIONAL do ponto (eixo WF4, calibragem Caio 24/06).
+
+    Distinto de :class:`TacticalIntent`, que avalia a INTENÇÃO do golpe do alvo.
+    Aqui o foco é o PONTO entre os 4 jogadores: a finta do adversário, o vazio
+    que se abre, o aproveitamento do deslocamento da dupla. Todos os campos são
+    descritivos/qualitativos — nenhuma nota e nenhuma coordenada (a câmera de
+    quadra não dá medida métrica). É item de lista dentro de ``ClipAnalysis``:
+    ``event_type``/``description`` são obrigatórios DENTRO do item (o item só
+    existe se o modelo decidir emitir um evento), mas a LISTA é Optional/None, então
+    o schema estrito não quebra se o modelo não enxergar nada relacional (invariante 1).
+    """
+
+    event_type: TacticalEventType = Field(
+        description="Categoria do evento tático (catálogo fechado)."
+    )
+    description: str = Field(
+        description="O que aconteceu, em PT-BR e em termos relacionais "
+        "(quem fez, contra quem, que espaço abriu). Curto e concreto."
+    )
+    approx_timestamp_s: float | None = Field(
+        default=None, ge=0,
+        description="Instante aproximado do evento em segundos (estimativa em fps baixo).",
+    )
+    actor: TacticalActor | None = Field(
+        default=None,
+        description="Quem protagonizou o evento (alvo/adversario/parceiro/indefinido).",
+    )
 
 
 class TacticalIntent(BaseModel):
@@ -133,6 +213,23 @@ class ClipAnalysis(BaseModel):
     )
     phase_confidence: Confidence | None = Field(default=None, description="Confiança na fase identificada.")
     shot_confidence: Confidence | None = Field(default=None, description="Confiança no golpe identificado.")
+    # --- fase concorrente / auditabilidade (eixo WF1, calibragem Caio 24/06) ---
+    phase_alternative: ActionPhase | None = Field(
+        default=None,
+        description=(
+            "Hipótese de FASE concorrente quando o lance é ambíguo (ex.: parece "
+            "ataque mas pode ser defesa). Preencha SÓ quando houver dúvida real e, "
+            "nesse caso, rebaixe 'phase_confidence'. Deixe nulo se a fase for clara."
+        ),
+    )
+    phase_alternative_rationale: str | None = Field(
+        default=None,
+        description=(
+            "Por que a fase é ambígua e o que distinguiria uma da outra (em PT-BR). "
+            "Ex.: 'a bola vem do saque adversário e o atleta recua, então pode ser "
+            "recepção/defesa e não ataque'."
+        ),
+    )
     approx_timestamp_s: float | None = Field(
         default=None, ge=0, description="Instante aproximado do lance em segundos (estimativa em fps baixo)."
     )
@@ -153,6 +250,36 @@ class ClipAnalysis(BaseModel):
     footwork_and_movement: FootworkMovement | None = None
     biomechanics: Biomechanics | None = None
     tactical_intent: TacticalIntent | None = None
+
+    # --- MEMBROS INFERIORES / BASE + bola flutuante (eixo WF3, Caio 24/06) ---
+    lower_body_base: LowerBodyBase | None = Field(
+        default=None,
+        description="Avaliação dos MEMBROS INFERIORES / BASE (flexão de joelhos, estabilidade). Base da nota em fases defensivas.",
+    )
+    floating_ball_fault: bool | None = Field(
+        default=None,
+        description="True se o padrão 'pernas estendidas/altas + raquete baixa => bola que flutua (sem controle)' estiver presente.",
+    )
+    floating_ball_observation: str | None = Field(
+        default=None,
+        description="Descrição em PT-BR do que evidencia (ou não) a bola flutuante — base, altura da raquete e trajetória.",
+    )
+
+    # --- LEITURA TÁTICA DO PONTO (eixo WF4, calibragem Caio 24/06) ---
+    # Eventos relacionais entre os 4 jogadores que o treinador vê e o protótipo
+    # ignora. Opcional/None e com teto de itens para não estourar o JSON nem o
+    # custo da chamada. Default None mantém o schema estrito retro-compatível.
+    tactical_events: list[TacticalEvent] | None = Field(
+        default=None,
+        max_length=5,
+        description="Até 5 eventos táticos relacionais do ponto (finta, "
+        "aproveitamento de deslocamento, espaço livre, colocação, quebra de ritmo).",
+    )
+    point_outcome_link: str | None = Field(
+        default=None,
+        description="Encadeamento causa→efeito ligando a tática ao resultado do "
+        "ponto, em PT-BR (ex.: 'não caiu na finta, aproveitou o vazio e finalizou').",
+    )
 
     clip_quality_score: float = Field(
         ge=0, le=10, description="Nota técnica ponderada do lance (0-10)."
@@ -241,6 +368,7 @@ class RouteInfo(BaseModel):
 
     gender: Gender
     mode: Mode
+    level: Level = "amador"  # categoria de cobrança de regras (amador|profissional)
     fps: int
     media_resolution: str
     thinking_level: str

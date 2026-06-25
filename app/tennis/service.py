@@ -27,7 +27,8 @@ from .gemini import GeminiError, TennisGemini
 from .models import SubjectHint, TennisAnalysisResponse
 from .prompts import analysis_system_prompt, build_camera_block, build_subject_block
 from .routing import Route, build_route, probe_duration_seconds
-from .weights import compute_weighted_score
+from .rules import build_rules_block
+from .weights import compute_clip_weighted_score, compute_weighted_score
 
 log = logging.getLogger("bitvar.tennis")
 
@@ -54,6 +55,7 @@ class TennisService:
         upload: UploadFile,
         *,
         gender: str | None,
+        level: str | None = None,
         mode_override: str | None = None,
         duration_hint: float | None = None,
         with_audio: bool = True,
@@ -66,7 +68,8 @@ class TennisService:
         subject = subject or SubjectHint()
         emit(catalog.TENNIS_ANALYZE_RECEIVED, data={
             "filename": upload.filename, "content_type": upload.content_type,
-            "gender": gender, "mode_override": mode_override, "with_audio": with_audio,
+            "gender": gender, "level": level, "mode_override": mode_override,
+            "with_audio": with_audio,
             "subject_provided": subject.provided(),
             "subject": subject.model_dump(exclude_none=True),
             "camera_position": camera_position,
@@ -85,7 +88,8 @@ class TennisService:
             emit(catalog.TENNIS_UPLOAD_SAVED, data={"size_mb": round(size / 1024 / 1024, 2)})
             duration = duration_hint or probe_duration_seconds(path)
             route = build_route(
-                gender, duration=duration, override=mode_override, file_size_bytes=size
+                gender, duration=duration, override=mode_override,
+                file_size_bytes=size, level_in=level,
             )
             emit(catalog.TENNIS_ROUTE_DECIDED, data=route.info.model_dump())
             subject_block = build_subject_block(
@@ -95,8 +99,11 @@ class TennisService:
                 hair=subject.hair,
             )
             camera_block = build_camera_block(camera_position)
+            # regras táticas cobráveis para a categoria (gênero × nível já normalizados)
+            rules_block = build_rules_block(route.info.gender, route.info.level)
             route.system_prompt = analysis_system_prompt(
-                route.info.gender, route.info.mode, subject_block, camera_block
+                route.info.gender, route.info.mode, subject_block, camera_block, rules_block,
+                fps=route.info.fps,
             )
             mime = upload.content_type or "video/mp4"
             # tudo abaixo é rede bloqueante → threadpool
@@ -148,6 +155,22 @@ class TennisService:
             except Exception as e:  # não derruba a análise por causa do score
                 warnings.append(f"score ponderado não calculado: {e}")
                 emit(catalog.TENNIS_WARNING, level="warning", error=e, data={"stage": "weighted_score"})
+        elif mode == "clip":
+            try:
+                phase = metrics.get("action_phase")
+                cws = compute_clip_weighted_score(metrics, phase, gender)
+                # nota OFICIAL calibrável em Python (condicionada à fase);
+                # clip_quality_score do VLM segue como referência qualitativa.
+                metrics["weighted_performance_score"] = cws
+                if cws.get("axis_incomplete"):  # eixo dominante da fase sem nenhum dado
+                    warnings.append(cws["note"])
+                emit(catalog.TENNIS_WEIGHTED_SCORE, data={
+                    "score": cws["score"], "model": cws["weighting_model"],
+                    "components_present": cws["components_present"], "phase": phase,
+                })
+            except Exception as e:  # nunca derruba a análise por causa do score
+                warnings.append(f"score ponderado (clip) não calculado: {e}")
+                emit(catalog.TENNIS_WARNING, level="warning", error=e, data={"stage": "weighted_score_clip"})
 
         narrative: str | None = None
         audio_b64: str | None = None

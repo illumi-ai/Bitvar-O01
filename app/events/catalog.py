@@ -100,7 +100,7 @@ CATALOG: dict[str, tuple[str, str]] = {
     TENNIS_UPLOAD_SAVED: (Category.TENNIS, "Vídeo salvo em disco temporário (tamanho validado)."),
     TENNIS_UPLOAD_REJECTED: (Category.TENNIS, "Upload rejeitado (vazio ou acima do limite)."),
     TENNIS_ROUTE_DECIDED: (Category.TENNIS, "Roteamento decidido (gênero × modo, fps, media_resolution)."),
-    TENNIS_WEIGHTED_SCORE: (Category.TENNIS, "Score ponderado calculado (modo match)."),
+    TENNIS_WEIGHTED_SCORE: (Category.TENNIS, "Score ponderado calculado (match; e clip condicionado à fase)."),
     TENNIS_ANALYZE_COMPLETED: (Category.TENNIS, "Análise de tênis concluída (3 saídas)."),
     TENNIS_ANALYZE_FAILED: (Category.TENNIS, "Análise de tênis falhou."),
     TENNIS_PERSISTED: (Category.TENNIS, "Análise de tênis persistida no Postgres."),

@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITVAR IA · Relatório de Calibragem — o que foi feito</title>
+<style>
+  :root{
+    --bg:#0a1119; --bg2:#0c1623; --card:#101d2e; --card2:#0e1a29;
+    --line:#1d2d44; --line2:#26384f;
+    --ink:#e9eff7; --dim:#a3b3c7; --faint:#6c7e95;
+    --green:#34d36a; --green-2:#7fe5a3; --green-glow:rgba(52,211,106,.14);
+    --blue:#5b9bd5; --blue-2:#93c2ec;
+    --red:#f4606e; --red-bg:rgba(244,96,110,.10); --red-line:rgba(244,96,110,.35);
+    --grn-bg:rgba(52,211,106,.09); --grn-line:rgba(52,211,106,.34);
+    --amber:#f0b54e; --amber-bg:rgba(240,181,78,.10); --amber-line:rgba(240,181,78,.34);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:
+      radial-gradient(1100px 600px at 80% -10%, rgba(52,211,106,.06), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(91,155,213,.06), transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(52,211,106,.25)}
+  a{color:var(--green-2); text-decoration:none}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 22px}
+
+  .topbar{position:sticky; top:0; z-index:50; backdrop-filter:blur(12px); background:rgba(8,15,24,.82); border-bottom:1px solid var(--line)}
+  .topbar .row{display:flex; align-items:center; gap:14px; height:58px}
+  .brand{display:flex; align-items:center; gap:9px; font-family:var(--mono); font-weight:700; letter-spacing:.14em; font-size:15px}
+  .dot{width:11px; height:11px; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px var(--green-glow), 0 0 14px var(--green)}
+  .brand small{color:var(--faint); font-weight:500; letter-spacing:.18em}
+  .badge{margin-left:auto; font-family:var(--mono); font-size:11.5px; letter-spacing:.12em; color:var(--green-2); border:1px solid var(--grn-line); background:var(--grn-bg); padding:5px 11px; border-radius:7px}
+
+  .subnav{position:sticky; top:58px; z-index:40; background:rgba(10,17,25,.9); backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
+  .subnav .row{display:flex; gap:4px; overflow-x:auto; padding:9px 0; scrollbar-width:none}
+  .subnav .row::-webkit-scrollbar{display:none}
+  .subnav a{font-family:var(--mono); font-size:12px; letter-spacing:.06em; color:var(--dim); white-space:nowrap; padding:6px 12px; border-radius:7px; border:1px solid transparent}
+  .subnav a:hover{color:var(--ink); background:rgba(255,255,255,.03); border-color:var(--line)}
+
+  .hero{padding:62px 0 30px}
+  .kicker{font-family:var(--mono); font-size:12.5px; letter-spacing:.22em; color:var(--green); text-transform:uppercase; margin-bottom:20px}
+  .kicker b{color:var(--blue-2); font-weight:600}
+  h1{font-size:clamp(30px,5vw,50px); line-height:1.06; margin:0 0 18px; letter-spacing:-.02em; font-weight:800}
+  h1 .g{color:var(--green)} h1 .r{color:var(--red)}
+  .lede{font-size:clamp(16px,2vw,19px); color:var(--dim); max-width:780px; margin:0}
+  .metaline{display:flex; flex-wrap:wrap; gap:8px; margin-top:26px}
+  .chip{font-family:var(--mono); font-size:11.5px; letter-spacing:.05em; color:var(--dim); border:1px solid var(--line2); background:var(--card2); padding:6px 11px; border-radius:999px}
+  .chip b{color:var(--ink)}
+  .chip.g{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+
+  section{padding:30px 0; scroll-margin-top:128px}
+  .sec-h{display:flex; align-items:baseline; gap:14px; margin:0 0 10px; flex-wrap:wrap}
+  .sec-n{font-family:var(--mono); font-size:13px; color:var(--green); letter-spacing:.1em}
+  .sec-h h2{font-size:clamp(22px,3vw,30px); margin:0; letter-spacing:-.01em; font-weight:750}
+  .sec-sub{color:var(--faint); font-size:14.5px; margin:0 0 24px; max-width:820px}
+
+  .card{background:linear-gradient(180deg,var(--card),var(--card2)); border:1px solid var(--line); border-radius:15px; padding:22px 22px}
+  .grid{display:grid; gap:16px}
+  @media(min-width:760px){ .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:1fr 1fr 1fr} .g4{grid-template-columns:repeat(4,1fr)} }
+
+  .lbl{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--blue)}
+  .lbl.grn{color:var(--green)} .lbl.red{color:var(--red)} .lbl.amb{color:var(--amber)}
+
+  .stat{text-align:center}
+  .stat .v{font-family:var(--mono); font-weight:800; font-size:34px; letter-spacing:-.02em; color:var(--green-2)}
+  .stat .v.b{color:var(--blue-2)} .stat .v.a{color:var(--amber)}
+  .stat .k{font-size:12.5px; color:var(--faint); margin-top:2px}
+
+  .flow{display:flex; flex-wrap:wrap; align-items:stretch; gap:10px; margin:8px 0}
+  .fbox{flex:1; min-width:150px; border:1px solid var(--line2); border-radius:12px; padding:15px; background:var(--card)}
+  .fbox .ph{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; color:var(--green); display:block; margin-bottom:6px}
+  .fbox b{font-size:15px; display:block; margin-bottom:5px}
+  .fbox p{margin:0; color:var(--dim); font-size:13px}
+  .arrow{display:flex; align-items:center; color:var(--faint); font-size:20px; padding:0 2px}
+
+  .wf{border:1px solid var(--line); border-radius:16px; overflow:hidden; margin:16px 0; background:var(--card2)}
+  .wf-head{display:flex; gap:14px; align-items:flex-start; padding:18px 20px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,rgba(91,155,213,.06),transparent)}
+  .wf-id{font-family:var(--mono); font-weight:800; font-size:19px; color:var(--green); border:1px solid var(--grn-line); background:var(--grn-bg); border-radius:11px; min-width:52px; height:52px; display:flex; align-items:center; justify-content:center}
+  .wf-head h3{margin:2px 0 5px; font-size:18px}
+  .wf-head .why{color:var(--dim); font-size:13.5px; margin:0}
+  .wf-body{padding:6px 20px 18px}
+  .row-tags{display:flex; flex-wrap:wrap; gap:7px; margin:13px 0 4px}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.07em; padding:3px 8px; border-radius:6px; border:1px solid var(--line2); color:var(--dim); background:var(--card2)}
+  .tag.g{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+  .tag.b{color:var(--blue-2); border-color:rgba(91,155,213,.35); background:rgba(91,155,213,.09)}
+  .tag.r{color:var(--red); border-color:var(--red-line); background:var(--red-bg)}
+
+  .ba{display:grid; gap:12px; margin:12px 0 4px}
+  @media(min-width:720px){ .ba{grid-template-columns:1fr 1fr} }
+  .panel{border-radius:12px; padding:14px 16px; border:1px solid var(--line)}
+  .panel.bad{background:var(--red-bg); border-color:var(--red-line)}
+  .panel.good{background:var(--grn-bg); border-color:var(--grn-line)}
+  .panel h4{margin:0 0 8px; font-size:12px; font-family:var(--mono); letter-spacing:.08em}
+  .panel.bad h4{color:var(--red)} .panel.good h4{color:var(--green-2)}
+  .panel p{margin:0; font-size:13.8px; color:var(--ink)}
+  .panel code,.inl{font-family:var(--mono); font-size:12px; color:var(--green-2); background:rgba(52,211,106,.08); border:1px solid var(--grn-line); border-radius:5px; padding:1px 5px}
+
+  .dod{margin-top:13px; border:1px dashed var(--grn-line); background:var(--grn-bg); border-radius:11px; padding:11px 15px; font-size:13.5px}
+  .dod .lbl{margin-bottom:5px; display:block} .dod b{color:var(--green-2)}
+
+  ul.clean{margin:8px 0; padding-left:20px; color:var(--dim)} ul.clean li{margin:7px 0; font-size:14px} ul.clean li b{color:var(--ink)}
+
+  table{width:100%; border-collapse:collapse; font-size:13.8px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-family:var(--mono); font-size:11px; letter-spacing:.09em; color:var(--faint); text-transform:uppercase; font-weight:600}
+  td b{color:var(--ink)} tr:last-child td{border-bottom:0}
+  .mono{font-family:var(--mono); font-size:12.5px; color:var(--green-2)}
+
+  .fix{display:grid; grid-template-columns:auto 1fr; gap:12px; padding:12px 0; border-top:1px solid var(--line)}
+  .fix:first-child{border-top:0}
+  .sev{font-family:var(--mono); font-size:10px; letter-spacing:.06em; padding:3px 8px; border-radius:6px; height:fit-content; white-space:nowrap; margin-top:2px}
+  .sev.hi{color:var(--red); border:1px solid var(--red-line); background:var(--red-bg)}
+  .sev.md{color:var(--amber); border:1px solid var(--amber-line); background:var(--amber-bg)}
+  .sev.lo{color:var(--blue-2); border:1px solid rgba(91,155,213,.35); background:rgba(91,155,213,.09)}
+  .fix .t{font-size:14.2px; color:var(--ink); margin:0 0 2px} .fix .d{font-size:13.3px; color:var(--dim); margin:0}
+
+  .callout{border:1px solid var(--line2); border-left:3px solid var(--blue); background:var(--card2); border-radius:0 12px 12px 0; padding:16px 18px; margin:16px 0}
+  .callout.amber{border-left-color:var(--amber)} .callout.green{border-left-color:var(--green)} .callout.red{border-left-color:var(--red)}
+  .callout .lbl{margin-bottom:7px; display:block}
+  .callout p{margin:0; color:var(--dim); font-size:14.2px} .callout p b{color:var(--ink)}
+
+  .loop{display:grid; gap:12px; margin-top:8px}
+  @media(min-width:720px){ .loop{grid-template-columns:repeat(5,1fr); align-items:stretch} }
+  .lnode{border:1px solid var(--line2); border-radius:12px; padding:14px 12px; background:var(--card)}
+  .lnode .ln{font-family:var(--mono); font-size:11px; color:var(--green); letter-spacing:.08em}
+  .lnode h5{margin:7px 0 4px; font-size:14px} .lnode p{margin:0; color:var(--dim); font-size:12.5px}
+  .lnode.hot{border-color:var(--grn-line); background:var(--grn-bg)}
+
+  footer{border-top:1px solid var(--line); margin-top:36px; padding:28px 0 60px; color:var(--faint); font-family:var(--mono); font-size:12px; letter-spacing:.05em}
+  .hr{height:1px; background:linear-gradient(90deg,transparent,var(--line2),transparent); margin:8px 0 0}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap row">
+  <span class="dot"></span>
+  <span class="brand">BITVAR&nbsp;IA <small>· RELATÓRIO DE CALIBRAGEM</small></span>
+  <span class="badge">EXECUTADO · 24 JUN 2026</span>
+</div></div>
+
+<nav class="subnav"><div class="wrap row">
+  <a href="#abordagem">01 · Abordagem</a>
+  <a href="#eixos">02 · Os 6 eixos</a>
+  <a href="#revisao">03 · Revisão adversarial</a>
+  <a href="#verificacao">04 · Verificação</a>
+  <a href="#loop">05 · O loop dos 98%</a>
+  <a href="#aberto">06 · Em aberto</a>
+  <a href="#arquivos">07 · Arquivos</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">o que foi feito · calibragem do módulo de tênis · resposta ao feedback de <b>Caio</b> &amp; <b>Juca</b></div>
+  <h1>Os 6 workflows do Caio,<br><span class="g">aplicados</span> e <span class="g">verificados</span>.</h1>
+  <p class="lede">A partir do documento de calibragem (lance <span class="mono">00000201</span> — a IA cravou “smash agressivo”, o especialista viu uma <b>recepção defensiva com deixadinha</b>), os 6 eixos viraram código no <span class="mono">app/tennis/</span>, passaram por uma <b>revisão adversarial</b> e por um conjunto de <b>regressão determinístico</b>. Este relatório mapeia cada mudança e onde ela é testada.</p>
+  <div class="metaline">
+    <span class="chip g">6 eixos + regressão</span>
+    <span class="chip"><b>3</b> fases orquestradas</span>
+    <span class="chip"><b>~34</b> subagentes</span>
+    <span class="chip"><b>92</b> testes verdes</span>
+    <span class="chip">working tree · <b>não deployado</b></span>
+  </div>
+</div></header>
+
+<!-- 01 ABORDAGEM -->
+<section id="abordagem"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">01</span><h2>A abordagem — orquestração em 3 fases</h2></div>
+  <p class="sec-sub">Cada fase foi um workflow de múltiplos agentes, com verificação cética entre elas. Nada foi aceito por “parece pronto”: o que entrou no código foi conferido por uma rodada independente que tentava <b>derrubar</b> cada decisão.</p>
+
+  <div class="flow">
+    <div class="fbox"><span class="ph">fase 1 · design</span><b>Projetar</b><p>7 designers em paralelo (um por eixo) → reconciliador mescla num plano único, sem conflito nos arquivos compartilhados.</p></div>
+    <div class="arrow">→</div>
+    <div class="fbox"><span class="ph">fase 2 · implementar</span><b>Aplicar</b><p>O plano vira código em <span class="inl">models · weights · rules · prompts · service · router · frontend · testes</span>.</p></div>
+    <div class="arrow">→</div>
+    <div class="fbox"><span class="ph">fase 3 · revisar</span><b>Refutar</b><p>6 dimensões procuram defeitos; cada achado é checado por um cético que tenta provar que é falso-positivo.</p></div>
+  </div>
+
+  <div class="grid g4" style="margin-top:18px">
+    <div class="card stat"><div class="v">~34</div><div class="k">subagentes (design + revisão)</div></div>
+    <div class="card stat"><div class="v b">~2,1M</div><div class="k">tokens de raciocínio</div></div>
+    <div class="card stat"><div class="v a">20→15</div><div class="k">achados levantados → confirmados</div></div>
+    <div class="card stat"><div class="v">0</div><div class="k">campos novos obrigatórios no schema</div></div>
+  </div>
+</div></section>
+
+<!-- 02 EIXOS -->
+<section id="eixos"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">02</span><h2>Os 6 eixos — feedback → código</h2></div>
+  <p class="sec-sub">Cada eixo do documento de calibragem, o delta que entrou e o critério de aceite (DoD) verificável no próprio lance 00000201. <b>Invariante respeitado em todos:</b> todo campo novo do schema é opcional (não derruba a análise estrita), e qualquer nota é calculada em Python, nunca pedida ao modelo.</p>
+
+  <!-- WF1 -->
+  <div class="wf">
+    <div class="wf-head"><div class="wf-id">01</div><div>
+      <h3>Classificação Fase → Golpe</h3>
+      <p class="why">Corrige o erro raiz: ler a FASE do ponto antes de nomear o golpe.</p>
+    </div></div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag b">eixo 1</span><span class="tag g">models.py · prompts.py</span><span class="tag r">prioridade máxima</span></div>
+      <div class="ba">
+        <div class="panel bad"><h4>✕ ANTES</h4><p>Partia do golpe (“braço pra cima + bola alta ⇒ smash”) e só então rotulava a fase.</p></div>
+        <div class="panel good"><h4>✓ AGORA</h4><p>Campos <code>phase_alternative</code> + <code>_rationale</code>; o prompt impõe taxonomia golpe-por-fase, <b>regra dura</b> “<code>overhead_smash</code> só em ataque/rede”, e desambiguação defesa×ataque ancorada nos <b>membros inferiores</b>. Na dúvida → fase mais defensiva + confiança baixa.</p></div>
+      </div>
+      <div class="dod"><span class="lbl grn">✓ DoD</span> Reanalisando o 00000201: <b>fase ∈ {defense, serve_return}</b>, <b>golpe ∈ {drop_shot, return}</b>, a palavra “smash” não aparece.</div>
+    </div>
+  </div>
+
+  <!-- WF2 -->
+  <div class="wf">
+    <div class="wf-head"><div class="wf-id">02</div><div>
+      <h3>Base de regras por categoria</h3>
+      <p class="why">Não cobrar regra de pro-masculino onde ela não se aplica.</p>
+    </div></div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag b">eixo 2</span><span class="tag g">rules.py (novo) · routing · router · service · frontend</span></div>
+      <ul class="clean">
+        <li>Novo eixo de entrada <b>Nível</b> (<span class="inl">amador | profissional</span>), ao lado de gênero — roteado <span class="mono">router → service → RouteInfo.level → prompt</span>.</li>
+        <li>Módulo <span class="inl">app/tennis/rules.py</span>: base de regras com metadados de aplicabilidade (gênero × nível). O gate manda <b>OBSERVAR</b> e descrever — nunca “descontar nota” (a nota é Python).</li>
+        <li>Regra-semente do gabarito: “parceiro do sacador sai do fundo” = <span class="inl">male + profissional</span>.</li>
+      </ul>
+      <div class="dod"><span class="lbl grn">✓ DoD</span> Mesmo lance como <b>amador</b> → relatório não exige a saída do fundo; como <b>masc. pro</b> → menciona como contexto.</div>
+    </div>
+  </div>
+
+  <!-- WF3 -->
+  <div class="wf">
+    <div class="wf-head"><div class="wf-id">03</div><div>
+      <h3>Reponderar a nota para a “raiz do movimento”</h3>
+      <p class="why">O especialista avalia membros inferiores e base, não o braço.</p>
+    </div></div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag b">eixo 3</span><span class="tag g">models · weights · service · prompts · frontend</span></div>
+      <ul class="clean">
+        <li>Grupo <span class="inl">lower_body_base</span> (flexão de joelhos, deslocamento, estabilidade) + <b>detector de bola flutuante</b> (pernas estendidas + raquete baixa).</li>
+        <li><b>3 modelos de peso por fase, em Python</b> (espelham o do match): defensivo (<b>base+footwork = 0,80</b> vs braço 0,20), ofensivo e neutro. Nota oficial calibrável atachada ao clip; a nota do VLM segue como referência.</li>
+        <li>Rubrica condicionada à fase no prompt + guard quando o eixo dominante vem vazio (vira aviso, nunca erro).</li>
+      </ul>
+      <div class="dod"><span class="lbl grn">✓ DoD</span> Recepção mal-baseada com bola flutuante → nota oficial <b>~33/100</b> mesmo com contato/raquete 8/8: a base manda.</div>
+    </div>
+  </div>
+
+  <!-- WF4 -->
+  <div class="wf">
+    <div class="wf-head"><div class="wf-id">04</div><div>
+      <h3>Leitura tática do ponto</h3>
+      <p class="why">Finta, deslocamento, espaço livre — o que o coach vê e a IA ignorava.</p>
+    </div></div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag b">eixo 4</span><span class="tag g">models.py · prompts.py · frontend</span></div>
+      <ul class="clean">
+        <li>Catálogo <span class="inl">tactical_events</span> (finta · aproveitamento de deslocamento · espaço livre · colocação · quebra de ritmo) + <span class="inl">point_outcome_link</span> (causa → efeito).</li>
+        <li>O prompt passa a ler os <b>4 jogadores</b> de forma relacional — a posição da dupla e o vazio que se abre, não só o atleta-alvo.</li>
+      </ul>
+      <div class="dod"><span class="lbl grn">✓ DoD</span> O relatório identifica ≥ 1 evento tático coerente com a narração 00000214 (finta → vazio → finalização).</div>
+    </div>
+  </div>
+
+  <!-- WF5 -->
+  <div class="wf">
+    <div class="wf-head"><div class="wf-id">05</div><div>
+      <h3>Tom do coach — o gabarito do Juca</h3>
+      <p class="why">Trocar o elogio-hype por diagnóstico de causa.</p>
+    </div></div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag b">eixo 5</span><span class="tag g">prompts.py</span></div>
+      <div class="ba">
+        <div class="panel bad"><h4>✕ ANTES</h4><p>“Fala, Cesar! Que <b>belo smash em suspensão</b> você executou… excelente!”</p></div>
+        <div class="panel good"><h4>✓ AGORA</h4><p>Few-shot <b>real</b> do Juca + esqueleto de 4 tempos (fase → raiz nos membros inferiores → regra → correção) no clipe, e um esqueleto <b>estatístico</b> na partida. Guard-rails banem superlativos vazios e a palavra “smash” em fase defensiva.</p></div>
+      </div>
+      <div class="dod"><span class="lbl grn">✓ DoD</span> O relatório abre nomeando a <b>recepção</b>, cita base/joelhos como melhoria e não usa “smash”.</div>
+    </div>
+  </div>
+
+  <!-- WF6 -->
+  <div class="wf">
+    <div class="wf-head"><div class="wf-id">06</div><div>
+      <h3>Rastreio do atleta certo (sem rosto)</h3>
+      <p class="why">Travar no alvo entre 4 pessoas + a quadra ao lado.</p>
+    </div></div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag b">eixo 1–3</span><span class="tag g">prompts.py</span></div>
+      <ul class="clean">
+        <li>O prompt agora <b>delimita a quadra-alvo</b> (4 linhas + rede) e manda <b>IGNORAR a quadra adjacente</b> — o vídeo tem gente jogando ao lado.</li>
+        <li>Âncora persistente no atleta do <b>início ao fim</b> do ponto, reforçada nos blocos de identificação e de câmera. Ancoragem por aparência, jamais reconhecimento facial.</li>
+      </ul>
+      <div class="dod"><span class="lbl grn">✓ DoD</span> A análise se mantém no atleta de azul do começo ao fim, sem pular para quem joga na quadra vizinha.</div>
+    </div>
+  </div>
+
+  <div class="callout green">
+    <span class="lbl grn">+ conjunto de regressão (recomendação §05 do doc)</span>
+    <p>O gabarito do Juca virou um <b>caso-ouro determinístico</b> (<span class="mono">tests/fixtures/regression_00000201.json</span>) com um loader extensível e a suíte <span class="mono">tests/test_calibration.py</span>. Assim os “98%” deixam de ser subjetivos: cada nova calibragem é medida, e nenhuma correção nova quebra um lance que já passava. Para adicionar um lance no loop, basta soltar um novo <span class="inl">regression_&lt;id&gt;.json</span>.</p>
+  </div>
+</div></section>
+
+<!-- 03 REVISAO -->
+<section id="revisao"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">03</span><h2>Revisão adversarial — 15 correções</h2></div>
+  <p class="sec-sub">Uma segunda rodada de agentes, cega à primeira, varreu o código em 6 dimensões. Levantou <b>20 achados</b>; um verificador cético tentou refutar cada um. <b>15 confirmados foram corrigidos</b>; 5 foram descartados como falso-positivo (ex.: a re-normalização dos pesos é comportamento intencional; o array de eventos não arrisca o schema; entrada não-string já é contida por try/except).</p>
+
+  <div class="card" style="padding:6px 18px">
+    <div class="fix"><span class="sev hi">ALTA</span><div><p class="t">Bug de runtime no frontend: <span class="inl">TACTACTOR</span> → <span class="inl">TACACTOR</span></p><p class="d">Um <i>typo</i> derrubava o render dos eventos táticos — o cartão-novo da calibragem. <span class="inl">node --check</span> e os testes não pegam (só validam sintaxe). Confirmado com um harness DOM e corrigido.</p></div></div>
+    <div class="fix"><span class="sev hi">ALTA</span><div><p class="t">Narrativa de partida herdava o esqueleto de um único ponto</p><p class="d">O esqueleto “nomeie a fase do ponto” + a falha “bola flutuante” + o few-shot single-point vazavam para o modo <b>match</b> (partida ≠ um ponto). Ramificado por modo: estatístico na partida.</p></div></div>
+    <div class="fix"><span class="sev hi">ALTA</span><div><p class="t">Score defensivo do clipe não era testado pelo caminho real</p><p class="d">Todos os testes de peso usavam dicts à mão; um <i>rename</i> de campo passaria batido. Adicionado um teste e2e que vai por <span class="inl">ClipAnalysis.model_dump()</span> — fecha o contrato models ↔ weights.</p></div></div>
+    <div class="fix"><span class="sev md">MÉDIA</span><div><p class="t">Bola flutuante = <i>false</i> inflava a nota</p><p class="d">Contava como componente positivo (+0,12), enchendo um clipe defensivo vazio. Virou só-penalidade: penaliza quando há falha, ignora quando não há.</p></div></div>
+    <div class="fix"><span class="sev md">MÉDIA</span><div><p class="t">Fase defensiva sem dado de base podia inverter o DoD</p><p class="d">Sem base/footwork, a re-normalização dava 100% ao braço. Adicionado um guard que sinaliza <span class="inl">axis_incomplete</span> e vira aviso na resposta.</p></div></div>
+    <div class="fix"><span class="sev md">MÉDIA</span><div><p class="t">Testes-ouro tautológicos + expectativas mortas no fixture</p><p class="d">Pinavam o JSON, não o comportamento. Adicionado um teste que <b>dirige</b> a computação a partir do fixture (fase → modelo, base &gt; braço, nota abaixo do teto).</p></div></div>
+    <div class="fix"><span class="sev lo">BAIXA</span><div><p class="t">Gate de regras dizia “penalize / descontar nota”</p><p class="d">Contradizia o invariante “nota só em Python”. Reescrito para “observe e descreva”; o módulo foi reacentuado (PT-BR).</p></div></div>
+    <div class="fix"><span class="sev lo">BAIXA</span><div><p class="t">XSS via <span class="inl">innerHTML</span> nos chips do jogador</p><p class="d">Dados do usuário (nome, roupa) iam crus para o DOM. Trocado por <span class="inl">textContent</span> — relevante porque a entrega é privada, no WhatsApp.</p></div></div>
+    <div class="fix"><span class="sev lo">BAIXA</span><div><p class="t">+ 7 ajustes finos</p><p class="d">Cartão “membros inferiores” vazio não renderiza mais; falha-alvo “bola flutuante” virou condicional; parâmetro morto removido; teste do anti-“smash” passou a checar o prompt real (não o mock); limiar base&gt;braço apertado; descrição do catálogo de eventos atualizada.</p></div></div>
+  </div>
+</div></section>
+
+<!-- 04 VERIFICACAO -->
+<section id="verificacao"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">04</span><h2>Verificação</h2></div>
+  <p class="sec-sub">O que está, de fato, comprovado — e por quê os testes verdes <b>não</b> são a prova final.</p>
+
+  <div class="grid g3">
+    <div class="card stat"><div class="v">92</div><div class="k">testes passam (sem rede, sem DB)</div></div>
+    <div class="card stat"><div class="v b">clip + match</div><div class="k">render validado em runtime (harness DOM)</div></div>
+    <div class="card stat"><div class="v a">0 / 502</div><div class="k">campos novos obrigatórios no schema estrito</div></div>
+  </div>
+
+  <ul class="clean" style="margin-top:16px">
+    <li><b>Determinístico, comprovado aqui:</b> prompts (texto e ordem), tabelas de peso (somam 1,0; base domina na defesa), gate de regras por categoria, validação do schema, e o caso-ouro de regressão.</li>
+    <li><b>Frontend:</b> além de <span class="inl">node --check</span>, um harness com DOM stubado executa o caminho de render real com o payload do 00000201 — foi assim que o bug do <span class="inl">TACTACTOR</span> apareceu.</li>
+  </ul>
+
+  <div class="callout red">
+    <span class="lbl red">o que NÃO foi feito (de propósito)</span>
+    <p>Não rodei o <b>vídeo real</b> pelo Gemini: não tenho o arquivo, custa dinheiro e os testes mockam o modelo. Por isso valido os <b>artefatos da calibragem</b>, não que o Gemini reclassifique o lance. <b>Essa é a peça do Juca</b> — ver o loop abaixo.</p>
+  </div>
+</div></section>
+
+<!-- 05 LOOP -->
+<section id="loop"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">05</span><h2>O loop dos “98% da hora”</h2></div>
+  <p class="sec-sub">A aferição final é humana, como o Caio definiu (áudio 00000226). Esta entrega prepara o terreno para a próxima volta do loop.</p>
+
+  <div class="loop">
+    <div class="lnode"><span class="ln">01</span><h5>Calibragem</h5><p>Os 6 eixos aplicados no código (esta entrega).</p></div>
+    <div class="lnode"><span class="ln">02</span><h5>Sobe o vídeo</h5><p>Roda o 00000201 com a chave real do Gemini.</p></div>
+    <div class="lnode"><span class="ln">03</span><h5>Teste</h5><p>Compara a saída com o gabarito (fixture de regressão).</p></div>
+    <div class="lnode hot"><span class="ln">04</span><h5>Juca Russo</h5><p>Curador técnico dá feedback golpe a golpe. <b>← estamos aqui</b></p></div>
+    <div class="lnode"><span class="ln">05</span><h5>≥ 98% → vende</h5><p>Bateu o aceite → comercializa.</p></div>
+  </div>
+  <div class="callout amber" style="margin-top:16px">
+    <span class="lbl amb">próximo passo concreto</span>
+    <p>Subir o 00000201 (e novos lances) com <span class="inl">GEMINI_API_KEY</span> real e conferir com o Juca: sai recepção/deixadinha? a correção fala de base/joelhos? aparece ≥ 1 evento tático? Cada feedback do Juca vira um novo <span class="inl">regression_&lt;id&gt;.json</span> — e os “98%” passam a ser uma taxa medível.</p>
+  </div>
+</div></section>
+
+<!-- 06 ABERTO -->
+<section id="aberto"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">06</span><h2>Em aberto — precisa do treinador</h2></div>
+  <p class="sec-sub">O que ficou deliberadamente fora desta rodada, e por quê.</p>
+  <div class="grid g2">
+    <div class="card">
+      <span class="lbl amb">domínio beach tennis completo</span>
+      <p style="color:var(--dim); margin:.5em 0 0; font-size:14.2px">Os benchmarks ainda são <b>tênis (ATP/WTA)</b>, não beach. A rubrica de beach — duplas, jogo de rede, saque por baixo, bandeja, mais regras de categoria — depende do conteúdo do <b>Juca</b>. Não foi inventado para não dar falsa precisão.</p>
+    </div>
+    <div class="card" style="border-color:var(--grn-line)">
+      <span class="lbl grn">mas o mecanismo está pronto</span>
+      <p style="color:var(--dim); margin:.5em 0 0; font-size:14.2px">Receber esse conteúdo é “editar tabela”: uma regra nova é um dict em <span class="inl">rules.py</span>; um peso novo entra em <span class="inl">CLIP_WEIGHT_MODELS</span>; um padrão tático novo entra no catálogo de eventos. Sem mexer em arquitetura.</p>
+    </div>
+  </div>
+  <div class="callout">
+    <span class="lbl">estado de entrega</span>
+    <p>Tudo está no <b>working tree</b> da branch <span class="inl">feat/caio-specs-refinamento</span> — <b>não commitado e não deployado</b>. O site em produção (<span class="mono">001.bitvar.illumiai.com/tennis</span>) só muda com um <span class="inl">docker compose up -d --build</span>. É só pedir para commitar.</p>
+  </div>
+</div></section>
+
+<!-- 07 ARQUIVOS -->
+<section id="arquivos"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">07</span><h2>Arquivos tocados</h2></div>
+  <p class="sec-sub">9 arquivos alterados (+1112 / −67 linhas) e 4 criados (412 linhas).</p>
+  <div class="card" style="padding:6px 6px">
+    <table>
+      <thead><tr><th>Arquivo</th><th>Eixos</th><th>O que mudou</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">app/tennis/models.py</td><td>1·3·4·2</td><td>Tipo <b>Level</b>; <b>LowerBodyBase</b>, <b>TacticalEvent</b>; <b>phase_alternative</b>, bola flutuante, eventos táticos — todos opcionais; <b>RouteInfo.level</b>.</td></tr>
+        <tr><td class="mono">app/tennis/weights.py</td><td>3</td><td><b>CLIP_WEIGHT_MODELS</b> (3 famílias por fase) + <b>compute_clip_weighted_score</b>; núcleo compartilhado com o match; guard de eixo ausente.</td></tr>
+        <tr><td class="mono">app/tennis/rules.py <span class="tag g">novo</span></td><td>2</td><td>Base de regras por categoria + gate de observação para o prompt.</td></tr>
+        <tr><td class="mono">app/tennis/prompts.py</td><td>1·3·4·5·6</td><td>Taxonomia fase→golpe, rubrica por fase, leitura tática, quadra adjacente; <b>JUCA_FEWSHOT</b> + esqueleto por modo + guard-rails de hype.</td></tr>
+        <tr><td class="mono">app/tennis/routing.py</td><td>2</td><td><b>normalize_level</b> (tolerante) + threading do nível pelo <b>build_route</b>.</td></tr>
+        <tr><td class="mono">app/tennis/service.py</td><td>2·3</td><td>Threading do nível; ramo clip calcula a nota oficial e injeta as regras + avisos.</td></tr>
+        <tr><td class="mono">app/tennis/router.py</td><td>2·1·3</td><td>Campo de form <b>level</b>; relatório .txt mostra fase alternativa e nota oficial.</td></tr>
+        <tr><td class="mono">app/static/tennis/index.html</td><td>2·3·4</td><td>Segmento <b>Nível</b>, cartões de base e leitura tática, nota oficial no clipe; correções de runtime/XSS.</td></tr>
+        <tr><td class="mono">app/events/catalog.py</td><td>3</td><td>Descrição do evento de score atualizada (match + clip).</td></tr>
+        <tr><td class="mono">tests/test_tennis.py</td><td>todos</td><td>Testes e2e e de unidade dos eixos + caminho de produção do score defensivo + narrativa por modo.</td></tr>
+        <tr><td class="mono">tests/test_calibration.py <span class="tag g">novo</span></td><td>§05</td><td>Conjunto de regressão determinístico (offline) ligado ao gabarito.</td></tr>
+        <tr><td class="mono">tests/fixtures/ <span class="tag g">novo</span></td><td>§05</td><td>Rótulos-ouro do 00000201 + loader extensível de casos.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="hr" style="margin-bottom:22px"></div>
+  BITVAR IA · relatório de calibragem · resposta ao feedback de Caio &amp; Juca (doc 24 jun 2026)<br>
+  6 eixos aplicados · revisão adversarial (15 correções) · 92 testes verdes · conjunto de regressão · validação “98%” = loop humano do Juca<br>
+  gerado por illumi · 24 jun 2026 · uso interno · branch feat/caio-specs-refinamento (working tree)
+</div></footer>
+
+<script>
+  const links=[...document.querySelectorAll('.subnav a')];
+  const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+  const obs=new IntersectionObserver((es)=>{
+    es.forEach(e=>{ if(e.isIntersecting){
+      links.forEach(l=>l.style.cssText='');
+      const a=map.get(e.target.id);
+      if(a){a.style.color='var(--green-2)';a.style.background='rgba(52,211,106,.10)';a.style.borderColor='var(--grn-line)';}
+    }});
+  },{rootMargin:'-130px 0px -70% 0px'});
+  document.querySelectorAll('section[id]').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

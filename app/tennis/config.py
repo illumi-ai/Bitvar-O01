@@ -17,19 +17,19 @@ class TennisSettings(BaseSettings):
 
     # ----- credenciais / modelos -----
     gemini_api_key: str | None = None
-    analysis_model: str = "gemini-3.5-flash"          # chamadas 1 e 2 (vídeo→JSON, JSON→texto)
+    analysis_model: str = "gemini-3.1-pro-preview"    # chamadas 1 e 2 (vídeo→JSON, JSON→texto) — modelo "pro"
     tts_model: str = "gemini-3.1-flash-tts-preview"   # chamada 3 (texto→áudio)
     tts_voice: str = "Vindemiatrix"                   # voz PT-BR (Gentle), blueprint §07
 
     # ----- raciocínio (substitui thinking_budget numérico do 2.5) -----
     analysis_thinking_level: str = "high"             # análise técnica/estatística
-    narrative_thinking_level: str = "medium"          # texto a partir de dados já basta
+    narrative_thinking_level: str = "high"            # high tb na narrativa (pedido do usuário)
 
     # ----- roteamento clip × match (blueprint §02) -----
     clip_max_seconds: float = 75.0                    # < limiar → clip; ≥ → match
-    clip_fps: int = 4                                 # eixo temporal: mecânica fina do golpe
-    match_fps: int = 1                                # 1 fps cobre a partida sem estourar 1M
-    clip_media_resolution: str = "MEDIA_RESOLUTION_HIGH"     # detalhe espacial no clipe
+    clip_fps: int = 24                                # eixo temporal — 24 fps (TESTE; pega o instante do contato)
+    match_fps: int = 24                               # 24 fps (TESTE — ⚠ partida de poucos seg já estoura o contexto de 1M)
+    clip_media_resolution: str = "MEDIA_RESOLUTION_MEDIUM"   # MEDIUM p/ compensar o custo dos 12 fps
     match_media_resolution: str = "MEDIA_RESOLUTION_MEDIUM"  # baixa p/ caber a partida longa
     # quando a duração é desconhecida e não há override, decide por tamanho do arquivo:
     filesize_clip_max_mb: float = 60.0
@@ -39,7 +39,7 @@ class TennisSettings(BaseSettings):
     upload_chunk_bytes: int = 1024 * 1024            # grava em disco em chunks (não em RAM)
 
     # ----- Files API (espera o vídeo ficar ACTIVE antes de analisar) -----
-    files_active_timeout_s: float = 300.0
+    files_active_timeout_s: float = 3600.0            # ~sem limite (teste): espera o vídeo virar ACTIVE
     files_poll_interval_s: float = 2.0
 
     # ----- TTS (blueprint §07: contexto 32k, sem streaming, erro 500 ocasional) -----

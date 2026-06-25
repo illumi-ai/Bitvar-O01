@@ -56,6 +56,7 @@ async def analyze(
     request: Request,
     file: UploadFile = File(..., description="Vídeo do lance (clip) ou da partida (match)."),
     gender: str = Form("male", description="male | female (aceita m/f, masculino/feminino)."),
+    level: str = Form("amador", description="amador | profissional (aceita pro/amateur; default amador)."),
     mode: str | None = Form(None, description="Override: clip | match | auto (default: auto)."),
     duration_seconds: float | None = Form(None, description="Duração conhecida (opcional)."),
     with_audio: bool = Form(True, description="Gerar áudio TTS (saída 3)."),
@@ -84,6 +85,7 @@ async def analyze(
         return await service.analyze_upload(
             file,
             gender=gender,
+            level=level,
             mode_override=mode,
             duration_hint=duration_seconds,
             with_audio=with_audio,
@@ -182,8 +184,13 @@ def _render_txt_report(rec: dict) -> str:
             bits.append(f"Golpe: {m['shot_identified']}")
         if m.get("action_phase"):
             bits.append(f"Fase: {m['action_phase']}")
+        if m.get("phase_alternative"):
+            bits.append(f"Fase alternativa: {m['phase_alternative']}")
         if m.get("clip_quality_score") is not None:
             bits.append(f"Nota técnica: {m['clip_quality_score']}/10")
+        ws = m.get("weighted_performance_score") or {}
+        if ws.get("score") is not None:
+            bits.append(f"Nota oficial: {ws['score']}/100 ({ws.get('weighting_model', '')})")
         if bits:
             lines += [" · ".join(bits), ""]
     else:

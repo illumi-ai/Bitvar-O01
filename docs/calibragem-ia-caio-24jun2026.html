@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITVAR IA · Calibragem — Referências &amp; Workflows</title>
+<style>
+  :root{
+    --bg:#0a1119; --bg2:#0c1623; --card:#101d2e; --card2:#0e1a29;
+    --line:#1d2d44; --line2:#26384f;
+    --ink:#e9eff7; --dim:#a3b3c7; --faint:#6c7e95;
+    --green:#34d36a; --green-2:#7fe5a3; --green-glow:rgba(52,211,106,.14);
+    --blue:#5b9bd5; --blue-2:#93c2ec;
+    --red:#f4606e; --red-bg:rgba(244,96,110,.10); --red-line:rgba(244,96,110,.35);
+    --grn-bg:rgba(52,211,106,.09); --grn-line:rgba(52,211,106,.34);
+    --amber:#f0b54e; --amber-bg:rgba(240,181,78,.10);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --grad:linear-gradient(90deg,#5b9bd5,#34d36a);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:
+      radial-gradient(1100px 600px at 80% -10%, rgba(52,211,106,.06), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(91,155,213,.06), transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans);
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(52,211,106,.25)}
+  a{color:var(--green-2); text-decoration:none}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 22px}
+
+  /* ── top bar ── */
+  .topbar{position:sticky; top:0; z-index:50; backdrop-filter:blur(12px);
+    background:rgba(8,15,24,.82); border-bottom:1px solid var(--line)}
+  .topbar .row{display:flex; align-items:center; gap:14px; height:58px}
+  .brand{display:flex; align-items:center; gap:9px; font-family:var(--mono);
+    font-weight:700; letter-spacing:.14em; font-size:15px}
+  .dot{width:11px; height:11px; border-radius:50%; background:var(--green);
+    box-shadow:0 0 0 4px var(--green-glow), 0 0 14px var(--green)}
+  .brand small{color:var(--faint); font-weight:500; letter-spacing:.18em}
+  .badge{margin-left:auto; font-family:var(--mono); font-size:11.5px; letter-spacing:.12em;
+    color:var(--green-2); border:1px solid var(--grn-line); background:var(--grn-bg);
+    padding:5px 11px; border-radius:7px}
+
+  /* ── sub nav ── */
+  .subnav{position:sticky; top:58px; z-index:40; background:rgba(10,17,25,.9);
+    backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
+  .subnav .row{display:flex; gap:4px; overflow-x:auto; padding:9px 0; scrollbar-width:none}
+  .subnav .row::-webkit-scrollbar{display:none}
+  .subnav a{font-family:var(--mono); font-size:12px; letter-spacing:.06em; color:var(--dim);
+    white-space:nowrap; padding:6px 12px; border-radius:7px; border:1px solid transparent}
+  .subnav a:hover{color:var(--ink); background:rgba(255,255,255,.03); border-color:var(--line)}
+
+  /* ── hero ── */
+  .hero{padding:62px 0 34px}
+  .kicker{font-family:var(--mono); font-size:12.5px; letter-spacing:.22em; color:var(--green);
+    text-transform:uppercase; margin-bottom:20px}
+  .kicker b{color:var(--blue-2); font-weight:600}
+  h1{font-size:clamp(32px,5.2vw,54px); line-height:1.05; margin:0 0 18px; letter-spacing:-.02em; font-weight:800}
+  h1 .g{color:var(--green)} h1 .r{color:var(--red)}
+  .lede{font-size:clamp(17px,2.1vw,20px); color:var(--dim); max-width:760px; margin:0}
+  .metaline{display:flex; flex-wrap:wrap; gap:8px; margin-top:26px}
+  .chip{font-family:var(--mono); font-size:11.5px; letter-spacing:.05em; color:var(--dim);
+    border:1px solid var(--line2); background:var(--card2); padding:6px 11px; border-radius:999px}
+  .chip b{color:var(--ink)}
+
+  /* ── sections ── */
+  section{padding:30px 0; scroll-margin-top:128px}
+  .sec-h{display:flex; align-items:baseline; gap:14px; margin:0 0 22px; flex-wrap:wrap}
+  .sec-n{font-family:var(--mono); font-size:13px; color:var(--green); letter-spacing:.1em}
+  .sec-h h2{font-size:clamp(23px,3.2vw,32px); margin:0; letter-spacing:-.01em; font-weight:750}
+  .sec-sub{color:var(--faint); font-size:14.5px; margin:-12px 0 24px; max-width:780px}
+
+  .card{background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--line); border-radius:15px; padding:24px 24px}
+  .grid{display:grid; gap:16px}
+  @media(min-width:760px){ .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:1fr 1fr 1fr} }
+
+  .lbl{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--blue)}
+  .lbl.grn{color:var(--green)}  .lbl.red{color:var(--red)} .lbl.amb{color:var(--amber)}
+
+  /* diff block */
+  .diff{display:grid; gap:14px}
+  @media(min-width:820px){ .diff{grid-template-columns:1fr 1fr; gap:16px} }
+  .panel{border-radius:14px; padding:20px 20px; border:1px solid var(--line)}
+  .panel.bad{background:var(--red-bg); border-color:var(--red-line)}
+  .panel.good{background:var(--grn-bg); border-color:var(--grn-line)}
+  .panel h4{margin:.2em 0 14px; font-size:15px; display:flex; align-items:center; gap:9px; font-family:var(--mono); letter-spacing:.08em}
+  .panel.bad h4{color:var(--red)} .panel.good h4{color:var(--green-2)}
+  .kv{display:flex; gap:10px; padding:9px 0; border-top:1px dashed rgba(255,255,255,.07); font-size:14.5px}
+  .kv:first-of-type{border-top:0}
+  .kv .k{font-family:var(--mono); font-size:11px; letter-spacing:.08em; color:var(--faint);
+    min-width:88px; text-transform:uppercase; padding-top:2px}
+  .kv .v{color:var(--ink)}
+  .strike{text-decoration:line-through; text-decoration-color:var(--red); color:var(--dim)}
+
+  /* tag */
+  .tag{display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.07em;
+    padding:3px 8px; border-radius:6px; border:1px solid var(--line2); color:var(--dim); background:var(--card2)}
+  .tag.g{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+  .tag.b{color:var(--blue-2); border-color:rgba(91,155,213,.35); background:rgba(91,155,213,.09)}
+  .tag.a{color:var(--amber); border-color:rgba(240,181,78,.35); background:var(--amber-bg)}
+  .tag.r{color:var(--red); border-color:var(--red-line); background:var(--red-bg)}
+
+  table{width:100%; border-collapse:collapse; font-size:14px}
+  th,td{text-align:left; padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-family:var(--mono); font-size:11px; letter-spacing:.09em; color:var(--faint); text-transform:uppercase; font-weight:600}
+  td b{color:var(--ink)} tr:last-child td{border-bottom:0}
+  .mono{font-family:var(--mono); font-size:12.5px; color:var(--green-2)}
+
+  /* axis cards */
+  .axis{position:relative; overflow:hidden}
+  .axis .num{position:absolute; top:-16px; right:6px; font-family:var(--mono); font-weight:800;
+    font-size:74px; color:rgba(255,255,255,.035); letter-spacing:-.04em}
+  .axis h3{margin:.1em 0 6px; font-size:18px}
+  .axis p{margin:.4em 0; color:var(--dim); font-size:14.5px}
+
+  /* workflow */
+  .wf{border:1px solid var(--line); border-radius:16px; overflow:hidden; margin:18px 0; background:var(--card2)}
+  .wf-head{display:flex; gap:14px; align-items:flex-start; padding:20px 22px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(91,155,213,.06),transparent)}
+  .wf-id{font-family:var(--mono); font-weight:800; font-size:20px; color:var(--green);
+    border:1px solid var(--grn-line); background:var(--grn-bg); border-radius:11px;
+    min-width:54px; height:54px; display:flex; align-items:center; justify-content:center}
+  .wf-head h3{margin:2px 0 5px; font-size:19px}
+  .wf-head .why{color:var(--dim); font-size:14px; margin:0}
+  .wf-body{padding:8px 22px 20px}
+  .row-tags{display:flex; flex-wrap:wrap; gap:7px; margin:14px 0 6px}
+  .step{display:grid; grid-template-columns:30px 1fr; gap:13px; padding:13px 0; border-top:1px solid var(--line)}
+  .step .si{font-family:var(--mono); font-size:12px; color:var(--green); border:1px solid var(--grn-line);
+    background:var(--grn-bg); border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; margin-top:1px}
+  .step .sc h5{margin:0 0 3px; font-size:14.5px; color:var(--ink)}
+  .step .sc p{margin:0; color:var(--dim); font-size:13.8px}
+  .step code, .inline-code{font-family:var(--mono); font-size:12.5px; color:var(--green-2);
+    background:rgba(52,211,106,.08); border:1px solid var(--grn-line); border-radius:5px; padding:1px 6px}
+  .dod{margin-top:14px; border:1px dashed var(--grn-line); background:var(--grn-bg);
+    border-radius:11px; padding:13px 16px; font-size:13.8px}
+  .dod .lbl{margin-bottom:6px; display:block}
+  .dod b{color:var(--green-2)}
+
+  /* quote */
+  .quote{border-left:3px solid var(--green); background:var(--card2); border-radius:0 12px 12px 0;
+    padding:14px 18px; margin:14px 0; color:var(--ink); font-size:15px}
+  .quote .src{display:block; margin-top:8px; font-family:var(--mono); font-size:11px; letter-spacing:.08em; color:var(--faint)}
+  .quote.amber{border-color:var(--amber)} .quote.blue{border-color:var(--blue)} .quote.red{border-color:var(--red)}
+
+  /* flow boxes */
+  .flow{display:flex; flex-wrap:wrap; align-items:stretch; gap:10px; margin:6px 0}
+  .fbox{flex:1; min-width:130px; border:1px solid var(--line2); border-radius:11px; padding:13px;
+    background:var(--card); text-align:center}
+  .fbox .ph{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; color:var(--faint); display:block; margin-bottom:5px}
+  .fbox b{font-size:14px}
+  .fbox.hot{border-color:var(--grn-line); background:var(--grn-bg)}
+  .arrow{display:flex; align-items:center; color:var(--faint); font-size:20px; padding:0 2px}
+
+  /* loop */
+  .loop{display:grid; gap:12px; margin-top:8px}
+  @media(min-width:720px){ .loop{grid-template-columns:repeat(5,1fr); align-items:stretch} }
+  .lnode{border:1px solid var(--line2); border-radius:12px; padding:15px 13px; background:var(--card); position:relative}
+  .lnode .ln{font-family:var(--mono); font-size:11px; color:var(--green); letter-spacing:.08em}
+  .lnode h5{margin:7px 0 4px; font-size:14.5px}
+  .lnode p{margin:0; color:var(--dim); font-size:12.8px}
+  .loop-back{margin-top:12px; text-align:center; font-family:var(--mono); font-size:12.5px; color:var(--amber);
+    border:1px dashed rgba(240,181,78,.4); background:var(--amber-bg); border-radius:10px; padding:11px}
+
+  ul.clean{margin:6px 0; padding-left:20px; color:var(--dim)} ul.clean li{margin:6px 0}
+  ul.clean li b{color:var(--ink)}
+
+  details{border:1px solid var(--line); border-radius:12px; margin:10px 0; background:var(--card2); overflow:hidden}
+  summary{cursor:pointer; padding:14px 18px; font-family:var(--mono); font-size:13px; letter-spacing:.05em; color:var(--ink); list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸"; color:var(--green); margin-right:10px; display:inline-block; transition:.15s}
+  details[open] summary::before{transform:rotate(90deg)}
+  .tr-body{padding:2px 18px 18px; color:var(--dim); font-size:14px}
+  .tr-body .who{font-family:var(--mono); font-size:11px; letter-spacing:.08em; color:var(--green); display:block; margin:14px 0 4px}
+  .tr-body .who:first-child{margin-top:4px}
+
+  .callout{border:1px solid var(--line2); border-left:3px solid var(--blue); background:var(--card2);
+    border-radius:0 12px 12px 0; padding:16px 18px; margin:16px 0}
+  .callout .lbl{margin-bottom:7px; display:block}
+
+  footer{border-top:1px solid var(--line); margin-top:40px; padding:30px 0 60px; color:var(--faint);
+    font-family:var(--mono); font-size:12px; letter-spacing:.05em}
+  .hr{height:1px; background:linear-gradient(90deg,transparent,var(--line2),transparent); margin:8px 0 0}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar"><div class="wrap row">
+  <span class="dot"></span>
+  <span class="brand">BITVAR&nbsp;IA <small>· CALIBRAGEM</small></span>
+  <span class="badge">R1 · 24 JUN 2026</span>
+</div></div>
+
+<!-- SUB NAV -->
+<nav class="subnav"><div class="wrap row">
+  <a href="#diagnostico">01 · Diagnóstico</a>
+  <a href="#referencias">02 · Referências</a>
+  <a href="#eixos">03 · Eixos</a>
+  <a href="#workflows">04 · Workflows</a>
+  <a href="#loop">05 · Loop de calibragem</a>
+  <a href="#posicionamento">06 · Posicionamento</a>
+  <a href="#anexos">07 · Anexos</a>
+</div></nav>
+
+<!-- HERO -->
+<header class="hero"><div class="wrap">
+  <div class="kicker">Referências de calibragem · feedback de <b>Caio Bitvar</b> · 15→24 jun 2026</div>
+  <h1>De um <span class="r">SMASH</span> para uma <span class="g">RECEPÇÃO</span>:<br>o que a IA precisa aprender a ver.</h1>
+  <p class="lede">A plataforma analisou um lance de beach tennis e cravou <b>“smash em suspensão agressivo, 8.2/10”</b>. O especialista do domínio (Caio) assistiu o mesmo lance e disse: <b>errado</b> — foi uma <b>devolução defensiva com bola curta</b>. Este documento mapeia cada referência que o Caio enviou e converte em <b>workflows detalhados de calibragem</b>.</p>
+  <div class="metaline">
+    <span class="chip"><b>1</b> vídeo de referência</span>
+    <span class="chip"><b>11</b> telas do app</span>
+    <span class="chip"><b>10</b> áudios transcritos</span>
+    <span class="chip">esporte: <b>beach tennis</b></span>
+    <span class="chip">meta de aceite: <b>98%</b></span>
+    <span class="chip">curador técnico: <b>Juca Russo</b></span>
+  </div>
+</div></header>
+
+<!-- 01 DIAGNÓSTICO -->
+<section id="diagnostico"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">01</span><h2>O diagnóstico central</h2></div>
+  <p class="sec-sub">O mesmo lance (vídeo <span class="mono">00000201</span>, com marca d’água <i>“filma eu”</i>), lido pela IA e pelo especialista. A distância entre as duas leituras É a calibragem.</p>
+
+  <div class="diff">
+    <div class="panel bad">
+      <h4>✕ O QUE A IA ENTREGOU</h4>
+      <div class="kv"><span class="k">Fase</span><span class="v strike">Ataque <span class="tag r">alta</span></span></div>
+      <div class="kv"><span class="k">Golpe</span><span class="v strike">Smash <span class="tag r">alta</span></span></div>
+      <div class="kv"><span class="k">Nota</span><span class="v strike">8.2 / 10 técnico</span></div>
+      <div class="kv"><span class="k">Leitura</span><span class="v">“desloca-se p/ trás e executa um <b>smash em suspensão</b> de forma <b>agressiva</b>. Contato nítido no frame 00:15.250.”</span></div>
+      <div class="kv"><span class="k">Coach</span><span class="v">“Fala, Cesar! Que belo <b>smash em suspensão</b> você executou…”</span></div>
+      <div class="kv"><span class="k">Foco</span><span class="v">métricas de <b>tronco/braço</b> (ponto de contato 9, trajetória da raquete 8)</span></div>
+    </div>
+    <div class="panel good">
+      <h4>✓ O QUE O ESPECIALISTA VIU</h4>
+      <div class="kv"><span class="k">Fase</span><span class="v"><b>Defesa</b> — a 1ª defesa do ponto <span class="tag g">recepção</span></span></div>
+      <div class="kv"><span class="k">Golpe</span><span class="v"><b>Devolução curta</b> / deixadinha (drop) <span class="tag g">controle</span></span></div>
+      <div class="kv"><span class="k">Intenção</span><span class="v">amortecer o saque e quebrar o ritmo da dupla que está no fundo</span></div>
+      <div class="kv"><span class="k">Raiz técnica</span><span class="v">o erro real está nos <b>membros inferiores</b>: pernas altas/estendidas + raquete baixa ⇒ <b>bola flutuante</b></span></div>
+      <div class="kv"><span class="k">Correção</span><span class="v">base <b>mais baixa, joelhos flexionados</b> para estabilidade e bola que não flutua</span></div>
+      <div class="kv"><span class="k">Foco</span><span class="v">avaliar a <b>base</b> (deslocamento + defensiva), não o “smash”</span></div>
+    </div>
+  </div>
+
+  <div class="quote red">“Cê vê que a interpretação dela tá até errada, né? Porque ele não smashou… ele acompanhou o ponto e deu uma curta, ele tava <b>recepcionando</b> a bola.”
+    <span class="src">▶ áudio 00000200 · Caio · 15/06</span></div>
+
+  <div class="callout">
+    <span class="lbl">Por que a IA errou — hipótese de engenharia</span>
+    A classificação atual parece partir do <b>golpe</b> (“braço para cima + bola alta ⇒ smash”) e só então rotula a fase. O especialista faz o caminho inverso: primeiro lê a <b>fase do ponto</b> (saque → recepção → rally → finalização) e só então nomeia o golpe dentro daquela fase. <b>Inverter essa ordem é a espinha dorsal da calibragem</b> (ver Workflow 01).
+  </div>
+</div></section>
+
+<!-- 02 REFERÊNCIAS -->
+<section id="referencias"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">02</span><h2>O pacote de referência</h2></div>
+  <p class="sec-sub">Tudo que o Caio enviou de 15 a 24/jun. Os arquivos de 17/jun são reenvio idêntico (mesmo byte-size) do lote de 15/jun — o que mudou foi a chegada de <b>5 áudios de narração técnica</b> servindo de “gabarito”.</p>
+
+  <div class="card" style="padding:6px 6px">
+  <table>
+    <thead><tr><th>Arquivo</th><th>Tipo</th><th>Papel na calibragem</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">00000201</td><td>Vídeo · 22s</td><td><b>Lance-fonte</b> (men’s duplas, câmera atrás do fundo, marca <i>filma eu</i>). É o caso de teste real.</td></tr>
+      <tr><td class="mono">00000202–212</td><td>11 telas</td><td><b>Saída atual do app</b> sobre esse lance: hero, formulário do atleta, métricas, radar, setorização e relatório do coach.</td></tr>
+      <tr><td class="mono">00000200</td><td>Áudio · 15/06</td><td><b>Enquadramento</b>: “a interpretação dela tá errada… ele estava recepcionando”. Pede narração-gabarito ao Juca.</td></tr>
+      <tr><td class="mono">00000213</td><td>Áudio · 17/06</td><td><b>Gabarito — fase defensiva</b>: base baixa, joelhos flexionados; regra do parceiro do sacador (só masc. pro).</td></tr>
+      <tr><td class="mono">00000214</td><td>Áudio · 17/06</td><td><b>Gabarito — rally</b>: leitura de finta, aproveitamento do deslocamento, finalização no espaço livre.</td></tr>
+      <tr><td class="mono">00000215–216</td><td>Áudios · 17/06</td><td><b>Gabarito — mecânica</b>: base de deslocamento + base defensiva = maior flexão ⇒ golpes controlados.</td></tr>
+      <tr><td class="mono">00000217</td><td>Áudio · 17/06</td><td><b>Gabarito — síntese</b>: falta a “raiz do movimento” (membros inferiores); amador joga “cru”.</td></tr>
+      <tr><td class="mono">00000218</td><td>Áudio · 19/06</td><td>Disponibilidade para mais material; primeiros feedbacks “fantásticos”.</td></tr>
+      <tr><td class="mono">00000226</td><td>Áudio · 23/06</td><td><b>Processo</b>: define o loop de calibragem Mateus → Juca Russo → 98% → comercializar.</td></tr>
+      <tr><td class="mono">00000229</td><td>Áudio · 24/06</td><td><b>Posicionamento</b>: privacidade no WhatsApp como diferencial vs. <i>filma eu</i> (site público).</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="callout" style="border-left-color:var(--green)">
+    <span class="lbl grn">Spec de origem — a “Arquitetura da análise do atleta” (Caio · 13/jun)</span>
+    A calibragem mira os <b>parâmetros-base</b> definidos pelo próprio Caio: <span class="tag">1 · leitura do atleta na quadra</span> <span class="tag">2 · referência de câmera</span> <span class="tag">3 · características do atleta</span> <span class="tag a">4 · recepção / saque / ataque</span> <span class="tag">5 · relatório p/ redes</span>. O item&nbsp;4 é exatamente onde o app falhou. Nota: o app trocou “leitura facial” por <b>rastreio por aparência</b> (lado, roupa, lateralidade, boné, cor da raquete) — “<i>não usamos reconhecimento facial</i>”.
+  </div>
+</div></section>
+
+<!-- 03 EIXOS -->
+<section id="eixos"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">03</span><h2>Os 5 eixos de referência</h2></div>
+  <p class="sec-sub">Toda a narração do Caio (00000200, 213–217) destila em cinco eixos. Cada eixo vira um ou mais workflows na seção seguinte.</p>
+
+  <div class="grid g2">
+    <div class="card axis"><span class="num">1</span>
+      <span class="lbl">classificação</span>
+      <h3>Fase &amp; Golpe</h3>
+      <p>Ler primeiro a <b>fase do ponto</b>, depois o golpe. Distinguir <b>recepção/defesa</b> de <b>ataque</b>. Foi o erro raiz: recepção+curta lida como smash.</p>
+      <p class="mono" style="color:var(--faint)">ref · 00000200, 00000213, vídeo</p>
+    </div>
+    <div class="card axis"><span class="num">2</span>
+      <span class="lbl">domínio</span>
+      <h3>Regras do beach tennis</h3>
+      <p>Regras dependem de <b>categoria</b>. Ex.: parceiro do sacador “saindo do fundo” só vale p/ <b>masculino profissional</b>. A IA precisa saber o contexto antes de cobrar.</p>
+      <p class="mono" style="color:var(--faint)">ref · 00000213</p>
+    </div>
+    <div class="card axis"><span class="num">3</span>
+      <span class="lbl">biomecânica</span>
+      <h3>A “raiz do movimento”</h3>
+      <p>O que mais importa são os <b>membros inferiores</b>: base de deslocamento e base defensiva com <b>maior flexão</b>. Pernas altas + raquete baixa ⇒ <b>bola flutuante</b>.</p>
+      <p class="mono" style="color:var(--faint)">ref · 00000215, 216, 217</p>
+    </div>
+    <div class="card axis"><span class="num">4</span>
+      <span class="lbl">tática</span>
+      <h3>Leitura do ponto</h3>
+      <p>Reconhecer <b>finta</b>, aproveitamento de <b>deslocamento</b> adversário, <b>finalização no espaço livre</b> e qualidade da colocação da devolução.</p>
+      <p class="mono" style="color:var(--faint)">ref · 00000214</p>
+    </div>
+    <div class="card axis" style="grid-column:1/-1"><span class="num">5</span>
+      <span class="lbl">narrativa</span>
+      <h3>Tom do coach — o gabarito do Juca</h3>
+      <p>Os áudios 213–217 SÃO o padrão de narração: <b>nomeia a fase certa → aponta a raiz técnica (base/membros inferiores) → traz a regra de contexto → entrega a correção</b>. O relatório atual faz elogio genérico (“que belo smash!”) sobre uma premissa errada. A voz precisa de menos hype e mais diagnóstico de causa.</p>
+      <p class="mono" style="color:var(--faint)">ref · 00000213–217 (few-shot)</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- 04 WORKFLOWS -->
+<section id="workflows"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">04</span><h2>Workflows de calibragem</h2></div>
+  <p class="sec-sub">Seis fluxos acionáveis. Cada um traz: a referência que o origina, os passos de engenharia, o parâmetro a ajustar e o critério de aceite (Definition of Done) testável no próprio lance 00000201.</p>
+
+  <!-- WF1 -->
+  <div class="wf">
+    <div class="wf-head">
+      <div class="wf-id">01</div>
+      <div>
+        <h3>Classificação Fase-primeiro (Phase → Stroke)</h3>
+        <p class="why">Corrige o erro raiz: recepção defensiva rotulada como smash agressivo.</p>
+      </div>
+    </div>
+    <div class="wf-body">
+      <div class="row-tags">
+        <span class="tag g">ref · 00000200 + 00000213 + vídeo</span>
+        <span class="tag b">eixo 1</span>
+        <span class="tag a">prioridade máxima</span>
+      </div>
+
+      <div class="flow" style="margin:16px 0 4px">
+        <div class="fbox"><span class="ph">fase 1</span><b>Saque</b></div>
+        <div class="arrow">→</div>
+        <div class="fbox hot"><span class="ph">fase 2</span><b>Recepção / Devolução</b><br><span style="font-size:11px;color:var(--green-2)">1ª defesa do ponto</span></div>
+        <div class="arrow">→</div>
+        <div class="fbox"><span class="ph">fase 3</span><b>Rally de rede</b></div>
+        <div class="arrow">→</div>
+        <div class="fbox"><span class="ph">fase 4</span><b>Finalização</b></div>
+      </div>
+
+      <div class="step"><div class="si">1</div><div class="sc"><h5>Forçar pipeline em 2 estágios</h5><p>No prompt do analisador, separar explicitamente: <span class="inline-code">estágio A → classificar FASE do ponto</span> e só depois <span class="inline-code">estágio B → nomear o golpe dentro da fase</span>. Proibir nomear golpe antes da fase.</p></div></div>
+      <div class="step"><div class="si">2</div><div class="sc"><h5>Taxonomia de golpe por fase</h5><p>Mapear golpes válidos por fase. Em <b>recepção</b>: devolução, deixadinha/curta, bloqueio, lob defensivo. <b>Smash só é válido em ataque</b>. Isso impede “smash na recepção”.</p></div></div>
+      <div class="step"><div class="si">3</div><div class="sc"><h5>Regras de desambiguação por movimento</h5><p>Sinais que indicam <b>defesa, não ataque</b>: bola chegando do saque adversário; jogador recuando/ajustando; toque curto que morre perto da rede; trajetória de saída lenta. Codificar como heurísticas no prompt (e, idealmente, no pós-processamento de pose).</p></div></div>
+      <div class="step"><div class="si">4</div><div class="sc"><h5>Saída com hipótese alternativa + confiança honesta</h5><p>Quando ambíguo, exigir campo <span class="inline-code">fase_alternativa</span> e rebaixar a confiança. Hoje a IA cravou “alta” num erro — confiança calibrada teria evitado o elogio indevido.</p></div></div>
+
+      <div class="dod"><span class="lbl grn">✓ critério de aceite (no lance 00000201)</span>
+        Reanalisando o mesmo vídeo, a saída deve trazer <b>FASE = Defesa/Recepção</b> e <b>GOLPE = Devolução curta</b> (não “Smash/Ataque”). A palavra “smash” não pode aparecer no relatório desse lance.</div>
+    </div>
+  </div>
+
+  <!-- WF2 -->
+  <div class="wf">
+    <div class="wf-head">
+      <div class="wf-id">02</div>
+      <div>
+        <h3>Base de regras por categoria (domínio beach tennis)</h3>
+        <p class="why">Evita cobrar regra de pro masculino num contexto onde ela não se aplica.</p>
+      </div>
+    </div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag g">ref · 00000213</span><span class="tag b">eixo 2</span></div>
+
+      <div class="quote">“Isso é uma regra que só é necessária pra <b>equipes masculinas profissionais</b>… demos sorte que mesmo com uma devolução de pernas altas… ela não foi interceptada porque o adversário também estava em desvantagem, <b>sem necessidade de regra</b>.”
+        <span class="src">▶ áudio 00000213 · Caio · 17/06</span></div>
+
+      <div class="step"><div class="si">1</div><div class="sc"><h5>Selector de categoria já existe — estender</h5><p>O formulário tem <span class="inline-code">GÊNERO Masc/Fem</span>. Adicionar <span class="inline-code">NÍVEL: amador / profissional</span> (e dupla/mista). Esses dois eixos chaveiam quais regras valem.</p></div></div>
+      <div class="step"><div class="si">2</div><div class="sc"><h5>Base de conhecimento segmentada</h5><p>Catalogar regras com metadados de aplicabilidade, ex.: <span class="inline-code">{regra:"parceiro do sacador sai do fundo", aplica_se:["masc","pro"]}</span>. Injetar no contexto só as regras compatíveis com a categoria selecionada.</p></div></div>
+      <div class="step"><div class="si">3</div><div class="sc"><h5>Gate de cobrança</h5><p>Antes de penalizar/comentar posicionamento ligado a regra, checar o gate de categoria. Em amador, não cobrar a saída do fundo — apenas observar.</p></div></div>
+
+      <div class="dod"><span class="lbl grn">✓ critério de aceite</span>
+        Para o mesmo lance marcado como <b>amador</b>, o relatório <b>não</b> exige a regra de “parceiro saindo do fundo”. Marcado como <b>masc. pro</b>, ele a menciona como contexto.</div>
+    </div>
+  </div>
+
+  <!-- WF3 -->
+  <div class="wf">
+    <div class="wf-head">
+      <div class="wf-id">03</div>
+      <div>
+        <h3>Reponderar a nota para a “raiz do movimento”</h3>
+        <p class="why">Hoje a nota premia tronco/braço; o especialista avalia membros inferiores e base.</p>
+      </div>
+    </div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag g">ref · 00000215 + 216 + 217</span><span class="tag b">eixo 3</span></div>
+
+      <div class="quote">“O que nossa equipe mais precisa observar na mecânica dos golpes é que a <b>base de deslocamento</b> e a <b>base defensiva</b>, ambas devem ser trabalhadas com <b>maior flexão</b>… gerando estabilidade nas bases, os golpes serão mais controlados e eficazes.”
+        <span class="src">▶ áudios 00000215 + 00000216 · Caio · 17/06</span></div>
+
+      <div class="grid g2" style="margin:14px 0">
+        <div class="panel" style="border-color:var(--red-line)">
+          <span class="lbl red">peso atual (telas 203/211)</span>
+          <ul class="clean" style="margin-top:8px">
+            <li>Ponto de contato <b>9</b> · Trajetória da raquete <b>8</b></li>
+            <li>Preparação · Finalização · Rotação ombro</li>
+            <li><i>Equilíbrio/base aparece, mas diluído entre 12+ métricas de braço</i></li>
+          </ul>
+        </div>
+        <div class="panel" style="border-color:var(--grn-line)">
+          <span class="lbl grn">peso recalibrado</span>
+          <ul class="clean" style="margin-top:8px">
+            <li><b>Flexão da base defensiva</b> (joelhos)</li>
+            <li><b>Flexão da base de deslocamento</b></li>
+            <li><b>Estabilidade / altura do centro de gravidade</b></li>
+            <li>Falha-alvo: <b>“pernas estendidas + raquete baixa ⇒ bola flutuante”</b></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="step"><div class="si">1</div><div class="sc"><h5>Promover “Base” a métrica de topo</h5><p>Criar grupo <b>MEMBROS INFERIORES</b> com peso dominante na nota de fases defensivas. Em recepção, a base deve pesar mais que a mecânica de braço.</p></div></div>
+      <div class="step"><div class="si">2</div><div class="sc"><h5>Detector da bola flutuante</h5><p>Codificar o padrão de falha descrito: <span class="inline-code">pernas altas/estendidas + raquete baixa → saída flutuante</span>. Quando presente, marcar fault e puxar a nota da base para baixo.</p></div></div>
+      <div class="step"><div class="si">3</div><div class="sc"><h5>Nota condicionada à fase</h5><p>A rubrica muda por fase: numa recepção, “bom” = base baixa estável + bola que não flutua; num ataque, aí sim entram contato alto e trajetória.</p></div></div>
+
+      <div class="dod"><span class="lbl grn">✓ critério de aceite</span>
+        No lance 00000201, a <b>correção principal</b> do relatório passa a falar de <b>flexão de joelhos / base baixa na recepção</b> (e não de “proteger o joelho na aterrissagem do smash”).</div>
+    </div>
+  </div>
+
+  <!-- WF4 -->
+  <div class="wf">
+    <div class="wf-head">
+      <div class="wf-id">04</div>
+      <div>
+        <h3>Leitura tática do ponto</h3>
+        <p class="why">Eventos que o coach enxerga e a IA hoje ignora: finta, deslocamento, espaço livre.</p>
+      </div>
+    </div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag g">ref · 00000214</span><span class="tag b">eixo 4</span></div>
+
+      <div class="quote">“O adversário tenta fazer uma <b>finta</b>… essa finta causa imprecisão pra ele mesmo, onde o nosso jogador aproveita o <b>deslocamento</b> da dupla adversária e <b>finaliza o ponto no espaço livre</b>.”
+        <span class="src">▶ áudio 00000214 · Caio · 17/06</span></div>
+
+      <div class="step"><div class="si">1</div><div class="sc"><h5>Catálogo de eventos táticos</h5><p>Adicionar detecção de: <b>finta</b>, <b>deslocamento adversário</b>, <b>espaço livre</b>, <b>qualidade da colocação</b> da devolução. Cada um vira um evento timestampado no ponto.</p></div></div>
+      <div class="step"><div class="si">2</div><div class="sc"><h5>Análise relacional (4 jogadores)</h5><p>Hoje o foco é o atleta-alvo. A leitura tática exige posição relativa dos 4 e o vazio que se abre — alimentar a IA com as trajetórias da dupla adversária, não só do alvo.</p></div></div>
+      <div class="step"><div class="si">3</div><div class="sc"><h5>Vincular tática ↔ resultado</h5><p>O relatório deve conectar causa e efeito: “não caiu na finta → aproveitou o vazio → ponto”, do jeito que o Juca narra.</p></div></div>
+
+      <div class="dod"><span class="lbl grn">✓ critério de aceite</span>
+        O relatório do lance identifica pelo menos um <b>evento tático</b> (finta / espaço livre / colocação) coerente com a narração 00000214.</div>
+    </div>
+  </div>
+
+  <!-- WF5 -->
+  <div class="wf">
+    <div class="wf-head">
+      <div class="wf-id">05</div>
+      <div>
+        <h3>Tom do coach — few-shot com o gabarito do Juca</h3>
+        <p class="why">Substituir elogio-hype por diagnóstico de causa, no padrão dos áudios 213–217.</p>
+      </div>
+    </div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag g">ref · 00000213–217</span><span class="tag b">eixo 5</span></div>
+
+      <div class="grid g2" style="margin:14px 0">
+        <div class="panel" style="border-color:var(--red-line)">
+          <span class="lbl red">tom atual</span>
+          <p style="margin:8px 0;color:var(--dim);font-size:14px">“Fala, Cesar! Que <b>belo smash em suspensão</b> você executou… nota nove de eficiência… Excelente trabalho!”</p>
+          <p style="margin:0;color:var(--faint);font-size:12.5px">Elogio genérico, premissa errada, zero causa-raiz.</p>
+        </div>
+        <div class="panel" style="border-color:var(--grn-line)">
+          <span class="lbl grn">tom-gabarito (Juca)</span>
+          <p style="margin:8px 0;color:var(--dim);font-size:14px">“Na <b>fase defensiva</b>, o time tem que trabalhar com <b>base mais baixa, joelhos flexionados</b>, pra que a bola não flutue… o que falta é a <b>raiz do movimento</b>: membros inferiores.”</p>
+          <p style="margin:0;color:var(--faint);font-size:12.5px">Fase certa → causa-raiz → contexto → correção.</p>
+        </div>
+      </div>
+
+      <div class="step"><div class="si">1</div><div class="sc"><h5>Esqueleto fixo de 4 tempos</h5><p>Padronizar a narração: <span class="inline-code">1 nomeia a fase</span> → <span class="inline-code">2 aponta a raiz (base/inferiores)</span> → <span class="inline-code">3 traz a regra de contexto</span> → <span class="inline-code">4 dá a correção objetiva</span>.</p></div></div>
+      <div class="step"><div class="si">2</div><div class="sc"><h5>Few-shot com transcrições reais</h5><p>Injetar os trechos de 213–217 como <b>exemplos de estilo</b> no prompt do relatório (PT-BR e TTS). É o jeito mais barato de transferir o vocabulário e o ritmo do Juca.</p></div></div>
+      <div class="step"><div class="si">3</div><div class="sc"><h5>Guard-rails de hype</h5><p>Banir superlativos vazios (“belo”, “fantástico”, “excelente”) quando a nota da base for baixa ou a fase for defensiva mal executada. Elogio só com evidência.</p></div></div>
+
+      <div class="dod"><span class="lbl grn">✓ critério de aceite</span>
+        O novo relatório do lance abre nomeando a <b>recepção</b>, cita a <b>base/joelhos</b> como ponto de melhoria e não usa a palavra “smash”. Juca lê e aprova o tom.</div>
+    </div>
+  </div>
+
+  <!-- WF6 -->
+  <div class="wf">
+    <div class="wf-head">
+      <div class="wf-id">06</div>
+      <div>
+        <h3>Rastreio do atleta certo (sem reconhecimento facial)</h3>
+        <p class="why">Pré-condição de tudo: a IA precisa travar no atleta-alvo entre 4 pessoas + quadra ao lado.</p>
+      </div>
+    </div>
+    <div class="wf-body">
+      <div class="row-tags"><span class="tag g">ref · telas 207/210 + spec 13/jun</span><span class="tag b">eixo 1–3</span></div>
+      <p style="color:var(--dim);font-size:14.5px;margin:6px 0 4px">O app já coleta os atributos discriminantes no formulário — <b>esta é a calibragem do rastreio</b>. Reforçar para o lance não “pular” para o adversário ou parceiro.</p>
+      <div class="step"><div class="si">1</div><div class="sc"><h5>Pesar atributos discriminantes</h5><p>Usar <span class="inline-code">lado da quadra · roupa/cor · lateralidade · boné · cor da raquete · altura relativa</span> como âncora persistente do alvo ao longo dos frames. (Ex. do teste: “Cesar, camisa azul, lado esquerdo, ~1,90m, raquete preta/amarela”.)</p></div></div>
+      <div class="step"><div class="si">2</div><div class="sc"><h5>Referência espacial pela câmera</h5><p>Travar o campo “CÂMERA = Central (atrás do fundo)” como sistema de coordenadas: lado esquerdo do vídeo = direita da quadra, etc. A setorização depende disso estar certo.</p></div></div>
+      <div class="step"><div class="si">3</div><div class="sc"><h5>Ignorar quadra adjacente</h5><p>O vídeo tem gente jogando na quadra ao lado. Delimitar a quadra-alvo (4 linhas + rede) e descartar movimento fora dela.</p></div></div>
+      <div class="dod"><span class="lbl grn">✓ critério de aceite</span>
+        A análise se mantém no atleta de azul do início ao fim do ponto, sem trocar de pessoa, e a setorização (meio·esquerda) bate com a posição real.</div>
+    </div>
+  </div>
+
+</div></section>
+
+<!-- 05 LOOP -->
+<section id="loop"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">05</span><h2>O loop de calibragem</h2></div>
+  <p class="sec-sub">O Caio definiu o processo e o critério de “pronto para vender” no áudio 00000226. A calibragem é iterativa e tem um curador técnico humano no circuito.</p>
+
+  <div class="loop">
+    <div class="lnode"><span class="ln">01</span><h5>Mateus calibra</h5><p>Aplica os workflows 01–06 nos parâmetros da IA.</p></div>
+    <div class="lnode"><span class="ln">02</span><h5>Sobe o vídeo</h5><p>Roda o lance-fonte (e novos) na plataforma.</p></div>
+    <div class="lnode"><span class="ln">03</span><h5>Teste</h5><p>Compara saída × gabarito do especialista.</p></div>
+    <div class="lnode"><span class="ln">04</span><h5>Juca Russo</h5><p>Curador técnico dá feedback golpe a golpe.</p></div>
+    <div class="lnode" style="border-color:var(--grn-line);background:var(--grn-bg)"><span class="ln">05</span><h5>≥ 98% “da hora”</h5><p>Bateu o aceite → comercializa o produto.</p></div>
+  </div>
+  <div class="loop-back">↺ &nbsp;Abaixo de 98% → volta ao passo 01 com o novo feedback do Juca (“outra calibragem eu devolvo pro Juca”).</div>
+
+  <div class="quote blue" style="margin-top:18px">“Outra calibragem eu devolvo pro <b>Juca Russo</b>, em cima do que você calibrar. A gente sobe o vídeo, faz o teste, ele vai dando feedback. Na hora que tiver <b>‘98% da hora’</b>, acabou — aí já podemos comercializar o produto.”
+    <span class="src">▶ áudio 00000226 · Caio · 23/06</span></div>
+
+  <div class="callout" style="border-left-color:var(--amber)">
+    <span class="lbl amb">recomendação de engenharia</span>
+    Transformar o gabarito do Juca num <b>conjunto de regressão</b>: cada lance vira um caso com rótulos esperados (fase, golpe, base, eventos táticos). Assim os “98%” deixam de ser subjetivos e viram uma <b>taxa de acerto medível</b> a cada rodada de calibragem — e nenhuma correção nova quebra um lance que já passava.
+  </div>
+</div></section>
+
+<!-- 06 POSICIONAMENTO -->
+<section id="posicionamento"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">06</span><h2>Nota de posicionamento</h2></div>
+  <p class="sec-sub">Não é calibragem de IA, mas é direção de produto vinda no mesmo fôlego (24/jun) e define para que serve a análise.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <span class="lbl red">o problema do concorrente</span>
+      <h3 style="margin:.3em 0 .4em;font-size:18px"><i>filma eu</i> · site público</h3>
+      <p style="color:var(--dim);margin:0">“Cai no site, todo mundo tem acesso, <b>não vira nada</b>… é muito fácil ter ruptura na privacidade.” O lance-fonte tem a marca d’água <i>filma eu</i> — é literalmente o material que eles querem superar.</p>
+    </div>
+    <div class="card" style="border-color:var(--grn-line)">
+      <span class="lbl grn">o diferencial do BITVAR</span>
+      <h3 style="margin:.3em 0 .4em;font-size:18px">Entrega no WhatsApp · privacidade</h3>
+      <p style="color:var(--dim);margin:0">“O nosso chega <b>direto no WhatsApp</b>, dá privacidade… <b>eu adicionando a IA agora, vai ter pra ninguém</b>.” A IA calibrada é o que separa o BITVAR de um simples gravador de quadra.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="lbl">implicação para a calibragem</span>
+    Se a entrega é privada e individual (1 atleta, no WhatsApp), o relatório precisa ser <b>preciso e pessoal</b> — um erro grosseiro (“smash” numa recepção) custa muito mais caro que num feed público. A barra de qualidade da calibragem É o produto.
+  </div>
+</div></section>
+
+<!-- 07 ANEXOS -->
+<section id="anexos"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">07</span><h2>Anexos — transcrições integrais</h2></div>
+  <p class="sec-sub">Áudios transcritos via ElevenLabs Scribe v2 (pt-BR). Vídeo lido via Gemini. Telas lidas diretamente. Fonte primária para auditar qualquer afirmação acima.</p>
+
+  <details>
+    <summary>▶ Áudios de gabarito — 17/jun (00000213 → 00000217)</summary>
+    <div class="tr-body">
+      <span class="who">00000213 — fase defensiva</span>
+      Muito importante a gente observar que na fase defensiva, nas devoluções, que é a primeira defesa do ponto, nosso time tem que trabalhar com a base mais baixa, joelhos flexionados, pra que haja estabilidade nessa devolução e para que a bola não flutue. Apesar da devolução ter sido no lugar adequado, nós só não tivemos o aproveitamento da equipe adversária, pois o adversário (parceiro do sacador) tá saindo lá do fundo. Isso é uma regra que só é necessária pra equipes masculinas profissionais. Então, demos sorte que mesmo com uma devolução de pernas altas, estendidas e raquete baixa — ou seja, uma bola flutuante — ela não foi interceptada pelo adversário, porque o adversário também estava numa posição de desvantagem, sem necessidade de regra.
+      <span class="who">00000214 — rally</span>
+      Na sequência, o que vemos é um rally de rede, onde na trocação de bolas o adversário que tá no alto do vídeo à direita tenta fazer uma finta, e essa finta causa imprecisão pra ele mesmo, onde o nosso jogador da esquerda aproveita o deslocamento — não caindo na finta — ele aproveita o deslocamento da dupla adversária e finaliza o ponto no espaço livre.
+      <span class="who">00000215 — mecânica (conclusão)</span>
+      Concluindo, o que nossa equipe mais precisa observar na mecânica dos golpes é que a base de deslocamento e a base defensiva, ambas devem ser trabalhadas com maior flexão.
+      <span class="who">00000216 — estabilidade</span>
+      Gerando estabilidade nas bases, consequentemente, os golpes serão mais controlados e eficazes.
+      <span class="who">00000217 — síntese</span>
+      Foi o menor tempo possível aí que a gente conseguiu. E esse ponto é bem curto e, tecnicamente, o que falta é a raiz do movimento mesmo — então os membros inferiores, o pessoal ainda tá trabalhando muito de forma inexperiente e de forma crua. A partir disso, todo o resto pode ser composto.
+    </div>
+  </details>
+
+  <details>
+    <summary>▶ Enquadramento — 15/jun (00000200)</summary>
+    <div class="tr-body">
+      <span class="who">00000200 — Caio</span>
+      Mateus, esse último vídeo que eu te mandei foi uma análise que a gente fez de uma câmera olhando de costas. A gente analisou um amigo meu que tava de azul, do lado esquerdo. Cê vê que a interpretação dela tá até errada, porque ele não smashou — ele acompanhou o ponto e deu uma curta, ele tava recepcionando a bola. Eu vou pedir pro Juca fazer uma narração desse ponto pra gente ver o que a gente consegue fazer também.
+    </div>
+  </details>
+
+  <details>
+    <summary>▶ Processo &amp; posicionamento — 19→24/jun (00000218, 00000225, 00000226, 00000229)</summary>
+    <div class="tr-body">
+      <span class="who">00000218 — Caio · 19/jun</span>
+      Oi Mateus, bom dia. Deve tá muito corrido pra você. Tô à sua disposição aqui, se precisar de mais material, mais alguma coisa. O negócio vai dar muito bom — os primeiros feedbacks que eu já tive mostrando alguma coisa foram fantásticos. Qualquer novidade, cê me dá um toque.
+      <span class="who">00000225 — Mateus · 23/jun</span>
+      Fala Caio, bom dia. Consegui ver aqui e pegar isso pra ter pelo menos algum parâmetro pra calibragem. Pego hoje no fim da tarde; amanhã vai tá mais livre — segunda e terça é corrido, mas amanhã eu consigo dar uma mexidinha.
+      <span class="who">00000226 — Caio · 23/jun</span>
+      Show de bola, meu amigo. Cê sabe que cê tá nesse projeto comigo. Nós vamo fazer isso bombar no mundo inteiro. O Eduardo tá linkando a gente com uns caras do beach (o Menzinho). Inicialmente a gente vai pro beach, depois pros outros esportes. Outra calibragem eu devolvo pro Juca Russo, em cima do que você calibrar. A gente sobe o vídeo, faz o teste, ele vai dando feedback. Na hora que tiver “98% da hora”, acabou — aí já podemos comercializar o produto.
+      <span class="who">00000229 — Caio · 24/jun</span>
+      Ô Mateus, ele cai no mesmo problema do filma eu, brother. Cai no site, todo mundo tem acesso, não vira nada. A sacada do nosso é essa: chega direto no WhatsApp, dá privacidade. Depois quero te apresentar a interface do nosso software, ficou muito massa. Agora a gente vai colocar pra funcionar de verdade. Eu adicionando a IA agora, vai ter pra ninguém. Isso aí (o site público) é muito vago, é fácil ter ruptura na privacidade. O nosso tem essa condição de dar privacidade pro usuário.
+    </div>
+  </details>
+
+  <details>
+    <summary>▶ Leitura do vídeo-fonte (00000201 · Gemini · 5 fps)</summary>
+    <div class="tr-body">
+      Filmagem real de partida de beach tennis (não é gravação de tela), com marca d’água <i>“filma eu”</i>. Duplas masculinas, câmera elevada atrás da linha de fundo, central. Duração ~22s (lance até ~00:18, depois cartela de patrocinadores). O jogador de azul (esquerda, perto da câmera) <b>não dá smash</b>: recepciona o saque e executa uma <b>devolução curta (deixadinha)</b> de forehand, amortecendo a bola para morrer perto da rede e quebrar o ritmo. O adversário corre à frente e bate de baixo para cima, deixando na fita — ponto da dupla próxima. Base do jogador de azul: afasta as pernas, abaixa o centro de gravidade e flexiona os joelhos para o controle. Patrocinadores visíveis: Sicredi, KPR, Amarildo Supermercado, Union, Zordan Engenharia, Héstia Automação.
+    </div>
+  </details>
+
+  <details>
+    <summary>▶ Índice das 11 telas do app (00000202 → 00000212)</summary>
+    <div class="tr-body">
+      <b>202</b> relatório do coach (cont.) — correção da “aterrissagem do smash” + rotação de ombros nota 8.<br>
+      <b>203</b> Métricas — “GOLPE: SMASH 8.2/10” + radar (Preparação/Ponto/Finalização/Equilíbrio/Trajetória).<br>
+      <b>204</b> Hero — “UM MOTOR, DOIS JOGOS, TRÊS SAÍDAS” + upload (clipe ≤75s) + gênero M/F.<br>
+      <b>205</b> Intenção tática (colocação 9 / seleção 9) + setorização meio·esquerda → meio·esquerda.<br>
+      <b>206</b> Áudio da narrativa (1:27) + salvar/compartilhar (.txt/.json/.wav/card/link).<br>
+      <b>207</b> Formulário — modo AUTO, câmera “central (atrás do fundo)”, “Quem é você no vídeo?”, <i>não usamos reconhecimento facial</i>; nome Cesar, camisa/short azul, lado esquerdo.<br>
+      <b>208</b> Footwork (split step 7, posicionamento 8, recuperação 8) + biomecânica (cadeia cinética 8, rotação 8).<br>
+      <b>209</b> Cabeçalho da análise — clipe 23s, fps 4, fase Ataque, lateralidade destro, “travou no alvo: alta” + correção principal (smash).<br>
+      <b>210</b> Formulário (cont.) — lateralidade, boné, cor da raquete, cabelo, óculos, altura ~1,90m + “Analisar vídeo”.<br>
+      <b>211</b> Execução técnica — preparação 8, ponto de contato 9, finalização 8, equilíbrio 8, trajetória 8.<br>
+      <b>212</b> “Como a IA chegou a isso” — fase Ataque, golpe Smash, ~15.2s + relatório “que belo smash, Cesar!”.
+    </div>
+  </details>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="hr" style="margin-bottom:22px"></div>
+  BITVAR IA · documento de calibragem · referências de Caio Bitvar (15→24 jun 2026)<br>
+  fontes: 10 áudios (ElevenLabs Scribe v2) · 1 vídeo (Gemini) · 11 telas · chat WhatsApp<br>
+  gerado por illumi · R1 · 24 jun 2026 · uso interno
+</div></footer>
+
+<script>
+  // active nav highlight
+  const links=[...document.querySelectorAll('.subnav a')];
+  const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+  const obs=new IntersectionObserver((es)=>{
+    es.forEach(e=>{ if(e.isIntersecting){
+      links.forEach(l=>l.style.cssText='');
+      const a=map.get(e.target.id);
+      if(a){a.style.color='var(--green-2)';a.style.background='rgba(52,211,106,.10)';a.style.borderColor='var(--grn-line)';}
+    }});
+  },{rootMargin:'-130px 0px -70% 0px'});
+  document.querySelectorAll('section[id]').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

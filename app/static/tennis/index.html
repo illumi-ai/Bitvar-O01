@@ -185,6 +185,13 @@
         </div>
       </div>
       <div class="field">
+        <label>Nível</label>
+        <div class="seg" id="level" role="group" aria-label="Nível">
+          <button type="button" data-v="amador" aria-pressed="true">AMADOR</button>
+          <button type="button" data-v="profissional" aria-pressed="false">PROFISSIONAL</button>
+        </div>
+      </div>
+      <div class="field">
         <label>Modo</label>
         <div class="seg" id="mode" role="group" aria-label="Modo de análise">
           <button type="button" data-v="auto" aria-pressed="true">AUTO</button>
@@ -264,7 +271,7 @@
 
 <script>
 const $ = s => document.querySelector(s);
-const state = { file:null, gender:"male", mode:"auto" };
+const state = { file:null, gender:"male", level:"amador", mode:"auto" };
 
 // ---- segmented controls ----
 function bindSeg(id, key){
@@ -276,7 +283,7 @@ function bindSeg(id, key){
     });
   });
 }
-bindSeg("gender","gender"); bindSeg("mode","mode");
+bindSeg("gender","gender"); bindSeg("level","level"); bindSeg("mode","mode");
 
 // ---- file pick / drag-drop ----
 const drop=$("#drop"), fileInput=$("#file");
@@ -309,6 +316,7 @@ $("#go").addEventListener("click",async()=>{
   const fd=new FormData();
   fd.append("file",state.file);
   fd.append("gender",state.gender);
+  fd.append("level",state.level);
   fd.append("mode",state.mode);
   fd.append("with_audio",$("#audio").checked?"true":"false");
   const cam=$("#camera").value; if(cam) fd.append("camera_position",cam);
@@ -333,7 +341,9 @@ $("#go").addEventListener("click",async()=>{
 function el(t,attrs={},...kids){const e=document.createElement(t);for(const k in attrs){if(k==="class")e.className=attrs[k];else if(k==="html")e.innerHTML=attrs[k];else e.setAttribute(k,attrs[k]);}for(const c of kids){if(c==null)continue;e.append(c.nodeType?c:document.createTextNode(c));}return e;}
 const num=v=>v==null?"—":(typeof v==="number"?(Number.isInteger(v)?v:v.toFixed(1)):v);
 const pct=v=>v==null?"—":num(v)+"%";
-const LABELS={preparation:"Preparação",contact_point:"Ponto de contato",follow_through:"Finalização",balance_and_posture:"Equilíbrio e postura",racket_path:"Trajetória da raquete",split_step:"Split step",court_positioning:"Posicionamento",recovery_after_shot:"Recuperação",kinetic_chain:"Cadeia cinética",hip_shoulder_rotation:"Rotação quadril/ombro",weight_transfer:"Transferência de peso",shot_placement_quality:"Colocação do golpe",shot_selection:"Seleção do golpe"};
+const LABELS={preparation:"Preparação",contact_point:"Ponto de contato",follow_through:"Finalização",balance_and_posture:"Equilíbrio e postura",racket_path:"Trajetória da raquete",split_step:"Split step",court_positioning:"Posicionamento",recovery_after_shot:"Recuperação",kinetic_chain:"Cadeia cinética",hip_shoulder_rotation:"Rotação quadril/ombro",weight_transfer:"Transferência de peso",shot_placement_quality:"Colocação do golpe",shot_selection:"Seleção do golpe",defensive_base_flexion:"Flexão de base (defesa)",movement_base_flexion:"Flexão de base (deslocamento)",stability_center_of_gravity:"Estabilidade do centro de gravidade"};
+const TACEVENT={finta:"Finta",aproveitamento_deslocamento:"Aproveitamento de deslocamento",espaco_livre:"Espaço livre",colocacao:"Colocação",quebra_de_ritmo:"Quebra de ritmo",outro:"Outro"};
+const TACACTOR={alvo:"Atleta-alvo",adversario:"Adversário",parceiro:"Parceiro",indefinido:"Indefinido"};
 const SHOTS={forehand:"Forehand",backhand:"Backhand",serve:"Saque",return:"Devolução",volley:"Voleio",overhead_smash:"Smash",slice:"Slice",drop_shot:"Drop shot",lob:"Lob",approach:"Aproximação",unknown:"Não identificado"};
 const PHASES={serve:"Saque",serve_return:"Recepção do saque",baseline_rally:"Troca de fundo",attack:"Ataque",defense:"Defesa",transition:"Transição",net_play:"Jogo de rede",unknown:"Indefinida"};
 const HAND={destro:"Destro",canhoto:"Canhoto",indeterminado:"Indeterminada"};
@@ -360,6 +370,7 @@ function render(d){
   $("#chips").innerHTML="";
   const gm=route.gender==="female";
   addChip(gm?"roxo":"info", "GÊNERO", gm?"Feminino":"Masculino");
+  if(route.level) addChip(route.level==="profissional"?"green":"info", "NÍVEL", route.level==="profissional"?"Profissional":"Amador");
   addChip("green","MODO", route.mode==="clip"?"Clipe (lance)":"Partida");
   addChip("", "fps", route.fps);
   addChip("", "media_res", (route.media_resolution||"").replace("MEDIA_RESOLUTION_",""));
@@ -394,7 +405,7 @@ function render(d){
   renderShare(d);
   $("#results").scrollIntoView({behavior:"smooth"});
 }
-function addChip(cls,k,v){$("#chips").append(el("span",{class:"chip "+cls,html:`${k} <b>${v}</b>`}));}
+function addChip(cls,k,v){const s=el("span",{class:"chip "+cls});s.append(document.createTextNode(k+" "));const b=el("b");b.textContent=v;s.append(b);$("#chips").append(s);}  // textContent: não interpola dado do usuário (anti-XSS)
 function renderKey(m){
   const box=$("#keybox"); box.innerHTML="";
   if(!m.key_improvement){return;}
@@ -426,20 +437,41 @@ function renderClip(host,m){
   grid.append(scoreCard("Execução técnica",te));
   host.append(grid);
 
-  // other groups
-  const groups=[["footwork_and_movement","Footwork e movimentação"],["biomechanics","Biomecânica"],["tactical_intent","Intenção tática"]]
-    .filter(([k])=>m[k]);
+  // nota oficial calibrada por fase (Python) ao lado da nota técnica do VLM
+  const wc=renderWeighted(m.weighted_performance_score,"Nota oficial (calibrada por fase)"); if(wc) host.append(wc);
+
+  // other groups (inclui MEMBROS INFERIORES / BASE — eixo da calibragem Caio 24/06)
+  const groups=[["lower_body_base","Membros inferiores / base"],["footwork_and_movement","Footwork e movimentação"],["biomechanics","Biomecânica"],["tactical_intent","Intenção tática"]]
+    .filter(([k])=>m[k]&&Object.keys(m[k]).length);  // exige conteúdo, não só presença ({} não renderiza card vazio)
   if(groups.length){
     const g=el("div",{class:"grid g3",style:"margin-top:14px"});
     groups.forEach(([k,t])=>g.append(scoreCard(t,m[k])));
     host.append(g);
   }
 
+  // leitura tática do ponto (eventos relacionais + encadeamento causa→efeito)
+  const tc=tacticalCard(m); if(tc) host.append(tc);
+
   // posicionamento (setorização) + "como a IA chegou a isso"
   const extra=[];
   const pc=positioningCard(m.positioning); if(pc) extra.push(pc);
   const ec=evidenceCard(m); if(ec) extra.push(ec);
   if(extra.length){const g=el("div",{class:"grid g2",style:"margin-top:14px"});extra.forEach(c=>g.append(c));host.append(g);}
+}
+function tacticalCard(m){
+  const evs=m.tactical_events||[];
+  if(!evs.length && !m.point_outcome_link) return null;
+  const c=el("div",{class:"card",style:"margin-top:14px"}); c.append(el("div",{class:"ct"},"Leitura tática do ponto"));
+  evs.forEach(e=>{
+    const r=el("div",{class:"stat"});
+    const who=e.actor?` · ${TACACTOR[e.actor]||e.actor}`:"";
+    r.append(el("span",{class:"k"},(TACEVENT[e.event_type]||e.event_type)+who));
+    r.append(el("span",{class:"v"},e.approx_timestamp_s!=null?`~${num(e.approx_timestamp_s)}s`:""));
+    c.append(r);
+    if(e.description) c.append(el("div",{class:"obs"},e.description));
+  });
+  if(m.point_outcome_link) c.append(el("div",{class:"obs",style:"margin-top:10px;color:var(--verde)"},"→ "+m.point_outcome_link));
+  return c;
 }
 function zoneLabel(z,s){return [ZONES[z]||z||null,SIDES[s]||s||null].filter(Boolean).join(" · ")||"—";}
 function positioningCard(p){
@@ -460,6 +492,7 @@ function evidenceCard(m){
   const c=el("div",{class:"card ev"}); c.append(el("div",{class:"ct"},"Como a IA chegou a isso"));
   const row=(k,v,conf)=>{if(v==null||v==="")return;const r=el("div",{class:"row"});r.append(el("span",{class:"k"},k));const val=el("span",{},v);if(conf){val.append(document.createTextNode(" "));val.append(conf);}r.append(val);c.append(r);};
   row("Fase", m.action_phase?(PHASES[m.action_phase]||m.action_phase):null, confTag(m.phase_confidence));
+  if(m.phase_alternative) row("Fase alternativa", PHASES[m.phase_alternative]||m.phase_alternative);
   row("Golpe", m.shot_identified?(SHOTS[m.shot_identified]||m.shot_identified):null, confTag(m.shot_confidence));
   if(m.approx_timestamp_s!=null) row("Momento aprox.", `~${num(m.approx_timestamp_s)}s`);
   if(m.subject_lock_confidence) row("Confiança no alvo", "", confTag(m.subject_lock_confidence));
@@ -502,26 +535,29 @@ function radar(axes){
   const box=el("div",{style:"margin-top:8px"}); box.append(svg); return box;
 }
 
+// ---- nota ponderada (calibrada em Python) — shape idêntico clip/match ----
+function renderWeighted(ws,title){
+  if(!ws) return null;
+  const c=el("div",{class:"card"});
+  c.append(el("div",{class:"ct"},`${title||"Score ponderado"} · ${ws.weighting_model||""}`));
+  const bs=el("div",{class:"big-score"});
+  bs.append(el("span",{class:"num"},num(ws.score))); bs.append(el("span",{class:"den"},"/ 100"));
+  c.append(bs);
+  c.append(el("div",{class:"obs"},`${ws.components_present}/${ws.components_total} componentes com dado · contribuições somam o score`));
+  (ws.component_breakdown||[]).forEach(comp=>{
+    const sb=el("div",{class:"sbar"});
+    const lab=`${comp.label||comp.component} · peso ${comp.weight}`;
+    sb.append(el("div",{class:"row"},el("span",{},lab),el("span",{class:"n"},comp.present?`+${comp.contribution_pts}`:"sem dado")));
+    const tr=el("div",{class:"track"}); tr.append(el("div",{class:"fill",style:`width:${comp.present?(comp.normalized*100):0}%`})); sb.append(tr);
+    c.append(sb);
+  });
+  return c;
+}
+
 // ---- MATCH ----
 function renderMatch(host,m,bench){
   // weighted score
-  const ws=m.weighted_performance_score;
-  if(ws){
-    const c=el("div",{class:"card"});
-    c.append(el("div",{class:"ct"},`Score ponderado · ${ws.weighting_model||""}`));
-    const bs=el("div",{class:"big-score"});
-    bs.append(el("span",{class:"num"},num(ws.score))); bs.append(el("span",{class:"den"},"/ 100"));
-    c.append(bs);
-    c.append(el("div",{class:"obs"},`${ws.components_present}/${ws.components_total} componentes com dado · contribuições somam o score`));
-    (ws.component_breakdown||[]).forEach(comp=>{
-      const sb=el("div",{class:"sbar"});
-      const lab=`${comp.label||comp.component} · peso ${comp.weight}`;
-      sb.append(el("div",{class:"row"},el("span",{},lab),el("span",{class:"n"},comp.present?`+${comp.contribution_pts}`:"sem dado")));
-      const tr=el("div",{class:"track"}); tr.append(el("div",{class:"fill",style:`width:${comp.present?(comp.normalized*100):0}%`})); sb.append(tr);
-      c.append(sb);
-    });
-    host.append(c);
-  }
+  const wc=renderWeighted(m.weighted_performance_score,"Score ponderado"); if(wc) host.append(wc);
 
   // stat cards
   const g=el("div",{class:"grid g2",style:"margin-top:14px"});
