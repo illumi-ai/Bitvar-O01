@@ -73,30 +73,31 @@
   .quadbox .qhead{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.04rem}
   .quadbox .hint{color:var(--arquibancada);font-size:.88rem;margin:6px 0 12px}
   .quadbox .qsub{color:var(--arquibancada);font-size:.9rem;margin:6px 0 6px}
-  /* fluxo de 2 passos (câmera → quadrante), espelha a doc quadrante×câmera */
-  .qstep{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--linha)}
-  .qstep:first-of-type{padding-top:6px}
-  .qstep-n{flex:0 0 auto;width:25px;height:25px;border-radius:50%;background:var(--info);color:#06121f;font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;margin-top:1px}
-  .qstep-body{flex:1;min-width:0}
-  .qstep-label{display:block;font-family:'Archivo',sans-serif;font-weight:700;font-size:.95rem;margin-bottom:9px}
-  .qstep .seg{max-width:340px}
-  /* 4 posições de câmera (2 fundos + 2 laterais) em grade 2×2 */
-  .seg.seg4{flex-wrap:wrap}
-  .seg.seg4 button{flex:1 1 46%;font-size:.74rem;line-height:1.2}
-  .seg.seg4 button:nth-child(odd){border-right:1px solid var(--linha)}
-  .seg.seg4 button:nth-child(-n+2){border-bottom:1px solid var(--linha)}
+  /* QUADRA INTERATIVA: moldura de 4 zonas de câmera (um lado da quadra cada) em volta
+     da grade 2×2 do FRAME — câmera + quadrante num só componente visual. As .court/.net/
+     .mid/.qhit/.qn reaproveitam as regras de .pickmap abaixo. */
+  .camzone{fill:rgba(143,169,196,.045);stroke:var(--linha);stroke-width:1.4;cursor:pointer;transition:fill .12s,stroke .12s}
+  .camzone-g:hover .camzone{fill:rgba(111,177,255,.10)}
+  .camzone-g.on .camzone{fill:rgba(111,177,255,.16);stroke:var(--info);stroke-width:2}
+  .cam-ico{pointer-events:none;opacity:.3;transition:opacity .12s}   /* inativa apagada; a ativa salta */
+  .camzone-g:hover .cam-ico{opacity:.65}
+  .camzone-g.on .cam-ico{opacity:1}
+  .cam-ico path,.cam-ico circle{fill:none;stroke:#5d7693;stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round;transition:stroke .12s}
+  .camzone-g:hover .cam-ico path,.camzone-g:hover .cam-ico circle{stroke:var(--arquibancada)}
+  .camzone-g.on .cam-ico path,.camzone-g.on .cam-ico circle{stroke:var(--info)}
+  .camzone-lbl{fill:#7a93ad;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.03em;pointer-events:none;transition:fill .12s}
+  .camzone-g.on .camzone-lbl{fill:var(--info);font-weight:600}
   .quadwrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
   .pickmap{flex:0 0 auto;border:1px solid var(--linha);border-radius:10px;background:var(--noite-code);padding:8px}
   .pickmap svg{width:280px;max-width:74vw;height:auto;display:block}
   .pickmap .court{fill:#0e1a29;stroke:var(--linha);stroke-width:2}
   .pickmap .net{stroke:var(--info);stroke-width:2;stroke-dasharray:5 4}
   .pickmap .mid{stroke:var(--linha);stroke-width:1.4}
-  .pickmap .qhit{fill:transparent;cursor:pointer;stroke:transparent;stroke-width:2.5;transition:fill .12s}
+  .pickmap .qhit{fill:transparent;cursor:pointer;stroke:transparent;stroke-width:0;transition:fill .12s}
   .pickmap .qhit:hover{fill:rgba(111,177,255,.12)}
-  .pickmap .qhit.on{fill:rgba(52,214,123,.22);stroke:var(--verde)}
-  .pickmap .qn{fill:var(--arquibancada);font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;pointer-events:none}
+  .pickmap .qhit.on{fill:rgba(52,214,123,.22);stroke:var(--verde);stroke-width:2.5}
+  .pickmap .qn{fill:var(--arquibancada);font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;pointer-events:none;dominant-baseline:central}
   .pickmap .qn.on{fill:var(--verde)}
-  .pickmap .cam{fill:#5d7693;font-family:'JetBrains Mono',monospace;font-size:11px;pointer-events:none}
   .qside{flex:1;min-width:200px}
   .qsummary{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--arquibancada);border:1px dashed var(--linha);border-radius:8px;padding:9px 11px;margin-bottom:12px}
   .qsummary b{color:var(--verde)}
@@ -232,79 +233,67 @@
     </div>
 
     <div class="quadbox" id="quadbox">
-      <div class="qhead">Atleta‑alvo: câmera + quadrante <span class="opt" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada);font-weight:400">(opcional — com 4 em quadra, trava a IA no jogador certo)</span></div>
-      <p class="qsub">Dois toques, nesta ordem (como na régua câmera × quadrante): <strong>1)</strong> diga de onde filmou e o mapa se reorganiza sozinho; <strong>2)</strong> toque no quadrante onde o atleta começa o ponto.</p>
+      <div class="qhead">Atleta‑alvo: quadra interativa <span class="opt" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada);font-weight:400">(opcional — com 4 em quadra, trava a IA no jogador certo)</span></div>
+      <p class="qsub">Tudo numa quadra só: toque na <strong>borda</strong> de onde você filmou (a câmera fica em um lado da quadra) e no <strong>quadrante</strong> onde o atleta começa o ponto. O mapa se reorganiza sozinho conforme a câmera — o <strong>mesmo canto da tela</strong> pode virar um número diferente.</p>
 
-      <!-- PASSO 1 · câmera: define qual mapa de quadrante o sistema usa -->
-      <div class="qstep">
-        <span class="qstep-n" aria-hidden="true">1</span>
-        <div class="qstep-body">
-          <span class="qstep-label">De onde a câmera filmou? <span class="opt" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--arquibancada);font-weight:400">(um lado da quadra)</span></span>
-          <div class="seg seg4" id="camera" role="group" aria-label="Posição da câmera">
-            <button type="button" data-v="fundo_meu"   aria-pressed="true">FUNDO · meu lado</button>
-            <button type="button" data-v="fundo_adv"   aria-pressed="false">FUNDO · adversário</button>
-            <button type="button" data-v="lateral_esq" aria-pressed="false">LATERAL · esq.</button>
-            <button type="button" data-v="lateral_dir" aria-pressed="false">LATERAL · dir.</button>
-          </div>
-          <p class="hint" style="margin:9px 0 0"><span id="quadhint-extra">Rede horizontal · em cima = adversário (fundo) · embaixo = seu time (perto) · você filmou atrás do SEU time.</span></p>
-        </div>
-      </div>
-
-      <!-- PASSO 2 · quadrante: trava no atleta-alvo (numeração já ajustada à câmera) -->
-      <div class="qstep">
-        <span class="qstep-n" aria-hidden="true">2</span>
-        <div class="qstep-body">
-          <span class="qstep-label">Toque no quadrante do atleta‑alvo</span>
-          <p class="hint" style="margin:0 0 12px">O toque é no <strong>mesmo lugar da tela</strong>; a câmera só diz ao sistema <strong>como ler</strong> aquele toque — a numeração se reorganiza sozinha.</p>
-          <div class="quadwrap">
-        <div class="pickmap">
-          <svg viewBox="0 0 320 224" role="group" aria-label="Mapa de quadrantes — toque no quadrante do atleta">
-            <!-- vista FUNDO: câmera atrás de uma linha de fundo · rede horizontal ·
-                 1·2 no fundo / 3·4 na frente (team-neutro; o lado vem da posição) -->
-            <g id="cam-fundo">
-              <polygon class="court" points="92,18 228,18 296,198 24,198"/>
-              <line class="net" x1="58" y1="108" x2="262" y2="108"/>
-              <line class="mid" x1="160" y1="18" x2="160" y2="198"/>
-              <polygon class="qhit" data-q="1" data-corner="tl" points="92,18 160,18 160,108 58,108" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 1 — fundo esquerda do quadro"/>
-              <polygon class="qhit" data-q="2" data-corner="tr" points="160,18 228,18 262,108 160,108" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 2 — fundo direita do quadro"/>
-              <polygon class="qhit" data-q="3" data-corner="bl" points="58,108 160,108 160,198 24,198" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 3 — frente esquerda do quadro"/>
-              <polygon class="qhit" data-q="4" data-corner="br" points="160,108 262,108 296,198 160,198" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 4 — frente direita do quadro"/>
-              <text class="qn" data-corner="tl" x="118" y="72" text-anchor="middle">1</text>
-              <text class="qn" data-corner="tr" x="202" y="72" text-anchor="middle">2</text>
-              <text class="qn" data-corner="bl" x="98" y="164" text-anchor="middle">3</text>
-              <text class="qn" data-corner="br" x="222" y="164" text-anchor="middle">4</text>
-              <text class="cam" id="f-top" x="160" y="12" text-anchor="middle">▲ fundo · adversário (longe)</text>
-              <text class="cam" id="f-bot" x="160" y="216" text-anchor="middle">▼ câmera · seu time (perto)</text>
+      <div class="quadwrap">
+        <div class="pickmap court-selector">
+          <svg viewBox="0 0 360 360" role="group" aria-label="Quadra interativa — escolha na borda a posição da câmera e no centro o quadrante do atleta">
+            <!-- MOLDURA EXTERNA: 4 zonas de câmera (uma por lado da quadra). Cada uma é um
+                 botão; a ativa acende e mostra o ícone de câmera. -->
+            <g id="cam-zones">
+              <!-- topo = FUNDO · adversário (você filmou atrás do adversário) -->
+              <g class="camzone-g" data-cam="fundo_adv">
+                <polygon class="camzone" data-cam="fundo_adv" points="40,40 320,40 260,100 100,100" tabindex="0" role="button" aria-pressed="false" aria-label="Câmera de fundo, atrás do adversário — borda de cima"/>
+                <g class="cam-ico" aria-hidden="true" transform="translate(172.8,56.8) scale(.6)"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/></g>
+                <text class="camzone-lbl" aria-hidden="true" x="180" y="30" text-anchor="middle">FUNDO · adversário</text>
+              </g>
+              <!-- base = FUNDO · meu lado (você filmou atrás do seu time) · default -->
+              <g class="camzone-g on" data-cam="fundo_meu">
+                <polygon class="camzone" data-cam="fundo_meu" points="40,320 320,320 260,260 100,260" tabindex="0" role="button" aria-pressed="true" aria-label="Câmera de fundo, atrás do seu time — borda de baixo"/>
+                <g class="cam-ico" aria-hidden="true" transform="translate(172.8,282.8) scale(.6)"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/></g>
+                <text class="camzone-lbl" aria-hidden="true" x="180" y="344" text-anchor="middle">FUNDO · meu lado</text>
+              </g>
+              <!-- esquerda = LATERAL · esq. -->
+              <g class="camzone-g" data-cam="lateral_esq">
+                <polygon class="camzone" data-cam="lateral_esq" points="40,40 100,100 100,260 40,320" tabindex="0" role="button" aria-pressed="false" aria-label="Câmera na lateral esquerda — borda da esquerda"/>
+                <g class="cam-ico" aria-hidden="true" transform="translate(60.8,172.8) scale(.6)"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/></g>
+                <text class="camzone-lbl" aria-hidden="true" x="22" y="180" text-anchor="middle" transform="rotate(-90 22 180)">LATERAL · esq.</text>
+              </g>
+              <!-- direita = LATERAL · dir. -->
+              <g class="camzone-g" data-cam="lateral_dir">
+                <polygon class="camzone" data-cam="lateral_dir" points="320,40 260,100 260,260 320,320" tabindex="0" role="button" aria-pressed="false" aria-label="Câmera na lateral direita — borda da direita"/>
+                <g class="cam-ico" aria-hidden="true" transform="translate(284.8,172.8) scale(.6)"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/></g>
+                <text class="camzone-lbl" aria-hidden="true" x="338" y="180" text-anchor="middle" transform="rotate(90 338 180)">LATERAL · dir.</text>
+              </g>
             </g>
-            <!-- vista LATERAL: câmera na lateral · rede vertical · 1·2 = lado esquerdo /
-                 3·4 = lado direito (numeração por COLUNAS: o inferior-esquerdo, que é Q3
-                 de fundo, vira Q2 aqui). Times vêm da posição (lateral_esq/dir) via JS. -->
-            <g id="cam-lateral" style="display:none">
-              <polygon class="court" points="70,34 300,78 300,148 70,194"/>
-              <line class="net" x1="185" y1="56" x2="185" y2="171"/>
-              <line class="mid" x1="70" y1="114" x2="300" y2="113"/>
-              <polygon class="qhit" data-q="1" data-corner="tl" points="70,34 185,56 185,113 70,114" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 1 — lado esquerdo do quadro, ao fundo"/>
-              <polygon class="qhit" data-q="2" data-corner="bl" points="70,114 185,113 185,171 70,194" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 2 — lado esquerdo do quadro, perto"/>
-              <polygon class="qhit" data-q="3" data-corner="tr" points="185,56 300,78 300,113 185,113" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 3 — lado direito do quadro, ao fundo"/>
-              <polygon class="qhit" data-q="4" data-corner="br" points="185,113 300,113 300,148 185,171" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 4 — lado direito do quadro, perto"/>
-              <text class="qn" data-corner="tl" x="128" y="82" text-anchor="middle">1</text>
-              <text class="qn" data-corner="bl" x="128" y="150" text-anchor="middle">2</text>
-              <text class="qn" data-corner="tr" x="242" y="90" text-anchor="middle">3</text>
-              <text class="qn" data-corner="br" x="242" y="138" text-anchor="middle">4</text>
-              <text class="cam" id="l-teamL" x="127" y="26" text-anchor="middle">time esq.</text>
-              <text class="cam" id="l-teamR" x="242" y="26" text-anchor="middle">time dir.</text>
-              <text class="cam" id="l-cam" x="6" y="210" text-anchor="start">câmera ▶</text>
+            <!-- CENTRO: grade 2×2 = o FRAME do seu vídeo. A rede vira horizontal⇄vertical e
+                 o número de cada célula muda conforme a câmera (via applyCameraView). O
+                 toque é guardado pelo CANTO físico (data-corner), invariante à câmera. -->
+            <g id="court-grid">
+              <rect class="court" x="100" y="100" width="160" height="160" rx="0"/>
+              <line class="mid" x1="100" y1="180" x2="260" y2="180"/>
+              <line class="mid" x1="180" y1="100" x2="180" y2="260"/>
+              <line id="net-v" class="net" x1="180" y1="100" x2="180" y2="260" style="display:none"/>
+              <line id="net-h" class="net" x1="100" y1="180" x2="260" y2="180"/>
+              <polygon class="qhit" data-corner="tl" points="100,100 180,100 180,180 100,180" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 1 — canto superior-esquerdo do quadro"/>
+              <polygon class="qhit" data-corner="tr" points="180,100 260,100 260,180 180,180" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 2 — canto superior-direito do quadro"/>
+              <polygon class="qhit" data-corner="bl" points="100,180 180,180 180,260 100,260" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 3 — canto inferior-esquerdo do quadro"/>
+              <polygon class="qhit" data-corner="br" points="180,180 260,180 260,260 180,260" tabindex="0" role="button" aria-pressed="false" aria-label="Quadrante 4 — canto inferior-direito do quadro"/>
+              <text class="qn" data-corner="tl" x="140" y="140" text-anchor="middle" aria-hidden="true">1</text>
+              <text class="qn" data-corner="tr" x="220" y="140" text-anchor="middle" aria-hidden="true">2</text>
+              <text class="qn" data-corner="bl" x="140" y="220" text-anchor="middle" aria-hidden="true">3</text>
+              <text class="qn" data-corner="br" x="220" y="220" text-anchor="middle" aria-hidden="true">4</text>
             </g>
           </svg>
         </div>
         <div class="qside">
-          <div class="qsummary" id="qsummary" aria-live="polite">Atleta‑alvo: <b>nenhum quadrante selecionado</b> <span style="color:var(--arquibancada)">(opcional — sem isto a IA escolhe quem analisar)</span></div>
+          <div class="qsummary" id="qsummary" aria-live="polite">Câmera: <b>Fundo · meu lado</b> · <b>nenhum quadrante</b> <span style="color:var(--arquibancada)">(opcional — sem isto a IA escolhe quem analisar)</span></div>
           <div class="field">
             <label>Cor / aparência do alvo (fio de continuidade)</label>
             <input id="target-appearance" type="text" placeholder="ex.: camisa e short azul">
           </div>
-        </div>
-          </div>
+          <p class="hint" id="quadhint-extra" style="margin:10px 0 0">Rede horizontal · em cima = adversário (fundo) · embaixo = seu time (perto) · você filmou atrás do SEU time.</p>
         </div>
       </div>
     </div>
@@ -371,15 +360,11 @@ const state = { file:null, gender:"male", level:"amador", mode:"clip", camera:"f
 // laterais compartilham a numeração (relativa ao FRAME); o lado só espelha os RÓTULOS.
 const axisOf = c => { const s=(c?String(c):"").toLowerCase(); return (s.startsWith("lateral")||s==="lado"||s==="side") ? "lateral" : "fundo"; };  // espelha normalize_camera_axis (Py)
 const cameraAxis = () => axisOf(state.camera);
-const CAMS = {
-  fundo_meu:   {axis:"fundo",   ftop:"▲ fundo · adversário (longe)", fbot:"▼ câmera · seu time (perto)",
-                hint:"Rede horizontal · em cima = adversário (fundo) · embaixo = seu time (perto) · você filmou atrás do SEU time."},
-  fundo_adv:   {axis:"fundo",   ftop:"▲ fundo · seu time (longe)",   fbot:"▼ câmera · adversário (perto)",
-                hint:"Rede horizontal · em cima = seu time (fundo) · embaixo = adversário (perto) · você filmou atrás do ADVERSÁRIO."},
-  lateral_esq: {axis:"lateral", lL:"time esq.", lR:"time dir.", lcamX:6,   lcamY:210, lcamA:"start", lcam:"câmera ▶",
-                hint:"Rede vertical · 1·2 = lado esquerdo · 3·4 = lado direito · câmera na lateral ESQUERDA."},
-  lateral_dir: {axis:"lateral", lL:"time dir.", lR:"time esq.", lcamX:314, lcamY:210, lcamA:"end",   lcam:"◀ câmera",
-                hint:"Rede vertical · 1·2 = lado esquerdo · 3·4 = lado direito · câmera na lateral DIREITA."},
+const CAMS = {  // axis → rede (horizontal/vertical) + numeração; hint = a vista p/ o usuário
+  fundo_meu:   {axis:"fundo",   hint:"Rede horizontal · em cima = adversário (fundo) · embaixo = seu time (perto) · você filmou atrás do SEU time."},
+  fundo_adv:   {axis:"fundo",   hint:"Rede horizontal · em cima = seu time (fundo) · embaixo = adversário (perto) · você filmou atrás do ADVERSÁRIO."},
+  lateral_esq: {axis:"lateral", hint:"Rede vertical · 1·2 = lado esquerdo da tela · 3·4 = lado direito · você filmou da lateral ESQUERDA."},
+  lateral_dir: {axis:"lateral", hint:"Rede vertical · 1·2 = lado esquerdo da tela · 3·4 = lado direito · você filmou da lateral DIREITA."},
 };
 // rótulo amigável da câmera p/ o chip do resultado (evita vazar o enum cru ao usuário)
 const CAMLABEL = {fundo_meu:"Fundo · meu lado", fundo_adv:"Fundo · adversário", lateral_esq:"Lateral esquerda", lateral_dir:"Lateral direita"};
@@ -395,6 +380,10 @@ const QUADLABELS = {          // número do quadrante → rótulo humano, por ei
 };
 const quadLabelFor = (cam,q) => (QUADLABELS[axisOf(cam)])[q] || "";  // aceita posição (4-valor) ou eixo
 const quadLabel = q => quadLabelFor(state.camera, q);
+const CORNER_DESC = {  // canto físico → descrição p/ aria (relativa ao FRAME, independe da câmera)
+  tl:"canto superior-esquerdo do quadro", tr:"canto superior-direito do quadro",
+  bl:"canto inferior-esquerdo do quadro", br:"canto inferior-direito do quadro",
+};
 
 // ---- segmented controls ----
 function bindSeg(id, key){
@@ -406,55 +395,64 @@ function bindSeg(id, key){
     });
   });
 }
-bindSeg("gender","gender"); bindSeg("level","level"); bindSeg("camera","camera");  // modo removido: sempre clipe
+bindSeg("gender","gender"); bindSeg("level","level");  // câmera = moldura da quadra interativa (selectCamera); modo removido: sempre clipe
 
 // ---- seletor de quadrante (âncora do atleta-alvo) ----
 // A seleção é guardada pelo CANTO FÍSICO da tela (tl/tr/bl/br), invariante à câmera; o
 // NÚMERO submetido (state.target_quadrant) é derivado da câmera atual. Assim, trocar a
 // câmera mantém o atleta no mesmo lugar da tela e só reescreve o número.
 function selectByCorner(corner){
-  state.target_corner=corner;
-  state.target_quadrant=CORNER_Q[cameraAxis()][corner];
-  document.querySelectorAll("#quadbox .qhit").forEach(x=>{const on=x.dataset.corner===corner;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on?"true":"false");});
-  document.querySelectorAll("#quadbox .qn").forEach(x=>x.classList.toggle("on",x.dataset.corner===corner));
+  const clear = state.target_corner===corner;   // re-toque no mesmo canto LIMPA a âncora (quadrante é opcional)
+  state.target_corner   = clear ? null : corner;
+  state.target_quadrant = clear ? null : CORNER_Q[cameraAxis()][corner];
+  document.querySelectorAll("#court-grid .qhit").forEach(x=>{const on=!clear&&x.dataset.corner===corner;x.classList.toggle("on",on);x.setAttribute("aria-pressed",on?"true":"false");});
+  document.querySelectorAll("#court-grid .qn").forEach(x=>x.classList.toggle("on",!clear&&x.dataset.corner===corner));
   updateQuadSummary();
 }
-function updateQuadSummary(){
-  const q=state.target_quadrant, ta=$("#target-appearance").value.trim();
-  const box=$("#qsummary");
-  if(!q){box.innerHTML='Atleta‑alvo: <b>nenhum quadrante selecionado</b> <span style="color:var(--arquibancada)">(opcional — sem isto a IA escolhe quem analisar)</span>';return;}
-  box.innerHTML=`Atleta‑alvo: <b>Q${q} · ${quadLabel(q)}</b>${ta?` · ${ta.replace(/[<>&]/g,"")}`:""}`;
+function updateQuadSummary(){            // a aparência NÃO entra aqui (era ruído na região aria-live); vai só no submit
+  const q=state.target_quadrant;
+  const box=$("#qsummary"); const cam=CAMLABEL[state.camera]||state.camera;  // rótulo seguro (constante)
+  if(!q){box.innerHTML=`Câmera: <b>${cam}</b> · <b>nenhum quadrante</b> <span style="color:var(--arquibancada)">(opcional — sem isto a IA escolhe quem analisar)</span>`;return;}
+  box.innerHTML=`Câmera: <b>${cam}</b> · Alvo: <b>Q${q} · ${quadLabel(q)}</b>`;
 }
-document.querySelectorAll("#quadbox .qhit").forEach(h=>{
+document.querySelectorAll("#court-grid .qhit").forEach(h=>{
   const corner=h.dataset.corner;
   h.addEventListener("click",()=>selectByCorner(corner));
   h.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectByCorner(corner);}});
 });
-$("#target-appearance").addEventListener("input",updateQuadSummary);
 
-// O desenho E a numeração acompanham a referência de câmera (fundo × lateral): a rede
-// vira de horizontal p/ vertical e o número de cada canto muda. O TOQUE continua no
-// mesmo lugar da tela — reaplicamos a seleção pelo CANTO físico e só reescrevemos o nº.
+// A moldura (4 zonas) escolhe a câmera; a câmera define o eixo (fundo×lateral): a rede
+// vira horizontal⇄vertical e o NÚMERO de cada célula muda (mesmo canto físico, nº
+// diferente). O TOQUE continua no mesmo lugar da tela — guardamos o CANTO e reescrevemos.
+function selectCamera(cam){ if(!cam) return; state.camera=cam; applyCameraView(); }
 function applyCameraView(){
-  const cam = CAMS[state.camera] || CAMS.fundo_meu;
-  const isLat = cam.axis==="lateral";
-  $("#cam-fundo").style.display   = isLat ? "none" : "";
-  $("#cam-lateral").style.display = isLat ? "" : "none";
-  if(!isLat){                               // fundo: troca só os rótulos de cima/baixo
-    $("#f-top").textContent = cam.ftop;
-    $("#f-bot").textContent = cam.fbot;
-  }else{                                    // lateral: troca os times das colunas + lado da câmera
-    $("#l-teamL").textContent = cam.lL;
-    $("#l-teamR").textContent = cam.lR;
-    const lc=$("#l-cam"); lc.textContent=cam.lcam; lc.setAttribute("x",cam.lcamX); lc.setAttribute("y",cam.lcamY); lc.setAttribute("text-anchor",cam.lcamA);
-  }
-  const ex=$("#quadhint-extra"); if(ex) ex.textContent = cam.hint;
-  if(state.target_corner){                  // mantém o canto físico; só reescreve número/rótulo
-    state.target_quadrant=CORNER_Q[cam.axis][state.target_corner];
-    updateQuadSummary();
-  }
+  const axis = axisOf(state.camera);
+  // moldura: realça a zona da câmera escolhida (e sincroniza aria-pressed)
+  document.querySelectorAll("#cam-zones .camzone-g").forEach(g=>{
+    const on=g.dataset.cam===state.camera; g.classList.toggle("on",on);
+    const p=g.querySelector(".camzone"); if(p) p.setAttribute("aria-pressed",on?"true":"false");
+  });
+  // rede: horizontal (fundo) ⇄ vertical (lateral)
+  const nh=$("#net-h"), nv=$("#net-v");
+  if(nh) nh.style.display = axis==="lateral" ? "none" : "";
+  if(nv) nv.style.display = axis==="lateral" ? "" : "none";
+  // numeração de CADA célula muda com o eixo (inferior-esq. é Q3 de fundo, Q2 na lateral)
+  document.querySelectorAll("#court-grid .qn").forEach(t=>{
+    const n=CORNER_Q[axis][t.dataset.corner]; if(n) t.textContent=String(n);
+  });
+  document.querySelectorAll("#court-grid .qhit").forEach(p=>{
+    const c=p.dataset.corner, n=CORNER_Q[axis][c];
+    if(n) p.setAttribute("aria-label",`Quadrante ${n} — ${CORNER_DESC[c]||"do quadro"}`);
+  });
+  const ex=$("#quadhint-extra"); if(ex) ex.textContent=(CAMS[state.camera]||CAMS.fundo_meu).hint;
+  if(state.target_corner) state.target_quadrant=CORNER_Q[axis][state.target_corner];  // mantém o canto; reescreve o nº
+  updateQuadSummary();
 }
-document.querySelectorAll("#camera button").forEach(b=>b.addEventListener("click",applyCameraView));
+document.querySelectorAll("#cam-zones .camzone").forEach(p=>{
+  const cam=p.dataset.cam;
+  p.addEventListener("click",()=>selectCamera(cam));
+  p.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectCamera(cam);}});
+});
 applyCameraView();
 
 // ---- file pick / drag-drop ----
@@ -550,7 +548,7 @@ function render(d){
   const w=$("#warns");
   const notes=(d.warnings||[]).slice();
   if(m.subject_lock_confidence==="baixa") notes.push("A IA não teve certeza de ter analisado a pessoa certa — confira a descrição do jogador.");
-  if(notes.length){w.innerHTML="<b>Avisos:</b> "+notes.join(" · ");w.classList.remove("hidden");}
+  if(notes.length){w.replaceChildren(el("b",{},"Avisos: "),notes.join(" · "));w.classList.remove("hidden");}  // textContent-safe (sem sink de HTML)
   else w.classList.add("hidden");
 
   // chips
