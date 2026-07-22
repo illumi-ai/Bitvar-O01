@@ -71,21 +71,25 @@ clip uses one schema (`AcademiaAnalysis`) and the fixed `fps`/`media_resolution`
 `config.py`. It reuses tennis's audio/Files-API helpers by import (`gemini.py`) instead of
 duplicating them.
 
-- **Model: `gemini-3.6-flash`** for calls 1 & 2 (`academia_analysis_model` in `config.py`) —
-  flash empirically beats the pro model here; TTS is `gemini-3.1-flash-tts-preview`. The key
-  is the shared `GEMINI_API_KEY` (tennis + academia); academia config is separate so the key
-  stays optional (endpoints `503` until it exists) and persistence is opt-in (`ACADEMIA_PERSIST`).
-- **The schema is the calibration.** `models.py:AcademiaAnalysis` returns a **balanced,
-  always-present** verdict: `pontos_fortes` (what's good) + `pontos_a_melhorar` (what to
-  improve, each an `observacao`→`ajuste` pair graded by `prioridade`) + `feedback_ideal`
-  (the synthesis). `prioridade` runs `refinamento → leve → moderada → risco_lesao`: the
-  `refinamento` tier is what guarantees constructive feedback **never disappears on a good
-  execution** (it doesn't lower the verdict), while `risco_lesao` forces `veredito="inadequada"`
-  + `risco_lesao=True`. This deliberately replaced an earlier `erros[]`-only schema whose
-  anti-nitpicking rule made the negative feedback vanish (anchor case 613, "a IA elogiou demais").
+- **Model: `gemini-3.6-flash`** for calls 1 & 2 (`academia_analysis_model` in `config.py`);
+  TTS is `gemini-3.1-flash-tts-preview`. ⚠️ **Caveat, not a settled win:** flash was chosen
+  over `gemini-3.1-pro-preview` by user preference, but on the 637 leg-press clip (a clear
+  injury-risk case) flash returned `veredito="adequada", risco_lesao=false` — a dangerous
+  miss the pro model was more careful about. If risk-detection regressions recur, the first
+  lever is reverting this to the pro model. The key is the shared `GEMINI_API_KEY` (tennis +
+  academia); academia config is separate so the key stays optional (endpoints `503` until it
+  exists) and persistence is opt-in (`ACADEMIA_PERSIST`).
+- **The schema is the calibration.** `models.py:AcademiaAnalysis` pairs each `ErroTecnico`
+  (an `descricao`→`correcao` "what's wrong → how to fix" pair, graded by `gravidade`) with a
+  list of `acertos` and a single `foco_pratico`. `gravidade="risco_lesao"` (severe dynamic
+  valgus, mispositioned feet…) forces `veredito="inadequada"` + `risco_lesao=True` (RF-003);
+  a clean execution returns `erros=[]` — the prompt forbids fabricating errors (RF-004). The
+  UI (`static/academia/index.html`) renders these as three sections: **Erros técnicos**,
+  **Acertos**, **Foco prático** — this is the standard layout; a session that reworked it into
+  "o que está bom / o que melhorar / feedback ideal" was reverted at the user's request.
 - Calibrated against `docs/videos-calibragem-academia/` — a written ground-truth dataset
-  (11 videos + `analises/*.txt`) whose 7-part structure the schema mirrors 1:1. **Recalibrating
-  = editing `prompts.py`** (the 7 error categories + verdict rules) and the `WEIGHT`-free schema.
+  (11 videos + `analises/*.txt`) whose 7-part structure the schema mirrors. **Recalibrating
+  = editing `prompts.py`** (the 7 error categories + verdict rules).
 - The video is **gitignored** (~40MB); only the `.txt` analyses + `ANALISES.md` are tracked.
 
 ### Events system (`app/events/`) — audit + observability
