@@ -116,6 +116,10 @@
   .erro-item .gravidade.risco_lesao{color:var(--botoeira);border-color:rgba(255,68,56,.4)}
   .erro-item .ts{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada)}
   .erro-item .desc{margin-top:8px;font-size:.94rem;color:var(--refletor)}
+  .erro-item .desc::before{content:"❌ ";}
+  .erro-item .correcao{margin-top:6px;font-size:.94rem;color:var(--refletor)}
+  .erro-item .correcao::before{content:"✅ ";}
+  .erro-item .correcao .lab{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--verde);margin-right:6px}
 
   .acertos{list-style:none;display:grid;gap:8px}
   .acertos li{padding-left:22px;position:relative;font-size:.94rem;color:var(--refletor)}
@@ -317,6 +321,12 @@ function render(d){
       if(e.timestamp_s!=null) top.append(el("span",{class:"ts"},`~${e.timestamp_s}s`));
       item.append(top);
       if(e.descricao) item.append(el("div",{class:"desc"},e.descricao));
+      if(e.correcao){
+        const fix=el("div",{class:"correcao"});
+        fix.append(el("span",{class:"lab"},"Corrigir"));
+        fix.append(document.createTextNode(e.correcao));
+        item.append(fix);
+      }
       errosHost.append(item);
     });
   } else {

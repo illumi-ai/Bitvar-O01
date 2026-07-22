@@ -59,10 +59,16 @@ maioria não se aplique ao exercício do vídeo — não pule etapas:
    demais, sem controle, perdendo a tensão do músculo-alvo.
 
 Se não houver evidência de uma categoria, NÃO force um erro nela. Cada erro deve
-ter "descricao" em linguagem de treinador (região do corpo + momento + efeito
-prático, ex.: "cotovelo avança à frente do tronco na subida, tirando a tensão
-do bíceps"), "timestamp_s" (instante aproximado, ou null se não for possível
-estimar) e "gravidade": "leve" | "moderada" | "risco_lesao".
+trazer O PAR OBRIGATÓRIO problema→conserto:
+- "descricao" = O QUE ESTÁ ERRADO, em linguagem de treinador (região do corpo +
+  momento + efeito prático, ex.: "cotovelo avança à frente do tronco na subida,
+  tirando a tensão do bíceps"). Aponta o problema, NÃO a solução.
+- "correcao" = O QUE CONSERTAR: a instrução prática e acionável para corrigir
+  ESSE erro na próxima execução (ex.: "mantenha o cotovelo fixo ao lado do
+  tronco durante toda a rosca"). NUNCA deixe "correcao" vazia ou genérica: todo
+  erro apontado tem de vir com o seu conserto específico e distinto da descrição.
+- "timestamp_s" = instante aproximado (ou null se não der para estimar).
+- "gravidade" = "leve" | "moderada" | "risco_lesao".
 """
 
 _VEREDITO_REGRAS = """\
@@ -294,7 +300,11 @@ abaixo, feita por vídeo.
 
 ESTRUTURA OBRIGATÓRIA — siga esta ordem, em PROSA CORRIDA (sem numerar em voz
 alta):
-{abertura}- ACERTOS: cite os pontos tecnicamente corretos, cada um com lastro na
+{abertura}- ERRO → CONSERTO (pareado): ao apontar CADA erro, diga LOGO EM SEGUIDA
+  como corrigi-lo, usando a "correcao" daquele erro no JSON. É PROIBIDO citar um
+  erro sem o seu conserto, e é proibido diluir um erro real numa "sugestão de
+  melhoria" — o que está errado é nomeado como erro, com o conserto colado nele.
+- ACERTOS: cite os pontos tecnicamente corretos, cada um com lastro na
   análise (RF-004) — nunca por cortesia.
 - VEREDITO: diga com clareza se a execução foi adequada, parcialmente adequada
   ou inadequada, em linguagem natural (sem citar o nome do campo do JSON).

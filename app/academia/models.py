@@ -76,6 +76,12 @@ Confiabilidade = Literal["baixa", "media", "alta"]
 class ErroTecnico(BaseModel):
     """Um erro técnico pontual observado na execução do exercício.
 
+    Par obrigatório **o-que-está-errado → o-que-consertar**: todo erro carrega
+    ``descricao`` (o problema observado) E ``correcao`` (a instrução acionável
+    para consertá-lo). Isso garante que a plataforma nunca aponte um erro sem
+    dizer como corrigi-lo, nem dilua o erro numa "sugestão de melhoria" — a UI
+    renderiza os dois lado a lado (❌ errado / ✅ corrigir).
+
     ``gravidade="risco_lesao"`` é o gatilho que, junto com padrões como valgo
     dinâmico severo ou pés mal posicionados (RF-003), força
     ``AcademiaAnalysis.veredito == "inadequada"`` e
@@ -87,8 +93,15 @@ class ErroTecnico(BaseModel):
         description="Categoria fechada do erro (uma das 7 verificadas explicitamente, RF-002)."
     )
     descricao: str = Field(
-        description="Descrição do erro em linguagem de treinador PT-BR — concreta, "
-        "nomeando a região do corpo e o que foi observado (sem jargão acadêmico)."
+        description="O QUE ESTÁ ERRADO: descrição do erro em linguagem de treinador PT-BR — "
+        "concreta, nomeando a região do corpo e o que foi observado (sem jargão acadêmico). "
+        "Aponta o problema, não a solução (a solução vai em 'correcao')."
+    )
+    correcao: str = Field(
+        description="O QUE CONSERTAR: a instrução prática e acionável para corrigir ESTE erro "
+        "específico na próxima execução, em linguagem de treinador PT-BR (ex.: 'plante o pé "
+        "inteiro na plataforma e mantenha o joelho apontando para a ponta do pé'). Sempre "
+        "pareada com 'descricao' — todo erro apontado precisa vir com o seu conserto."
     )
     timestamp_s: float | None = Field(
         default=None, ge=0,

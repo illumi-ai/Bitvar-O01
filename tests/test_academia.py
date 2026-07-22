@@ -64,6 +64,8 @@ def _risco_lesao_result() -> AcademiaAnalysis:
                 categoria="joelhos",
                 descricao="pés mal posicionados na plataforma e joelhos caindo para dentro "
                 "(valgo dinâmico) entre 11 e 26 segundos",
+                correcao="plante o pé inteiro na plataforma, afastado na largura dos ombros, "
+                "e faça o joelho seguir a direção da ponta do pé na descida e na subida",
                 timestamp_s=11.0,
                 gravidade="risco_lesao",
             ),
@@ -202,6 +204,7 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
             ErroTecnico(
                 categoria="cotovelos",
                 descricao="cotovelo avança à frente do tronco na subida, tirando a tensão do bíceps",
+                correcao="mantenha o cotovelo fixo ao lado do tronco durante toda a rosca",
                 timestamp_s=4.2,
                 gravidade="moderada",
             ),
@@ -228,6 +231,10 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
     assert m["veredito"] == "parcialmente_adequada"
     assert len(m["erros"]) == 1
     assert m["erros"][0]["categoria"] == "cotovelos"
+    # par obrigatório o-que-está-errado (descricao) → o-que-consertar (correcao)
+    assert m["erros"][0]["descricao"]
+    assert m["erros"][0]["correcao"]
+    assert m["erros"][0]["descricao"] != m["erros"][0]["correcao"]
     assert m["risco_lesao"] is False
 
 
@@ -320,7 +327,8 @@ def test_render_txt_report_is_readable():
                 "exercicio_identificado": "leg press 45 graus", "veredito": "inadequada",
                 "risco_lesao": True, "foco_pratico": "ajustar os pés na plataforma",
                 "erros": [{"categoria": "joelhos", "gravidade": "risco_lesao",
-                           "descricao": "valgo dinâmico severo"}],
+                           "descricao": "valgo dinâmico severo",
+                           "correcao": "plante o pé inteiro e alinhe o joelho à ponta do pé"}],
                 "acertos": ["lombar apoiada no encosto"],
             },
             "narrative": "Paulinho, para tudo agora: ajuste os pés no leg press.",
@@ -330,6 +338,10 @@ def test_render_txt_report_is_readable():
     assert "Análise de Academia #7" in txt
     assert "RISCO DE LESÃO" in txt
     assert "FOCO PRÁTICO PRINCIPAL" in txt and "ajustar os pés na plataforma" in txt
+    # par erro→correção no relatório de compartilhamento
+    assert "O QUE ESTÁ ERRADO → COMO CONSERTAR" in txt
+    assert "valgo dinâmico severo" in txt
+    assert "corrigir: plante o pé inteiro" in txt
     assert "RELATÓRIO DO PERSONAL TRAINER" in txt and "Paulinho" in txt
 
 
@@ -343,6 +355,28 @@ def test_analysis_system_prompt_covers_seven_categories():
                       "joelhos", "ritmo"]:
         assert categoria in sp
     assert "marina" in sp
+
+
+def test_analysis_prompt_requires_erro_correcao_pairing():
+    """Cada erro tem de vir com o par o-que-está-errado → o-que-consertar."""
+    from app.academia.prompts import analysis_system_prompt
+    sp = analysis_system_prompt(None, fps=24).lower()
+    assert "correcao" in sp
+    assert "o que está errado" in sp
+    assert "o que consertar" in sp
+
+
+def test_narrative_prompt_pairs_erro_with_correcao():
+    """A narrativa deve exigir citar o conserto logo após cada erro."""
+    from app.academia.prompts import build_narrative_prompt
+    metrics = {
+        "risco_lesao": False,
+        "erros": [{"categoria": "cotovelos", "descricao": "cotovelo à frente",
+                   "correcao": "mantenha o cotovelo fixo", "gravidade": "moderada"}],
+    }
+    prompt = build_narrative_prompt(metrics, student_name=None).lower()
+    assert "correcao" in prompt
+    assert "conserto" in prompt
 
 
 def test_narrative_prompt_rn01_error_before_praise():
