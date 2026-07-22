@@ -1,1 +1,9 @@
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.32,<0.33
+python-multipart>=0.0.9      # upload do vídeo em chunks (multipart/form-data)
+google-genai>=2.8,<3         # Gemini 3.5 Flash (análise/narrativa) + 3.1 TTS
+psycopg[binary,pool]>=3.2,<3.3
+pydantic>=2.9,<3
+pydantic-settings>=2.5,<3
 pytest>=8.0
+httpx>=0.27

@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BitVar IA — Blueprint de Validação · Tênis (M/F)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --noite:#0D1A2B; --noite-2:#12233A; --noite-3:#1A3050; --noite-code:#0A1521;
+    --refletor:#F2F7FC; --arquibancada:#8FA9C4; --linha:rgba(143,169,196,.16);
+    --verde:#34D67B; --verde-dim:rgba(52,214,123,.12);
+    --ambar:#FFB454; --ambar-dim:rgba(255,180,84,.12);
+    --botoeira:#FF4438; --info:#6FB1FF; --roxo:#B89CFF; --roxo-dim:rgba(184,156,255,.12);
+    --maxw:1080px; --radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--noite);color:var(--refletor);font-family:'Source Sans 3',system-ui,sans-serif;font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  a{color:var(--info);text-decoration:none}
+  a:hover{text-decoration:underline}
+  :focus-visible{outline:2px solid var(--info);outline-offset:3px;border-radius:4px}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  /* topbar */
+  .topbar{position:sticky;top:0;z-index:50;background:rgba(13,26,43,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--linha)}
+  .topbar .wrap{display:flex;align-items:center;gap:14px;padding:12px 22px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;color:var(--arquibancada)}
+  .rec{display:flex;align-items:center;gap:7px;color:var(--refletor);font-weight:600}
+  .rec-dot{width:9px;height:9px;border-radius:50%;background:var(--botoeira);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .topbar .spacer{flex:1}
+  @media(max-width:640px){.meta-extra{display:none}}
+
+  /* hero */
+  .hero{padding:66px 0 38px;border-bottom:1px solid var(--linha);position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 60% 45% at 16% 0%,rgba(111,177,255,.10),transparent 60%),radial-gradient(ellipse 50% 40% at 88% 8%,rgba(184,156,255,.07),transparent 60%)}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--arquibancada);margin-bottom:16px}
+  .eyebrow b{color:var(--verde);font-weight:600}
+  h1{font-family:'Archivo Black',sans-serif;font-size:clamp(2rem,5.4vw,3.6rem);line-height:1.05;letter-spacing:-.01em;text-transform:uppercase;max-width:20ch}
+  h1 .hl{color:var(--verde)}
+  .hero p.sub{margin-top:20px;max-width:64ch;font-size:1.1rem;color:var(--arquibancada)}
+  .hero p.sub strong{color:var(--refletor)}
+  .docmeta{margin-top:26px;display:flex;flex-wrap:wrap;gap:9px 24px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--arquibancada)}
+  .docmeta span b{color:var(--refletor);font-weight:600}
+
+  /* sections */
+  section{padding:50px 0;border-bottom:1px solid var(--linha)}
+  .kicker{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--arquibancada);margin-bottom:9px}
+  .kicker .n{color:var(--verde)}
+  h2{font-family:'Archivo',sans-serif;font-weight:700;font-size:clamp(1.4rem,3.2vw,2rem);letter-spacing:-.01em;margin-bottom:8px}
+  .lead{color:var(--arquibancada);max-width:74ch;margin-bottom:24px}
+  h3.sub{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.12rem;margin:26px 0 12px}
+  p{max-width:76ch}
+  p + p{margin-top:10px}
+  .body p, section p{color:#D4E0EE}
+
+  /* decisões chips */
+  .decisions{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:780px){.decisions{grid-template-columns:1fr}}
+  .dchip{background:var(--noite-2);border:1px solid var(--linha);border-radius:var(--radius);padding:18px}
+  .dchip .q{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--arquibancada);margin-bottom:8px}
+  .dchip .a{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.02rem;color:var(--verde)}
+  .dchip .d{font-size:.9rem;color:var(--arquibancada);margin-top:6px}
+
+  /* pipeline flow */
+  .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:6px 0 8px}
+  @media(max-width:820px){.flow{grid-template-columns:1fr;gap:14px}}
+  .fstep{position:relative;padding-right:12px}
+  .fstep .ft{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada);letter-spacing:.06em;margin-bottom:8px}
+  .ftrack{height:4px;background:var(--noite-3);border-radius:2px;margin-bottom:12px;position:relative;overflow:hidden}
+  .ffill{position:absolute;inset:0;border-radius:2px}
+  .fstep:nth-child(1) .ffill{background:var(--botoeira)}
+  .fstep:nth-child(2) .ffill{background:linear-gradient(90deg,var(--botoeira),var(--info))}
+  .fstep:nth-child(3) .ffill{background:var(--info)}
+  .fstep:nth-child(4) .ffill{background:linear-gradient(90deg,var(--info),var(--verde))}
+  .fstep:nth-child(5) .ffill{background:var(--verde)}
+  .fstep h4{font-family:'Archivo',sans-serif;font-weight:700;font-size:.98rem;margin-bottom:4px}
+  .fstep p{font-size:.86rem;color:var(--arquibancada);line-height:1.45}
+  .fstep code{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--info)}
+
+  /* router cards */
+  .router{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+  @media(max-width:720px){.router{grid-template-columns:1fr}}
+  .rcard{background:var(--noite-2);border:1px solid var(--linha);border-radius:var(--radius);padding:18px;position:relative}
+  .rcard .rt{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--verde);margin-bottom:8px;text-transform:uppercase}
+  .rcard .rt.clip{color:var(--info)}
+  .rcard .rt.match{color:var(--roxo)}
+  .rcard h4{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.04rem;margin-bottom:6px}
+  .rcard p{font-size:.92rem;color:var(--arquibancada)}
+  .rcard .res{margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--refletor);background:var(--noite-code);border:1px solid var(--linha);border-radius:6px;padding:7px 10px}
+  .rcard .res b{color:var(--ambar)}
+
+  /* tables */
+  .tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:.92rem;display:block;overflow-x:auto}
+  .tbl table{width:100%;border-collapse:collapse;min-width:560px}
+  .tbl th,.tbl td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--linha);vertical-align:top}
+  .tbl th{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--arquibancada);font-weight:600}
+  .tbl td{color:#D4E0EE}
+  .tbl td b{color:var(--refletor)}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl .mono{color:var(--info)}
+  .tbl .wt{font-family:'JetBrains Mono',monospace;color:var(--verde);font-weight:600;white-space:nowrap}
+  .tbl .m{color:var(--info)} .tbl .f{color:var(--roxo)}
+
+  /* code */
+  .code{background:var(--noite-code);border:1px solid var(--linha);border-radius:var(--radius);margin:12px 0;overflow:hidden}
+  .code .ch{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--linha);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--arquibancada)}
+  .code .ch .dot{width:9px;height:9px;border-radius:50%;background:var(--verde)}
+  .code .ch .dot.py{background:var(--info)} .code .ch .dot.tts{background:var(--roxo)}
+  .code pre{margin:0;padding:14px 16px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6;color:#CDE0F2}
+  .code pre .k{color:var(--roxo)} .code pre .s{color:var(--verde)} .code pre .c{color:var(--arquibancada)} .code pre .n{color:var(--ambar)}
+
+  /* callouts */
+  .note{border-left:3px solid var(--info);background:var(--noite-2);border-radius:0 var(--radius) var(--radius) 0;padding:14px 16px;margin:14px 0}
+  .note.warn{border-left-color:var(--ambar);background:var(--ambar-dim)}
+  .note.green{border-left-color:var(--verde);background:var(--verde-dim)}
+  .note h4{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--info);margin-bottom:6px}
+  .note.warn h4{color:var(--ambar)} .note.green h4{color:var(--verde)}
+  .note p{font-size:.94rem;color:#D4E0EE}
+  .note code{font-family:'JetBrains Mono',monospace;font-size:.86rem;color:var(--ambar);background:var(--noite-code);padding:1px 5px;border-radius:4px}
+
+  /* output trio */
+  .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+  @media(max-width:820px){.trio{grid-template-columns:1fr}}
+  .ocard{background:var(--noite-2);border:1px solid var(--linha);border-radius:var(--radius);padding:20px}
+  .ocard .oi{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--verde);text-transform:uppercase;margin-bottom:10px}
+  .ocard.b2 .oi{color:var(--info)} .ocard.b3 .oi{color:var(--roxo)}
+  .ocard h4{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.05rem;margin-bottom:8px}
+  .ocard p{font-size:.92rem;color:var(--arquibancada)}
+  .ocard ul{list-style:none;margin-top:10px;display:grid;gap:6px}
+  .ocard li{font-size:.86rem;color:#D4E0EE;padding-left:16px;position:relative}
+  .ocard li::before{content:"▸";position:absolute;left:0;color:var(--verde)}
+  .ocard.b2 li::before{color:var(--info)} .ocard.b3 li::before{color:var(--roxo)}
+
+  /* roadmap */
+  .road{display:grid;gap:12px;counter-reset:phase}
+  .phase{display:grid;grid-template-columns:64px 1fr;gap:16px;background:var(--noite-2);border:1px solid var(--linha);border-radius:var(--radius);padding:18px}
+  @media(max-width:600px){.phase{grid-template-columns:1fr;gap:8px}}
+  .phase .pn{font-family:'Archivo Black',sans-serif;font-size:1.7rem;color:var(--noite-3);line-height:1}
+  .phase.done .pn{color:var(--verde)} .phase.core .pn{color:var(--info)}
+  .phase h4{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.06rem;margin-bottom:6px}
+  .phase p{font-size:.93rem;color:#D4E0EE;margin-bottom:8px}
+  .phase .tasks{display:flex;flex-wrap:wrap;gap:6px}
+  .tk{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada);border:1px solid var(--linha);border-radius:5px;padding:3px 8px}
+  .phase .out{margin-top:8px;font-size:.85rem;color:var(--verde);font-family:'JetBrains Mono',monospace}
+
+  /* misc */
+  .pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 8px;border-radius:5px;border:1px solid var(--linha);color:var(--arquibancada);margin:0 2px}
+  .pill.m{color:var(--info);border-color:rgba(111,177,255,.3)} .pill.f{color:var(--roxo);border-color:rgba(184,156,255,.3)}
+  .srclist{display:grid;gap:7px;margin-top:8px}
+  .srclist .src{font-size:.86rem;color:var(--arquibancada);padding-left:20px;position:relative}
+  .srclist .src::before{content:"§";position:absolute;left:0;color:var(--info);font-family:'JetBrains Mono',monospace}
+  footer{padding:34px 0 60px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:9px 24px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--arquibancada)}
+  footer .rec-dot{animation:none}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <div class="wrap">
+    <a href="#topo" class="rec"><span class="rec-dot" aria-hidden="true"></span>BITVAR IA</a>
+    <span class="spacer"></span>
+    <span>BLUEPRINT v1</span>
+    <span class="meta-extra">TÊNIS · M/F · VALIDAÇÃO</span>
+  </div>
+</nav>
+
+<header class="hero" id="topo">
+  <div class="wrap">
+    <p class="eyebrow">Blueprint de arquitetura &amp; roadmap · <b>para implementação</b></p>
+    <h1>Um motor, <span class="hl">dois jogos,</span> três saídas.</h1>
+    <p class="sub">Especificação técnica do MVP de validação do <strong>BitVar IA</strong> para tênis. Upload de vídeo → <strong>Gemini 3.5 Flash</strong> (<span class="mono">thinking high</span> + <span class="mono">media_resolution high</span>) → saída estruturada por <strong>gênero × tipo de vídeo</strong> → métricas visuais, texto semântico e áudio (voz <strong>Vindemiatrix</strong>, PT-BR). Sem banco de dados nesta fase — só validar.</p>
+    <div class="docmeta">
+      <span>MODELO ANÁLISE <b>gemini-3.5-flash</b></span>
+      <span>MODELO VOZ <b>gemini-3.1-flash-tts-preview</b></span>
+      <span>ESCOPO <b>Beach/Tênis · Masc + Fem</b></span>
+      <span>POSTGRES <b>conectado · persist. opcional</b></span>
+    </div>
+  </div>
+</header>
+
+<!-- DECISÕES -->
+<section id="decisoes">
+  <div class="wrap">
+    <p class="kicker"><span class="n">00</span> · Decisões travadas</p>
+    <h2>O que já está definido</h2>
+    <div class="decisions">
+      <div class="dchip">
+        <div class="q">Tipo de vídeo</div>
+        <div class="a">Híbrido adaptativo</div>
+        <div class="d">O sistema detecta se é um clipe de lance ou uma partida/games e roteia para o schema certo.</div>
+      </div>
+      <div class="dchip">
+        <div class="q">Pesos M vs F</div>
+        <div class="a">Dois schemas separados</div>
+        <div class="d">Schema Masculino e Schema Feminino, com pesos e benchmarks distintos fundamentados na literatura.</div>
+      </div>
+      <div class="dchip">
+        <div class="q">Entrega</div>
+        <div class="a">Arquitetura + roadmap</div>
+        <div class="d">Este documento é o blueprint para outra IA implementar. Contém schemas, configs e fases — não o app rodando.</div>
+      </div>
+    </div>
+    <div class="note green">
+      <h4>Princípio que guia o MVP</h4>
+      <p>Fiel à conclusão anterior do projeto: a análise é <strong>só vídeo, em lote, pós-jogo</strong>. O "híbrido" resolve a tensão entre o produto real (clipes da botoeira, segundos) e a demo estatística (partida com placar). Quatro schemas focados — <span class="pill m">masc·clip</span> <span class="pill m">masc·match</span> <span class="pill f">fem·clip</span> <span class="pill f">fem·match</span> — são selecionados por <em>gênero (escolha do usuário)</em> × <em>modo (detectado por duração)</em>. Quatro schemas enxutos evitam o limite de complexidade de schema da API que um único mega-schema com <span class="mono">anyOf</span> arriscaria.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ARQUITETURA -->
+<section id="arquitetura">
+  <div class="wrap">
+    <p class="kicker"><span class="n">01</span> · Visão geral</p>
+    <h2>O pipeline de ponta a ponta</h2>
+    <p class="lead">Cinco etapas. Duas chamadas ao Gemini 3.5 Flash (vídeo→JSON e JSON→texto) e uma ao TTS 3.1. O frontend renderiza as métricas a partir do JSON; nada é persistido.</p>
+    <div class="flow">
+      <div class="fstep"><div class="ft">01 · ENTRADA</div><div class="ftrack"><div class="ffill"></div></div><h4>Upload do vídeo</h4><p>Interface com área de upload. Envio via <code>Files API</code>. Usuário escolhe o gênero (M/F).</p></div>
+      <div class="fstep"><div class="ft">02 · ROTEAMENTO</div><div class="ftrack"><div class="ffill"></div></div><h4>Detecta modo</h4><p>Duração → <code>clip</code> ou <code>match</code>. Seleciona 1 dos 4 schemas + ajusta <code>media_resolution</code>.</p></div>
+      <div class="fstep"><div class="ft">03 · ANÁLISE</div><div class="ftrack"><div class="ffill"></div></div><h4>Vídeo → JSON</h4><p><code>gemini-3.5-flash</code>, <code>thinking high</code>, <code>response_format</code> com o schema. Saída estruturada.</p></div>
+      <div class="fstep"><div class="ft">04 · NARRATIVA</div><div class="ftrack"><div class="ffill"></div></div><h4>JSON → texto PT-BR</h4><p>2ª chamada: o JSON vira um relatório de coach em prosa, pronto para falar.</p></div>
+      <div class="fstep"><div class="ft">05 · SAÍDAS</div><div class="ftrack"><div class="ffill"></div></div><h4>Métricas · Texto · Áudio</h4><p>Dashboard (do JSON) + texto + TTS Vindemiatrix. Tudo na sessão.</p></div>
+    </div>
+    <div class="note">
+      <h4>Por que duas chamadas e não uma</h4>
+      <p>A doc do Gemini recomenda manter a saída estruturada <em>focada</em>: misturar prosa longa dentro do JSON degrada a qualidade e pode vazar "pensamento". Então a <strong>chamada 1</strong> produz só o JSON de métricas (determinístico, alimenta o dashboard) e a <strong>chamada 2</strong> recebe esse JSON e escreve a narrativa em PT-BR. O áudio é gerado a partir da narrativa da chamada 2.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ROTEAMENTO -->
+<section id="roteamento">
+  <div class="wrap">
+    <p class="kicker"><span class="n">02</span> · Roteamento &amp; resolução de mídia</p>
+    <h2>Clipe e partida pedem coisas diferentes</h2>
+    <p class="lead">O modo é detectado pela duração do vídeo (com override manual na interface). Dois eixos controlam a captura, e ambos seguem a mesma lógica: <strong>fps</strong> (quantos frames por segundo são amostrados — captura temporal) e <strong>media_resolution</strong> (quão detalhado é cada frame — resolução espacial). O ponto não óbvio: <strong>os dois são inversos à duração</strong>. Clipe curto = pode usar fps alto (4) e resolução alta para captar a mecânica fina do golpe. Partida longa nessas configurações estoura a janela de contexto (1M tokens) e o custo — então baixa-se fps (1) e resolução para caber e focar na contagem estatística.</p>
+    <div class="router">
+      <div class="rcard">
+        <div class="rt clip">MODO CLIP · lance individual</div>
+        <h4>Análise técnica do golpe</h4>
+        <p>Vídeos curtos (≈ &lt; 60 s) — o recorte da botoeira. Foco em biomecânica, footwork, preparação e tática do ponto. É o que roda em produção real.</p>
+        <div class="res">fps: <b>4</b> · media_resolution: <b>high</b>/<b>ultra_high</b> · thinking: <b>high</b></div>
+      </div>
+      <div class="rcard">
+        <div class="rt match">MODO MATCH · partida/games</div>
+        <h4>Análise estatística da partida</h4>
+        <p>Vídeos longos com placar — games ou sets. Conta saque, rally, winners/erros, break points, com os pesos da literatura. Demo de impacto.</p>
+        <div class="res">fps: <b>1</b> · media_resolution: <b>medium</b> · thinking: <b>high</b></div>
+      </div>
+    </div>
+    <div class="note warn">
+      <h4>Regra de detecção sugerida</h4>
+      <p>Limiar inicial: vídeo <code>&lt; 75 s</code> → modo <code>clip</code>; <code>≥ 75 s</code> → modo <code>match</code>. Sempre expor um toggle de override na interface (o usuário pode forçar "analisar como lance" mesmo num vídeo longo). Calibrar o limiar com os vídeos reais de teste.</p>
+    </div>
+    <div class="note">
+      <h4>4 fps quadruplica os tokens de vídeo — por isso só no clip</h4>
+      <p>O vídeo é tokenizado por frame, então <code>fps: 4</code> = 4× mais frames = 4× mais tokens de entrada que o padrão de 1 fps. No <strong>clip</strong> isso é barato e vale muito: um clipe de 15 s a 4 fps são ~60 frames — pega o preparo, o contato e o follow-through de um golpe que a 1 fps cairia entre frames. No <strong>match</strong>, 4 fps seria temerário: uma partida de 1 h daria ~14.400 frames e estouraria a janela de 1M. Para contar pontos e rallies, 1 fps cobre a sequência da partida sem desperdício.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CONFIG GEMINI -->
+<section id="config">
+  <div class="wrap">
+    <p class="kicker"><span class="n">03</span> · Configuração do Gemini 3.5 Flash</p>
+    <h2>Parâmetros exatos (sintaxe 3.x)</h2>
+    <p class="lead">A sua documentação é do <strong>Gemini 3.5 Flash</strong>, que mudou a API em relação ao 2.5. Os pontos abaixo são obrigatórios — errar aqui gera respostas vazias ou erro 400.</p>
+    <div class="tbl"><table>
+      <tr><th>Parâmetro</th><th>Valor no MVP</th><th>Observação crítica</th></tr>
+      <tr><td><b>model</b></td><td class="mono">gemini-3.5-flash</td><td>GA, contexto 1M in / 65k out. Suporta Batch API e Context Caching.</td></tr>
+      <tr><td><b>thinking_level</b></td><td class="mono">"high"</td><td>Substitui o antigo <span class="mono">thinking_budget</span> numérico. <b>Não usar os dois juntos</b> → erro 400. "high" maximiza o raciocínio para a análise técnica.</td></tr>
+      <tr><td><b>media_resolution</b></td><td class="mono">high (clip) / medium (match)</td><td>Por item de conteúdo. Valores: <span class="mono">low · medium · high · ultra_high</span>. Definido na <em>parte</em> de vídeo. Alta resolução em vídeo longo estoura contexto. <b>Eixo espacial</b> (detalhe do frame) — distinto do fps.</td></tr>
+      <tr><td><b>fps</b> (video_metadata)</td><td class="mono">4 (clip) / 1 (match)</td><td><b>Eixo temporal</b> (frames amostrados por segundo). Padrão = 1. Definido em <span class="mono">VideoMetadata(fps=…)</span> na parte de vídeo. 4 fps = 4× tokens — vale no clip (mecânica fina), inviável em match longo.</td></tr>
+      <tr><td><b>response_format</b></td><td class="mono">text.mime_type + text.schema</td><td>Formato novo do 3.x: <span class="mono">response_format.text.schema</span> recebe o JSON Schema. (Não é mais o <span class="mono">response_schema</span> de topo do 2.5.)</td></tr>
+      <tr><td><b>temperature / top_p / top_k</b></td><td class="mono">REMOVER</td><td>Não recomendados em 3.x — o raciocínio é otimizado para os defaults. Para determinismo, usar regras no system prompt.</td></tr>
+      <tr><td><b>candidate_count</b></td><td class="mono">REMOVER</td><td>Não suportado em 3.x.</td></tr>
+    </table></div>
+
+    <div class="code">
+      <div class="ch"><span class="dot py"></span>chamada 1 · vídeo → JSON estruturado (Python)</div>
+<pre><span class="k">from</span> google <span class="k">import</span> genai
+<span class="k">from</span> google.genai <span class="k">import</span> types
+
+client = genai.Client()
+
+<span class="c"># 1) upload do vídeo via Files API</span>
+video = client.files.upload(file=<span class="s">"partida.mp4"</span>)
+
+<span class="c"># 2) seleciona schema + fps + resolucao de midia por (genero x modo)</span>
+schema    = SCHEMAS[gender][mode]   <span class="c"># 1 dos 4 schemas deste doc</span>
+fps       = <span class="n">4</span> <span class="k">if</span> mode == <span class="s">"clip"</span> <span class="k">else</span> <span class="n">1</span>      <span class="c"># 4 fps no clip, 1 fps no match</span>
+media_res = <span class="s">"high"</span> <span class="k">if</span> mode == <span class="s">"clip"</span> <span class="k">else</span> <span class="s">"medium"</span>
+
+resp = client.models.generate_content(
+    model=<span class="s">"gemini-3.5-flash"</span>,
+    contents=[
+        types.Part(
+            file_data=types.FileData(file_uri=video.uri, mime_type=<span class="s">"video/mp4"</span>),
+            video_metadata=types.VideoMetadata(fps=fps),   <span class="c"># <-- taxa de amostragem</span>
+        ),
+        SYSTEM_TENNIS_PROMPT[gender][mode],   <span class="c"># instrucao ao final do prompt</span>
+    ],
+    config=types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(thinking_level=<span class="s">"high"</span>),
+        media_resolution=media_res,           <span class="c"># resolucao espacial por-parte (eixo diferente do fps)</span>
+        response_format={<span class="s">"text"</span>: {<span class="s">"mime_type"</span>: <span class="s">"application/json"</span>,
+                                  <span class="s">"schema"</span>: schema}},
+        <span class="c"># SEM temperature/top_p/top_k/candidate_count</span>
+    ),
+)
+metrics = json.loads(resp.text)</pre>
+    </div>
+    <div class="note">
+      <h4>Upload de vídeo</h4>
+      <p>Os arquivos que você me passou cobrem 3.5 Flash, structured output e TTS, mas não o mecanismo de vídeo. A implementação deve seguir a doc <em>Video understanding</em> do Gemini para: (1) usar a <code>Files API</code> para vídeos maiores; (2) entender que o padrão amostra ≈1 fps — por isso o <code>media_resolution high</code> no modo clip ajuda a não perder a mecânica de golpes rápidos.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SCHEMA MASCULINO -->
+<section id="schema-m">
+  <div class="wrap">
+    <p class="kicker"><span class="n">04</span> · Schema Masculino <span class="pill m">male</span></p>
+    <h2>Tênis masculino — clipe + partida</h2>
+    <p class="lead">Dois objetos selecionáveis sob o perfil masculino. O bloco <span class="mono">clip</span> avalia execução técnica (não depende de placar). O bloco <span class="mono">match</span> conta estatística e aplica o modelo de pesos <em>serve-dominant</em> — porque no jogo masculino o saque é a arma mais decisiva.</p>
+
+    <h3 class="sub">4.1 · Bloco CLIP — análise técnica do lance</h3>
+    <p>Estrutura de técnica compartilhada entre M e F (técnica é técnica); o que muda em F são os <span class="mono">benchmark_reference</span>. Todo campo <span class="mono">{score, observation}</span> segue o mesmo shape mostrado abaixo.</p>
+    <div class="code">
+      <div class="ch"><span class="dot"></span>schema · male · clip (JSON Schema)</div>
+<pre>{
+  <span class="s">"type"</span>: <span class="s">"object"</span>,
+  <span class="s">"properties"</span>: {
+    <span class="s">"analysis_mode"</span>:  { <span class="s">"type"</span>:<span class="s">"string"</span>, <span class="s">"enum"</span>:[<span class="s">"clip"</span>] },
+    <span class="s">"gender_profile"</span>: { <span class="s">"type"</span>:<span class="s">"string"</span>, <span class="s">"enum"</span>:[<span class="s">"male"</span>] },
+    <span class="s">"shot_identified"</span>: { <span class="s">"type"</span>:<span class="s">"string"</span>,
+      <span class="s">"enum"</span>:[<span class="s">"forehand"</span>,<span class="s">"backhand"</span>,<span class="s">"serve"</span>,<span class="s">"return"</span>,<span class="s">"volley"</span>,
+              <span class="s">"overhead_smash"</span>,<span class="s">"slice"</span>,<span class="s">"drop_shot"</span>,<span class="s">"lob"</span>,<span class="s">"approach"</span>],
+      <span class="s">"description"</span>: <span class="s">"Golpe principal identificado no clipe."</span> },
+
+    <span class="s">"technical_execution"</span>: { <span class="s">"type"</span>:<span class="s">"object"</span>, <span class="s">"properties"</span>:{
+      <span class="s">"preparation"</span>:        { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> },
+      <span class="s">"contact_point"</span>:      { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> },
+      <span class="s">"follow_through"</span>:     { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> },
+      <span class="s">"balance_and_posture"</span>:{ <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> },
+      <span class="s">"racket_path"</span>:        { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> } },
+      <span class="s">"required"</span>:[<span class="s">"preparation"</span>,<span class="s">"contact_point"</span>,<span class="s">"follow_through"</span>,
+                 <span class="s">"balance_and_posture"</span>,<span class="s">"racket_path"</span>] },
+
+    <span class="s">"footwork_and_movement"</span>: { <span class="s">"type"</span>:<span class="s">"object"</span>, <span class="s">"properties"</span>:{
+      <span class="s">"split_step"</span>:          { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> },
+      <span class="s">"court_positioning"</span>:   { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> },
+      <span class="s">"recovery_after_shot"</span>: { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> } } },
+
+    <span class="s">"biomechanics"</span>: { <span class="s">"type"</span>:<span class="s">"object"</span>, <span class="s">"properties"</span>:{
+      <span class="s">"kinetic_chain"</span>:        { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> },
+      <span class="s">"hip_shoulder_rotation"</span>:{ <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> },
+      <span class="s">"weight_transfer"</span>:      { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> } } },
+
+    <span class="s">"tactical_intent"</span>: { <span class="s">"type"</span>:<span class="s">"object"</span>, <span class="s">"properties"</span>:{
+      <span class="s">"shot_placement_quality"</span>:{ <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> },
+      <span class="s">"shot_selection"</span>:        { <span class="s">"$ref"</span>:<span class="s">"#/$defs/score_obs"</span> } } },
+
+    <span class="s">"clip_quality_score"</span>: { <span class="s">"type"</span>:<span class="s">"number"</span>, <span class="s">"minimum"</span>:0, <span class="s">"maximum"</span>:10,
+      <span class="s">"description"</span>:<span class="s">"Nota tecnica ponderada do lance (0-10)."</span> },
+    <span class="s">"key_improvement"</span>: { <span class="s">"type"</span>:<span class="s">"string"</span>,
+      <span class="s">"description"</span>:<span class="s">"A principal correcao acionavel. ENTREGA CENTRAL do produto."</span> },
+    <span class="s">"secondary_improvements"</span>: { <span class="s">"type"</span>:<span class="s">"array"</span>,
+      <span class="s">"items"</span>:{<span class="s">"type"</span>:<span class="s">"string"</span>}, <span class="s">"maxItems"</span>:3 }
+  },
+  <span class="s">"required"</span>:[<span class="s">"analysis_mode"</span>,<span class="s">"gender_profile"</span>,<span class="s">"shot_identified"</span>,
+             <span class="s">"technical_execution"</span>,<span class="s">"clip_quality_score"</span>,<span class="s">"key_improvement"</span>],
+
+  <span class="s">"$defs"</span>: { <span class="s">"score_obs"</span>: { <span class="s">"type"</span>:<span class="s">"object"</span>, <span class="s">"properties"</span>:{
+      <span class="s">"score"</span>:       { <span class="s">"type"</span>:<span class="s">"integer"</span>, <span class="s">"minimum"</span>:0, <span class="s">"maximum"</span>:10 },
+      <span class="s">"observation"</span>: { <span class="s">"type"</span>:<span class="s">"string"</span> } },
+      <span class="s">"required"</span>:[<span class="s">"score"</span>,<span class="s">"observation"</span>] } }
+}</pre>
+    </div>
+
+    <h3 class="sub">4.2 · Bloco MATCH — estatística da partida (masculino)</h3>
+    <div class="code">
+      <div class="ch"><span class="dot"></span>schema · male · match (campos principais)</div>
+<pre>{
+  <span class="s">"analysis_mode"</span>: [<span class="s">"match"</span>], <span class="s">"gender_profile"</span>: [<span class="s">"male"</span>],
+
+  <span class="s">"serve"</span>: {
+    <span class="s">"first_serve_in_pct"</span>, <span class="s">"first_serve_points_won_pct"</span>,
+    <span class="s">"second_serve_points_won_pct"</span>, <span class="s">"aces"</span>, <span class="s">"double_faults"</span>,
+    <span class="s">"serve_dominance_observation"</span>,
+    <span class="s">"benchmark_reference"</span>  <span class="c">// "Elite ATP: 1o saque ~70% pts ganhos, 2o ~57%"</span>
+  },
+  <span class="s">"return"</span>: { <span class="s">"return_points_won_pct"</span>, <span class="s">"return_games_won"</span>, <span class="s">"benchmark_reference"</span> },
+  <span class="s">"rally"</span>: {
+    <span class="s">"avg_rally_length"</span>, <span class="s">"rally_0_4_pct"</span>, <span class="s">"rally_5_8_pct"</span>, <span class="s">"rally_9_plus_pct"</span>,
+    <span class="s">"baseline_points_won_pct"</span>, <span class="s">"net_points_won_pct"</span>,
+    <span class="s">"benchmark_reference"</span>  <span class="c">// "ATP US Open 2024: ~3.87 shots/pt, 0-4 ~69%"</span>
+  },
+  <span class="s">"outcome_quality"</span>: {
+    <span class="s">"winners"</span>, <span class="s">"unforced_errors"</span>, <span class="s">"forced_errors"</span>,
+    <span class="s">"winner_to_ue_ratio"</span>,   <span class="c">// METRICA-CHAVE (maior discriminador)</span>
+    <span class="s">"observation"</span>
+  },
+  <span class="s">"pressure_points"</span>: {
+    <span class="s">"break_points_faced"</span>, <span class="s">"break_points_saved"</span>,
+    <span class="s">"break_points_converted"</span>, <span class="s">"break_points_opportunities"</span>, <span class="s">"observation"</span>
+  },
+  <span class="s">"weighted_performance_score"</span>: {
+    <span class="s">"score"</span>,                       <span class="c">// 0-100</span>
+    <span class="s">"weighting_model"</span>: <span class="s">"male_serve_dominant_v1"</span>,
+    <span class="s">"component_breakdown"</span>          <span class="c">// pesos da tabela 4.3 aplicados</span>
+  },
+  <span class="s">"key_improvement"</span>, <span class="s">"secondary_improvements"</span>
+}</pre>
+    </div>
+
+    <h3 class="sub">4.3 · Modelo de pesos masculino <span class="mono">male_serve_dominant_v1</span></h3>
+    <p>Pesos para o <span class="mono">weighted_performance_score</span>, derivados dos achados de discriminação vencedor/perdedor da literatura. Somam 1.00. <strong>A calibrar</strong> com dados reais — são ponto de partida fundamentado, não verdade fechada.</p>
+    <div class="tbl"><table>
+      <tr><th>Componente</th><th>Peso</th><th>Fundamento</th></tr>
+      <tr><td><b>winner_to_ue_ratio</b> (dominância)</td><td class="wt">0.22</td><td>Razão winners/erros não forçados é o discriminador mais consistente vencedor×perdedor.</td></tr>
+      <tr><td><b>first_serve_points_won</b></td><td class="wt">0.18</td><td>No masculino o 1º saque domina o ponto (~70% ganhos no topo do ATP).</td></tr>
+      <tr><td><b>second_serve_points_won</b></td><td class="wt">0.15</td><td>2º saque vencedor ~57% (ATP) vs ~47% perdedor — separa fortemente.</td></tr>
+      <tr><td><b>break_points</b> (salvos + convertidos)</td><td class="wt">0.15</td><td>Variáveis de break point estão entre os maiores separadores de nível.</td></tr>
+      <tr><td><b>ace_and_serve_dominance</b></td><td class="wt">0.12</td><td>Aces e velocidade de pico discriminam mais no jogo masculino.</td></tr>
+      <tr><td><b>rally_0_4_won</b></td><td class="wt">0.10</td><td>~69% dos pontos terminam em 0-4 shots; vencer os pontos curtos é decisivo.</td></tr>
+      <tr><td><b>net_points_won</b></td><td class="wt">0.08</td><td>Eficiência na rede (~65-70% serve-volley) como diferencial secundário.</td></tr>
+    </table></div>
+  </div>
+</section>
+
+<!-- SCHEMA FEMININO -->
+<section id="schema-f">
+  <div class="wrap">
+    <p class="kicker"><span class="n">05</span> · Schema Feminino <span class="pill f">female</span></p>
+    <h2>Tênis feminino — o que muda</h2>
+    <p class="lead">O bloco <span class="mono">clip</span> tem a <strong>mesma estrutura técnica</strong> do masculino (mudam só os <span class="mono">gender_profile:["female"]</span> e os <span class="mono">benchmark_reference</span>). O bloco <span class="mono">match</span> mantém os mesmos campos, mas troca o modelo de pesos para <span class="mono">female_return_baseline_v1</span> — porque no jogo feminino o <strong>jogo de devolução e o 2º saque</strong> pesam mais na definição da partida.</p>
+
+    <div class="note">
+      <h4>As diferenças que importam (do M para o F)</h4>
+      <p>A literatura é clara em dois pontos: <strong>(1)</strong> mulheres vencem mais games de devolução (≈ +12%) e ganham só ~45% no 2º saque — logo a devolução é uma alavanca maior; <strong>(2)</strong> o comprimento de rally é <em>praticamente idêntico</em> entre os gêneros (US Open 2024: 3.87 vs 3.87 shots/ponto) — então rally NÃO deve ser tratado como diferença de gênero, e sim como base comum. A diferença real está no saque (mais dominante no masculino) e na janela de devolução (maior no feminino).</p>
+    </div>
+
+    <h3 class="sub">5.1 · Modelo de pesos feminino <span class="mono">female_return_baseline_v1</span></h3>
+    <div class="tbl"><table>
+      <tr><th>Componente</th><th>Peso</th><th>Fundamento (vs. masculino)</th></tr>
+      <tr><td><b>winner_to_ue_ratio</b> (dominância)</td><td class="wt">0.22</td><td>Continua sendo o maior discriminador — peso mantido.</td></tr>
+      <tr><td><b>return_games_won</b></td><td class="wt">0.18</td><td><b>↑ Sobe.</b> Mulheres vencem ~12% mais games de devolução; devolução é alavanca decisiva.</td></tr>
+      <tr><td><b>second_serve_points_won</b> (+ janela de devolução)</td><td class="wt">0.16</td><td><b>↑ Sobe.</b> 2º saque ganho só ~45-50% → o ponto de 2º saque é a maior disputa.</td></tr>
+      <tr><td><b>break_points_converted</b></td><td class="wt">0.15</td><td>Conversão de break point como separador-chave de nível.</td></tr>
+      <tr><td><b>first_serve_points_won</b></td><td class="wt">0.12</td><td><b>↓ Desce.</b> 1º saque menos dominante que no masculino (~62-70%).</td></tr>
+      <tr><td><b>baseline_points_won</b></td><td class="wt">0.12</td><td>Jogo de fundo de quadra com peso maior no perfil feminino.</td></tr>
+      <tr><td><b>double_fault_penalty</b> (inverso)</td><td class="wt">0.05</td><td>Dupla falta discrimina forte (perdedoras ~5/jogo vs vencedoras ~3.7) — entra como penalidade.</td></tr>
+    </table></div>
+    <p style="margin-top:8px;color:var(--arquibancada);font-size:.9rem">Aces saem do conjunto de alto peso (poucos aces no jogo feminino). O <span class="mono">benchmark_reference</span> de cada bloco usa normas WTA, não ATP.</p>
+  </div>
+</section>
+
+<!-- FUNDAMENTAÇÃO -->
+<section id="literatura">
+  <div class="wrap">
+    <p class="kicker"><span class="n">06</span> · Fundamentação na literatura</p>
+    <h2>Os números que sustentam os pesos</h2>
+    <p class="lead">Benchmarks para preencher os campos <span class="mono">benchmark_reference</span> e justificar os modelos de peso. Valores de Grand Slams (ATP/WTA); variam por superfície — usar como referência de calibração, não como gabarito fixo.</p>
+    <div class="tbl"><table>
+      <tr><th>Indicador</th><th class="m">Masculino (ATP)</th><th class="f">Feminino (WTA)</th><th>Leitura</th></tr>
+      <tr><td><b>1º saque — pts ganhos</b></td><td class="m">~70% (vencedores)</td><td class="f">~62-70% (vencedoras)</td><td>Saque mais dominante no masculino.</td></tr>
+      <tr><td><b>2º saque — pts ganhos</b></td><td class="m">~57% venc. / ~47% perd.</td><td class="f">~50% venc. / ~40-45% perd.</td><td>Janela de devolução maior no feminino.</td></tr>
+      <tr><td><b>Games de devolução</b></td><td class="m">base</td><td class="f">~+12% vs masculino</td><td>Devolução é alavanca decisiva no feminino.</td></tr>
+      <tr><td><b>Rally médio</b></td><td class="m">~3.87 shots/pt</td><td class="f">~3.87 shots/pt</td><td><b>Idêntico</b> — não é diferença de gênero.</td></tr>
+      <tr><td><b>Rally 0-4 shots</b></td><td class="m">~69%</td><td class="f">~68%</td><td>Pontos curtos dominam em ambos.</td></tr>
+      <tr><td><b>Rally 9+ shots</b></td><td class="m">~10.3%</td><td class="f">~10.2%</td><td>Praticamente igual.</td></tr>
+      <tr><td><b>Pts na rede / serve-volley</b></td><td class="m">~65% / ~70%</td><td class="f">~66% / ~76%</td><td>Eficiência na rede ligeiramente maior no feminino.</td></tr>
+      <tr><td><b>Duplas faltas (jogo)</b></td><td class="m">venc ~3.7 / perd ~5.0</td><td class="f">discrimina forte</td><td>Penalidade no score; separa vencedor×perdedor.</td></tr>
+      <tr><td><b>Winner / erro não forçado</b></td><td class="m" colspan="2" style="text-align:center">Maior discriminador em ambos os gêneros</td><td>Peso máximo (0.22) nos dois modelos.</td></tr>
+    </table></div>
+    <h3 class="sub">Discriminadores vencedor × perdedor (consenso da literatura)</h3>
+    <p>Serve/return points won %, ace %, velocidade de pico do saque, net points won %, break point por game de devolução, break points salvos, razão winner/erro não forçado (dominância) e pontos vencidos em rallies de 0-4 shots. Esses são os indicadores que os estudos de função discriminante apontam como os que melhor separam quem vence de quem perde — e são exatamente os campos que o schema <span class="mono">match</span> captura.</p>
+    <p class="kicker" style="margin-top:22px">Fontes consultadas</p>
+    <div class="srclist">
+      <div class="src">Comparison of game characteristics of male/female players at Grand-Slams 2016 — diferenças de 1º/2º saque e games de devolução (ResearchGate).</div>
+      <div class="src">A Primer on Grand Slam Statistics — Cross, Univ. Sydney — probabilidades de ponto no saque ATP/WTA (physics.usyd.edu.au).</div>
+      <div class="src">Brain Game Tennis — US Open 2024: rally médio 3.87 vs 3.87, distribuição 0-4 / 9+, pontos de rede.</div>
+      <div class="src">On the distribution of rally length in professional tennis matches — Lisi et al., 2024 (SAGE/JSA).</div>
+      <div class="src">Breaking down success: game-related statistical analysis in tennis Grand Slams — Raizada et al. — duplas faltas e erros não forçados (JHSE).</div>
+      <div class="src">Quantifying the technical-tactical diversity of elite tennis players — winner/UE, 0-4 rallies, break points (PMC).</div>
+      <div class="src">Effect of a Seeding System on Competitive Performance — discriminadores de nível: saque, devolução, break point, dominância (PMC).</div>
+      <div class="src">Match Analysis in Women's Tennis on Clay/Grass/Hard — efetividade de saque por superfície no feminino (PMC).</div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 SAÍDAS -->
+<section id="saidas">
+  <div class="wrap">
+    <p class="kicker"><span class="n">07</span> · As três saídas</p>
+    <h2>Métricas, texto e áudio</h2>
+    <p class="lead">A mesma análise estruturada alimenta três entregas. As três foram pedidas; o JSON da chamada 1 é a fonte única de verdade.</p>
+    <div class="trio">
+      <div class="ocard">
+        <div class="oi">SAÍDA 1 · visual</div>
+        <h4>Sistema de métricas</h4>
+        <p>Dashboard renderizado <strong>no frontend</strong> a partir do JSON — sem nova chamada de IA.</p>
+        <ul>
+          <li>Modo clip: radar dos scores técnicos (preparação, contato, footwork…) + nota 0-10</li>
+          <li>Modo match: cards de saque/rally/break + gráfico de distribuição de rally + medidor winner/UE</li>
+          <li>Barras de comparação contra o <span class="mono">benchmark_reference</span></li>
+          <li>Destaque visual para o <span class="mono">key_improvement</span></li>
+        </ul>
+      </div>
+      <div class="ocard b2">
+        <div class="oi">SAÍDA 2 · texto</div>
+        <h4>Relatório semântico (PT-BR)</h4>
+        <p><strong>Chamada 2</strong> ao <span class="mono">gemini-3.5-flash</span>: recebe o JSON e escreve a narrativa de coach.</p>
+        <ul>
+          <li>Entrada: o JSON da chamada 1 (não o vídeo de novo)</li>
+          <li>Tom: treinador de tênis, direto e encorajador</li>
+          <li>Escrito para ser <strong>falado</strong> (vira o roteiro do áudio)</li>
+          <li><span class="mono">thinking: medium</span> já basta aqui (é texto a partir de dados)</li>
+        </ul>
+      </div>
+      <div class="ocard b3">
+        <div class="oi">SAÍDA 3 · áudio</div>
+        <h4>Voz Vindemiatrix (PT-BR)</h4>
+        <p><span class="mono">gemini-3.1-flash-tts-preview</span>, voz <strong>Vindemiatrix</strong> (Gentle). Idioma detectado pelo texto → PT.</p>
+        <ul>
+          <li>Entrada: o texto da saída 2</li>
+          <li>Saída: PCM → WAV (24kHz, mono, 16-bit)</li>
+          <li>Persona: coach calmo e confiante (prompt controlável)</li>
+          <li>Tratar limites do TTS (ver abaixo)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="code">
+      <div class="ch"><span class="dot tts"></span>chamada 3 · texto → áudio (Vindemiatrix, PT-BR)</div>
+<pre><span class="c"># Preambulo evita falso-bloqueio do classificador e leitura das notas em voz alta</span>
+prompt = <span class="s">"""Sintetize em voz alta o seguinte relatorio de um treinador de tenis,
+em portugues do Brasil, com tom calmo, claro e encorajador.
+TRANSCRICAO A FALAR:
+"""</span> + narrativa_pt
+
+resp = client.models.generate_content(
+    model=<span class="s">"gemini-3.1-flash-tts-preview"</span>,
+    contents=prompt,
+    config=types.GenerateContentConfig(
+        response_modalities=[<span class="s">"AUDIO"</span>],
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                    voice_name=<span class="s">"Vindemiatrix"</span>))),
+    ),
+)
+pcm = resp.candidates[0].content.parts[0].inline_data.data
+<span class="c"># salvar como WAV: 1 canal, 24000 Hz, sample_width 2 (16-bit)</span></pre>
+    </div>
+    <div class="note warn">
+      <h4>Limites do TTS 3.1 Flash Preview — tratar na implementação</h4>
+      <p><strong>Contexto 32k tokens</strong> e <strong>sem streaming</strong>: narrativas longas devem ser quebradas em pedaços e concatenadas (qualidade também tende a degradar após alguns minutos). <strong>Erro 500 ocasional</strong> (o modelo às vezes retorna texto em vez de áudio): implementar <em>retry automático</em>. <strong>Falso-bloqueio do classificador</strong>: sempre usar o preâmbulo "Sintetize em voz alta…" e marcar onde começa a transcrição, senão o modelo pode ler as instruções em voz alta ou rejeitar (<span class="mono">PROHIBITED_CONTENT</span>). Para PT, manter tags de áudio (ex.: <span class="mono">[calmly]</span>) em inglês mesmo com texto em português, conforme a doc.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="wrap">
+    <p class="kicker"><span class="n">08</span> · Roadmap de implementação</p>
+    <h2>Ordem sugerida para a IA codar</h2>
+    <p class="lead">Cinco fases. Cada fase entrega algo testável. A ordem prioriza validar o caminho mais confiável (clip técnico) antes do mais incerto (contagem estatística em match).</p>
+    <div class="road">
+      <div class="phase core">
+        <div class="pn">1</div>
+        <div>
+          <h4>Esqueleto + upload + chamada 1 (modo clip, masculino)</h4>
+          <p>Interface com área de upload, Files API, e a primeira chamada estruturada usando o schema <span class="pill m">male·clip</span>. Renderizar o JSON cru na tela. É o caminho mais confiável (análise qualitativa de lance) e prova o fluxo inteiro.</p>
+          <div class="tasks"><span class="tk">FastAPI/Next</span><span class="tk">Files API</span><span class="tk">schema male·clip</span><span class="tk">thinking high</span><span class="tk">fps 4</span><span class="tk">media_resolution high</span></div>
+          <div class="out">→ Entregável: sobe clipe, recebe JSON técnico válido.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">2</div>
+        <div>
+          <h4>Roteador de modo + os 4 schemas</h4>
+          <p>Detecção por duração (limiar ~75s) com toggle de override, seletor de gênero (M/F) na interface, e os quatro schemas plugados. Resolução de mídia adaptativa (high no clip, medium no match).</p>
+          <div class="tasks"><span class="tk">detecção duração</span><span class="tk">toggle override</span><span class="tk">seletor M/F</span><span class="tk">4 schemas</span><span class="tk">fps adaptativo</span><span class="tk">media_res adaptativa</span></div>
+          <div class="out">→ Entregável: qualquer vídeo cai no schema certo automaticamente.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">3</div>
+        <div>
+          <h4>Dashboard de métricas (saída 1)</h4>
+          <p>Renderização visual do JSON: radar técnico no clip, cards + gráfico de rally + medidor winner/UE no match, com barras de benchmark. Destaque para o <span class="mono">key_improvement</span>.</p>
+          <div class="tasks"><span class="tk">radar/charts</span><span class="tk">cards estat.</span><span class="tk">barras benchmark</span><span class="tk">render do JSON</span></div>
+          <div class="out">→ Entregável: análise vira painel legível, sem nova chamada de IA.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">4</div>
+        <div>
+          <h4>Texto semântico + áudio (saídas 2 e 3)</h4>
+          <p>Chamada 2 (JSON→narrativa PT-BR) e chamada 3 (narrativa→áudio Vindemiatrix). Player de áudio na interface. Implementar retry do TTS e o preâmbulo anti-bloqueio.</p>
+          <div class="tasks"><span class="tk">chamada 2 texto</span><span class="tk">TTS Vindemiatrix</span><span class="tk">PCM→WAV</span><span class="tk">retry 500</span><span class="tk">player</span></div>
+          <div class="out">→ Entregável: as três saídas funcionando na mesma sessão.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pn">5</div>
+        <div>
+          <h4>Validação do modo match + calibração de pesos</h4>
+          <p>Testar a contagem estatística contra partidas com gabarito conhecido (placar real). Ajustar os pesos <span class="mono">v1</span> conforme o que se confirmar. Aqui mede-se se o modo match é confiável ou se fica como "estimativa".</p>
+          <div class="tasks"><span class="tk">gabarito real</span><span class="tk">calibrar pesos</span><span class="tk">medir acurácia</span><span class="tk">PT-BR testes</span></div>
+          <div class="out">→ Entregável: decisão informada sobre confiabilidade do match mode.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESSALVAS -->
+<section id="ressalvas">
+  <div class="wrap">
+    <p class="kicker"><span class="n">09</span> · Ressalvas técnicas</p>
+    <h2>O que o implementador precisa saber</h2>
+    <div class="note warn">
+      <h4>Qualitativo é confiável; quantitativo precisa de prova</h4>
+      <p>A análise técnica de lance (modo clip) é o caminho mais sólido para um VLM hoje — descreve mecânica, postura e tática com boa qualidade. Já <strong>contar estatística de partida</strong> (aces, winners, erros não forçados, break points) a partir de vídeo bruto é difícil e não comprovado: o modelo vai <em>aproximar</em>. Para a demo serve, mas o modo match deve ser validado contra gabarito antes de virar promessa. Por isso ele é a Fase 5, não a Fase 1.</p>
+    </div>
+    <div class="note">
+      <h4>Amostragem de frames vs. golpes rápidos</h4>
+      <p>O padrão do Gemini é ≈1 fps, e um golpe de fração de segundo cai entre frames. A decisão do projeto é amostrar a <strong>4 fps no modo clip</strong> (via <span class="mono">video_metadata.fps</span>), o que captura preparo, contato e follow-through do golpe — combinado com <span class="mono">media_resolution high/ultra_high</span> para o detalhe espacial. No match mantém-se 1 fps (cobertura temporal da partida, sem estourar contexto). Validar com clipes reais se 4 fps já basta ou se algum golpe específico pede mais.</p>
+    </div>
+    <div class="note">
+      <h4>Schema híbrido = 4 schemas focados, não 1 mega-schema</h4>
+      <p>A doc avisa que schemas muito grandes ou profundos podem ser rejeitados. Por isso a escolha de 4 schemas enxutos selecionáveis em vez de um único com <span class="mono">anyOf</span> condicional. Se algum schema ainda for rejeitado, simplificar (encurtar nomes, reduzir aninhamento) antes de fundir.</p>
+    </div>
+    <div class="note">
+      <h4>Beach tennis vs. tênis de quadra</h4>
+      <p>Os benchmarks e os schemas aqui são de <strong>tênis</strong>. Beach tennis tem dinâmica própria (sem quique, dupla na maioria, rede mais alta, areia). Se a validação for em beach tennis, o vocabulário de golpes (ex.: smash, voleio) e os benchmarks precisam de ajuste — tratar como uma variante de schema futura.</p>
+    </div>
+    <div class="note green">
+      <h4>Postgres conectado — escrita opcional no MVP</h4>
+      <p>A app sobe já ligada ao Postgres existente da VPS (mesma rede Docker), então a conexão está pronta. Mas para validar não é obrigatório persistir: o fluxo funciona com estado efêmero na sessão. Quando quiser guardar histórico, a tabela mínima é uma linha por análise (<span class="mono">id, gender, mode, result_json, created_at</span>) — e aí conecta com o "Sala do Chefe" / entrega no WhatsApp do produto real.</p>
+    </div>
+  </div>
+</section>
+
+<!-- DEPLOY -->
+<section id="deploy">
+  <div class="wrap">
+    <p class="kicker"><span class="n">10</span> · Deploy &amp; infraestrutura</p>
+    <h2>VPS, Traefik (file provider) e o upload grande</h2>
+    <p class="lead">A infra já existe: VPS <span class="mono">5.161.201.251</span>, Docker, Postgres e Traefik (file provider) instalados, rede externa compartilhada e o registro A de <span class="mono">001.bitvar.illumiai.com</span> apontado. A app entra como mais um serviço nessa rede; o Traefik faz proxy reverso + TLS. Como o roteamento é por <strong>arquivo dinâmico</strong> (não labels), a app não leva labels do Traefik — o router vai num arquivo na pasta dynamic.</p>
+
+    <div class="router">
+      <div class="rcard">
+        <div class="rt clip">TOPOLOGIA</div>
+        <h4>Quem fala com quem</h4>
+        <p>Browser → Traefik (443, TLS) → <span class="mono">bitvar-001-app:8000</span> (rede externa compartilhada). A app → Postgres existente (mesma rede, por nome do container) e → Gemini API (saída externa).</p>
+      </div>
+      <div class="rcard">
+        <div class="rt match">SEM LABELS</div>
+        <h4>File provider</h4>
+        <p>O <span class="mono">docker-compose.yml</span> só conecta a app na rede e expõe a porta interna. O router, o service e o TLS ficam em <span class="mono">dynamic/bitvar-001.yml</span>, que o Traefik observa.</p>
+      </div>
+    </div>
+
+    <div class="note warn">
+      <h4>Os dois pontos que quebram — e não são o 413</h4>
+      <p>O Traefik, por padrão, <strong>não limita nem bufferiza o corpo</strong> da requisição (faz streaming) — então upload grande passa sem erro 413. O que corta é <strong>timeout</strong> em dois momentos: <strong>(1)</strong> o upload do vídeo demora (centenas de MB) e <strong>(2)</strong> a análise demora — Gemini com <code>thinking high</code> em vídeo segura a conexão aberta por minutos. Solução para validação: aumentar <code>readTimeout</code> / <code>writeTimeout</code> / <code>idleTimeout</code> no entrypoint <strong>e validar o tamanho do upload na própria app</strong> (não no Traefik, para não bufferizar arquivo gigante em disco).</p>
+    </div>
+
+    <h3 class="sub">10.1 · <span class="mono">docker-compose.yml</span> (a app)</h3>
+    <div class="code">
+      <div class="ch"><span class="dot"></span>docker-compose.yml</div>
+<pre><span class="k">services</span>:
+  <span class="k">bitvar-001-app</span>:
+    <span class="k">build</span>: .
+    <span class="k">container_name</span>: bitvar-001-app      <span class="c"># precisa bater com a URL do service no dynamic</span>
+    <span class="k">restart</span>: unless-stopped
+    <span class="k">env_file</span>: .env
+    <span class="k">expose</span>:
+      - <span class="s">"8000"</span>                       <span class="c"># porta interna. NAO usar ports: (so o Traefik acessa)</span>
+    <span class="k">networks</span>:
+      - rede_externa                  <span class="c"># rede compartilhada do Traefik (e onde o Postgres esta)</span>
+    <span class="c"># SEM labels do Traefik — roteamento vai no arquivo dynamic</span>
+
+<span class="k">networks</span>:
+  <span class="k">rede_externa</span>:
+    <span class="k">external</span>: <span class="n">true</span>
+    <span class="k">name</span>: NOME_DA_REDE_EXTERNA          <span class="c"># descubra com: docker network ls</span></pre>
+    </div>
+    <div class="note">
+      <h4>Se o Postgres estiver numa rede separada</h4>
+      <p>Se o Postgres não estiver na mesma rede compartilhada, adicione uma segunda rede externa ao serviço (a rede do Postgres) e use o nome do container do Postgres como host no <span class="mono">DATABASE_URL</span>. Descubra a rede com <span class="mono">docker inspect NOME_DO_CONTAINER_POSTGRES</span>.</p>
+    </div>
+
+    <h3 class="sub">10.2 · <span class="mono">dynamic/bitvar-001.yml</span> (router + service + TLS)</h3>
+    <div class="code">
+      <div class="ch"><span class="dot"></span>arquivo na pasta dynamic do Traefik</div>
+<pre><span class="k">http</span>:
+  <span class="k">routers</span>:
+    <span class="k">bitvar-001</span>:
+      <span class="k">rule</span>: <span class="s">"Host(`001.bitvar.illumiai.com`)"</span>
+      <span class="k">entryPoints</span>:
+        - websecure                   <span class="c"># use o nome do SEU entrypoint 443</span>
+      <span class="k">service</span>: bitvar-001-svc
+      <span class="k">tls</span>:
+        <span class="k">certResolver</span>: SEU_CERTRESOLVER     <span class="c"># o resolver Let's Encrypt que voce ja usa</span>
+
+  <span class="k">services</span>:
+    <span class="k">bitvar-001-svc</span>:
+      <span class="k">loadBalancer</span>:
+        <span class="k">servers</span>:
+          - <span class="k">url</span>: <span class="s">"http://bitvar-001-app:8000"</span>   <span class="c"># nome do container + porta interna</span></pre>
+    </div>
+    <div class="note">
+      <h4>Pré-requisito de DNS interno</h4>
+      <p>Para o Traefik resolver <span class="mono">bitvar-001-app</span> pelo nome, ele e a app precisam estar na <strong>mesma rede Docker</strong> (a <span class="mono">rede_externa</span>). É o que o compose acima garante. Se você já tem um redirect global HTTP→HTTPS no entrypoint web, não precisa repetir aqui.</p>
+    </div>
+
+    <h3 class="sub">10.3 · Timeouts no <span class="mono">traefik.yml</span> (config estática)</h3>
+    <p>Adicione/ajuste os timeouts no seu entrypoint 443. Sem isso, upload grande ou análise longa do Gemini são cortados no meio.</p>
+    <div class="code">
+      <div class="ch"><span class="dot"></span>traefik.yml · trecho do entryPoint</div>
+<pre><span class="k">entryPoints</span>:
+  <span class="k">websecure</span>:
+    <span class="k">address</span>: <span class="s">":443"</span>
+    <span class="k">transport</span>:
+      <span class="k">respondingTimeouts</span>:
+        <span class="k">readTimeout</span>:  <span class="s">"600s"</span>      <span class="c"># upload de video grande (0 = sem limite)</span>
+        <span class="k">writeTimeout</span>: <span class="s">"600s"</span>      <span class="c"># resposta longa (Gemini thinking high)</span>
+        <span class="k">idleTimeout</span>:  <span class="s">"600s"</span>      <span class="c"># nao fechar enquanto a analise processa</span></pre>
+    </div>
+
+    <h3 class="sub">10.4 · <span class="mono">Dockerfile</span> + <span class="mono">.env</span></h3>
+    <div class="code">
+      <div class="ch"><span class="dot py"></span>Dockerfile</div>
+<pre><span class="k">FROM</span> python:3.12-slim
+<span class="k">WORKDIR</span> /app
+<span class="k">COPY</span> requirements.txt .
+<span class="k">RUN</span> pip install --no-cache-dir -r requirements.txt
+<span class="k">COPY</span> . .
+<span class="c"># python-multipart faz o upload ir pra disco em chunks (nao carrega em RAM)</span>
+<span class="k">CMD</span> [<span class="s">"uvicorn"</span>, <span class="s">"main:app"</span>, <span class="s">"--host"</span>, <span class="s">"0.0.0.0"</span>, <span class="s">"--port"</span>, <span class="s">"8000"</span>, <span class="s">"--timeout-keep-alive"</span>, <span class="s">"600"</span>]
+
+<span class="c"># requirements.txt:</span>
+<span class="c">#   fastapi  ·  uvicorn[standard]  ·  python-multipart</span>
+<span class="c">#   google-genai  ·  python-dotenv  ·  asyncpg (so se for persistir)</span></pre>
+    </div>
+    <div class="code">
+      <div class="ch"><span class="dot"></span>.env</div>
+<pre><span class="k">GEMINI_API_KEY</span>=sua_chave_aqui
+<span class="k">APP_DOMAIN</span>=001.bitvar.illumiai.com
+<span class="k">MAX_UPLOAD_MB</span>=600                <span class="c"># validado na app, rejeita antes de subir</span>
+<span class="c"># conexao pronta com o Postgres existente (escrita opcional no MVP):</span>
+<span class="k">DATABASE_URL</span>=postgresql://USUARIO:SENHA@NOME_CONTAINER_POSTGRES:5432/bitvar</pre>
+    </div>
+
+    <div class="note warn">
+      <h4>Validação de tamanho na app + limite do Files API</h4>
+      <p>A app deve rejeitar cedo (checar <span class="mono">Content-Length</span> contra <code>MAX_UPLOAD_MB</code> e abortar com 413 antes de ler o corpo), gravar em arquivo temporário em chunks e apagar após enviar ao Gemini. Atenção ao limite do <strong>Files API</strong> do Gemini para vídeo — validar o teto na doc de Files API antes de aceitar arquivos muito grandes.</p>
+    </div>
+    <div class="note">
+      <h4>Para produção: análise assíncrona</h4>
+      <p>Segurar uma requisição HTTP aberta por minutos (síncrono) funciona para validação com pouca concorrência, mas é frágil. Quando escalar, mudar para padrão assíncrono: upload retorna um <span class="mono">job_id</span>, a análise roda em background e o frontend faz polling em <span class="mono">/status/{job_id}</span>. Aí os timeouts longos do entrypoint deixam de ser necessários.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="rec"><span class="rec-dot" aria-hidden="true"></span>BITVAR IA</span>
+    <span>BLUEPRINT DE VALIDAÇÃO · TÊNIS M/F · v1</span>
+    <span>gemini-3.5-flash + 3.1-flash-tts</span>
+    <span style="margin-left:auto"><a href="#topo">↑ TOPO</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

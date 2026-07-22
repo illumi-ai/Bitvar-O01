@@ -1,0 +1,49 @@
+# Traefik v3 — configuração estática
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+api:
+  dashboard: true
+  insecure: false                 # NUNCA true (não expõe :8080 sem auth)
+
+log:
+  level: INFO
+accessLog: {}                     # access logs em stdout (capturados pelo Docker)
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:               # redirect global HTTP -> HTTPS
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":443"
+    # Upload de vídeo grande + análise longa do Gemini (thinking high) seguram a
+    # conexão por minutos. Sem timeouts altos, a requisição é cortada no meio.
+    transport:
+      respondingTimeouts:
+        readTimeout: "600s"     # inclui o upload do vídeo
+        writeTimeout: "600s"    # análise síncrona + entrega da resposta
+        idleTimeout: "600s"
+
+providers:
+  docker:
+    exposedByDefault: false       # só roteia containers com traefik.enable=true
+    network: bitvar_web           # rede padrão p/ descoberta
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: true
+
+certificatesResolvers:
+  le:
+    acme:
+      # email e caServer (STAGING vs PROD) vêm das env nativas do Traefik no
+      # compose: TRAEFIK_CERTIFICATESRESOLVERS_LE_ACME_EMAIL / _CASERVER.
+      # (o arquivo estático não processa {{ env }}.)
+      storage: /acme/acme.json
+      httpChallenge:
+        entryPoint: web           # desafio HTTP-01 na :80

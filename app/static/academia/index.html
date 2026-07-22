@@ -1,0 +1,2250 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="POC BITVAR IA para identificação automática e análise acessível de exercícios de musculação por vídeo.">
+  <title>BITVAR IA — Análise de Musculação</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09131f;
+      --surface: #102237;
+      --surface-2: #162d47;
+      --surface-3: #081725;
+      --text: #f4f8fb;
+      --muted: #a7bbcc;
+      --line: rgba(189, 211, 228, .18);
+      --brand: #b8f34a;
+      --brand-dark: #1f3000;
+      --blue: #75baff;
+      --amber: #ffc36a;
+      --red: #ff716b;
+      --green: #48db8b;
+      --radius: 14px;
+      --shadow: 0 18px 50px rgba(0, 0, 0, .22);
+      --content: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 300px;
+      background:
+        radial-gradient(circle at 88% 8%, rgba(184, 243, 74, .09), transparent 25rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button, select, input[type="checkbox"], label[for="video-file"] { cursor: pointer; }
+    a { color: var(--blue); }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2, h3 { line-height: 1.16; }
+    h1 { margin-bottom: 18px; font-size: clamp(2.15rem, 7vw, 4.5rem); letter-spacing: -.045em; }
+    h2 { margin-bottom: 12px; font-size: clamp(1.5rem, 4vw, 2.25rem); }
+    h3 { margin-bottom: 10px; font-size: 1.08rem; }
+    ul { padding-left: 1.25rem; }
+    [hidden] { display: none !important; }
+
+    :focus-visible {
+      outline: 3px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 1000;
+      transform: translateY(-150%);
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: var(--text);
+      color: var(--bg);
+      font-weight: 800;
+    }
+    .skip-link:focus { transform: translateY(0); }
+
+    .wrap { width: min(100% - 36px, var(--content)); margin-inline: auto; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .muted { color: var(--muted); }
+    .small { font-size: .88rem; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      border-bottom: 1px solid var(--line);
+      background: rgba(9, 19, 31, .93);
+      backdrop-filter: blur(12px);
+    }
+    .topbar-inner {
+      display: flex;
+      min-height: 58px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 900; letter-spacing: .08em; }
+    .brand-mark { width: 12px; height: 12px; border-radius: 3px; background: var(--brand); transform: rotate(45deg); }
+    .api-status {
+      max-width: 60%;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--muted);
+      font-size: .75rem;
+      text-align: right;
+    }
+    .api-status.ready { border-color: rgba(72, 219, 139, .55); color: var(--green); }
+    .api-status.unavailable { border-color: rgba(255, 195, 106, .55); color: var(--amber); }
+
+    .hero { padding: clamp(54px, 9vw, 96px) 0 50px; }
+    .eyebrow, .section-label {
+      margin: 0 0 12px;
+      color: var(--brand);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .hero-copy { max-width: 720px; color: var(--muted); font-size: clamp(1.05rem, 2.4vw, 1.25rem); }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+    .tag, .chip, .verdict {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 750;
+    }
+    .tag strong, .chip strong { color: var(--text); }
+
+    .page-section { border-top: 1px solid var(--line); padding: 48px 0; }
+    .section-intro { max-width: 740px; margin-bottom: 24px; color: var(--muted); }
+
+    .guide-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .guide-card, .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(145deg, rgba(22, 45, 71, .82), rgba(16, 34, 55, .9));
+      box-shadow: var(--shadow);
+    }
+    .guide-card { padding: 18px; }
+    .guide-number {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      margin-bottom: 13px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--brand);
+      color: var(--brand-dark);
+      font-weight: 900;
+    }
+    .guide-card strong { display: block; margin-bottom: 5px; }
+    .guide-card p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: calc(var(--radius) + 4px);
+      padding: clamp(18px, 4vw, 30px);
+      background: rgba(16, 34, 55, .76);
+      box-shadow: var(--shadow);
+    }
+
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+      clip: rect(0 0 0 0) !important;
+      clip-path: inset(50%) !important;
+      white-space: nowrap !important;
+    }
+    .drop-zone {
+      display: block;
+      border: 2px dashed rgba(117, 186, 255, .42);
+      border-radius: var(--radius);
+      padding: clamp(28px, 6vw, 54px) 20px;
+      background: rgba(8, 23, 37, .7);
+      text-align: center;
+      transition: border-color .15s ease, background .15s ease, transform .15s ease;
+    }
+    .drop-zone:hover, .drop-zone.dragging {
+      border-color: var(--brand);
+      background: rgba(184, 243, 74, .05);
+    }
+    #video-file:focus-visible + .drop-zone { outline: 3px solid var(--blue); outline-offset: 3px; }
+    .drop-icon { display: block; margin-bottom: 8px; color: var(--brand); font-size: 2rem; line-height: 1; }
+    .drop-title { display: block; margin-bottom: 6px; font-size: 1.08rem; font-weight: 850; }
+    .drop-help { display: block; color: var(--muted); font-size: .9rem; }
+
+    .file-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 14px;
+      border: 1px solid rgba(72, 219, 139, .32);
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: rgba(72, 219, 139, .07);
+    }
+    .file-name { overflow-wrap: anywhere; color: var(--green); font-weight: 800; }
+    .file-meta { color: var(--muted); font-size: .84rem; }
+    .preview {
+      width: 100%;
+      max-height: 480px;
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #000;
+    }
+
+    .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label, .field-label { display: block; margin-bottom: 7px; font-weight: 800; }
+    .optional { color: var(--muted); font-size: .82rem; font-weight: 500; }
+    .field input[type="text"], .field select, .field textarea {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 10px 12px;
+      background: var(--surface-3);
+      color: var(--text);
+    }
+    .field textarea { min-height: 92px; resize: vertical; }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--blue); }
+    .field-help { margin: 6px 0 0; color: var(--muted); font-size: .82rem; }
+    .voice-entry {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 9px 12px;
+      margin-top: 10px;
+    }
+    .voice-button {
+      display: inline-flex;
+      min-height: 42px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid rgba(117, 186, 255, .48);
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: rgba(117, 186, 255, .09);
+      color: #d8ebff;
+      font-weight: 850;
+    }
+    .voice-button:hover:not(:disabled) { border-color: var(--brand); background: rgba(184, 243, 74, .08); }
+    .voice-button:disabled { cursor: not-allowed; opacity: .48; }
+    .voice-button.listening {
+      border-color: rgba(255, 113, 107, .72);
+      background: rgba(255, 113, 107, .14);
+      color: #ffe3e1;
+    }
+    .voice-button svg { width: 20px; height: 20px; flex: 0 0 auto; }
+    .voice-button.listening svg { animation: voice-pulse 1.1s ease-in-out infinite; }
+    .voice-status { min-height: 1.35em; color: var(--muted); font-size: .84rem; }
+    .voice-status.listening { color: var(--green); }
+    .voice-status.transcribing { color: var(--blue); }
+    .voice-status.error { color: #ffd4d1; }
+    .voice-privacy { margin: 7px 0 0; color: var(--muted); font-size: .76rem; }
+    @keyframes voice-pulse {
+      50% { transform: scale(1.14); opacity: .62; }
+    }
+
+    .choice-row { display: flex; flex-wrap: wrap; gap: 14px 24px; margin-top: 22px; }
+    .check {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 9px;
+      color: var(--muted);
+    }
+    .check input { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--brand); }
+    .check strong { color: var(--text); }
+
+    .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 26px; }
+    .button {
+      display: inline-flex;
+      min-height: 46px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 11px 18px;
+      background: var(--brand);
+      color: var(--brand-dark);
+      font-weight: 900;
+      text-decoration: none;
+    }
+    .button:hover { filter: brightness(1.06); }
+    .button:disabled { cursor: not-allowed; filter: none; opacity: .46; }
+    .button.secondary { border-color: var(--line); background: transparent; color: var(--text); }
+    .button.danger { border-color: rgba(255, 113, 107, .45); background: transparent; color: #ffd4d1; }
+    .button.small-button { min-height: 36px; padding: 7px 11px; font-size: .84rem; }
+
+    .notice {
+      margin-top: 18px;
+      border-left: 4px solid var(--blue);
+      border-radius: 0 10px 10px 0;
+      padding: 14px 16px;
+      background: rgba(117, 186, 255, .09);
+      color: #d8ebff;
+    }
+    .notice.error { border-color: var(--red); background: rgba(255, 113, 107, .1); color: #ffe3e1; }
+    .notice.warning { border-color: var(--amber); background: rgba(255, 195, 106, .1); color: #ffe9ca; }
+    .notice.success { border-color: var(--green); background: rgba(72, 219, 139, .09); color: #d5f9e5; }
+    .notice h3 { margin-bottom: 5px; }
+    .notice > :last-child { margin-bottom: 0; }
+
+    .processing { margin-top: 18px; border-radius: 12px; padding: 18px; background: var(--surface-3); }
+    .processing-row { display: flex; align-items: center; gap: 13px; }
+    .spinner {
+      width: 24px;
+      height: 24px;
+      flex: 0 0 auto;
+      border: 3px solid var(--surface-2);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    progress { width: 100%; height: 8px; margin-top: 14px; accent-color: var(--brand); }
+
+    .results-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 24px; }
+    .results-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .card { padding: 18px; }
+    .card.full { grid-column: 1 / -1; }
+    .card-title {
+      margin-bottom: 12px;
+      color: var(--blue);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .76rem;
+      font-weight: 850;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    .constructive { border-color: rgba(72, 219, 139, .36); }
+    .constructive .card-title { color: var(--green); }
+    .priority { border-color: rgba(255, 195, 106, .42); }
+    .priority .card-title { color: var(--amber); }
+    .reliability { border-color: rgba(117, 186, 255, .38); }
+    .training-relevance { border-color: rgba(184, 243, 74, .32); }
+    .summary-classification {
+      margin: 0 0 12px;
+      color: var(--text);
+      font-size: 1.08rem;
+      font-weight: 850;
+    }
+    .plain-list { margin: 0; padding-left: 1.25rem; }
+    .plain-list li + li { margin-top: 7px; }
+    .empty-copy { color: var(--muted); font-style: italic; }
+
+    .quality-list, .kv-list { display: grid; gap: 0; margin: 0; }
+    .quality-row, .kv-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 0;
+    }
+    .quality-row:last-child, .kv-row:last-child { border-bottom: 0; }
+    .quality-row dt, .kv-row dt { color: var(--muted); }
+    .quality-row dd, .kv-row dd { margin: 0; text-align: right; font-weight: 750; }
+    .yes { color: var(--green); }
+    .no { color: var(--red); }
+
+    .score-layout { display: flex; align-items: center; gap: 18px; }
+    .score-number { color: var(--brand); font-size: clamp(3rem, 9vw, 5rem); font-weight: 950; line-height: .95; }
+    .score-denominator { color: var(--muted); font-weight: 800; }
+    .poc-label {
+      display: inline-flex;
+      margin-bottom: 7px;
+      border: 1px solid rgba(255, 195, 106, .5);
+      border-radius: 999px;
+      padding: 3px 8px;
+      color: var(--amber);
+      font-size: .73rem;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    .repetition-list, .checklist { display: grid; gap: 10px; }
+    .repetition, .criterion {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 13px 14px;
+      background: rgba(8, 23, 37, .58);
+    }
+    .repetition-head, .criterion-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .repetition-title, .criterion-title { margin: 0; font-size: inherit; font-weight: 850; }
+    .timestamps { margin-top: 6px; color: var(--muted); font-size: .86rem; }
+    .criterion-copy { margin: 10px 0 0; color: #dbe7f1; }
+    .criterion-suggestion { margin: 8px 0 0; color: var(--blue); }
+    .verdict.adequado { border-color: rgba(72, 219, 139, .5); color: var(--green); }
+    .verdict.ajuste-leve { border-color: rgba(117, 186, 255, .5); color: var(--blue); }
+    .verdict.a-corrigir { border-color: rgba(255, 195, 106, .5); color: var(--amber); }
+    .verdict.nao-avaliavel { color: var(--muted); }
+    .verdict.nao-aplicavel { border-color: rgba(117, 186, 255, .35); color: var(--blue); }
+
+    .narrative { white-space: pre-wrap; color: #e8f0f6; font-size: 1.03rem; line-height: 1.72; }
+    audio { width: 100%; margin-top: 6px; }
+    .action-bar { display: flex; flex-wrap: wrap; gap: 10px; }
+    .persisted-box { margin-top: 15px; border-top: 1px solid var(--line); padding-top: 14px; }
+
+    .disclaimer {
+      margin-top: 24px;
+      border: 1px solid rgba(255, 195, 106, .32);
+      border-radius: 10px;
+      padding: 14px 16px;
+      color: #f5dfc0;
+      font-size: .9rem;
+    }
+    footer { border-top: 1px solid var(--line); padding: 30px 0 48px; color: var(--muted); font-size: .84rem; }
+
+    @media (max-width: 900px) {
+      .guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .guide-card:last-child { grid-column: 1 / -1; }
+    }
+    @media (max-width: 680px) {
+      .wrap { width: min(100% - 24px, var(--content)); }
+      .fields, .results-grid { grid-template-columns: 1fr; }
+      .field.full, .card.full { grid-column: auto; }
+      .results-header, .file-summary { align-items: stretch; flex-direction: column; }
+      .api-status { max-width: 64%; font-size: .68rem; }
+      .score-layout { align-items: flex-start; flex-direction: column; }
+      .button { width: 100%; }
+      .action-bar .button { width: auto; flex: 1 1 190px; }
+    }
+    @media (max-width: 430px) {
+      .guide-grid { grid-template-columns: 1fr; }
+      .guide-card:last-child { grid-column: auto; }
+      .topbar-inner { min-height: 64px; }
+      .brand { font-size: .88rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>BITVAR IA · ACADEMIA</div>
+      <div id="api-status" class="api-status mono" role="status" aria-live="polite" aria-atomic="true">Verificando o serviço…</div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="wrap">
+        <p class="eyebrow">Análise de movimento por vídeo · POC</p>
+        <h1 id="page-title">Seu exercício.<br>Feedback que faz sentido.</h1>
+        <p class="hero-copy">Envie o vídeo de uma série. A IA identifica automaticamente o exercício, a variação e o equipamento ou máquina e analisa a execução com uma metodologia específica ou com uma leitura observacional genérica.</p>
+        <div class="hero-tags" aria-label="Características da análise">
+          <span class="tag"><strong>Identificação</strong> Automática</span>
+          <span class="tag"><strong>Análise técnica</strong> 8 FPS</span>
+          <span class="tag"><strong>Saídas</strong> Identificação, relatório e áudio</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="page-section" aria-labelledby="capture-title">
+      <div class="wrap">
+        <p class="section-label">01 · Antes de gravar</p>
+        <h2 id="capture-title">Prepare um vídeo fácil de avaliar</h2>
+        <p id="capture-help" class="section-intro">Um bom enquadramento é parte da análise. Se algum ponto não estiver visível, a IA deve pedir uma nova captura em vez de inventar um laudo.</p>
+        <div class="guide-grid">
+          <article class="guide-card"><span class="guide-number" aria-hidden="true">1</span><strong>Uma série por vídeo</strong><p>Grave repetições completas e, se possível, sem cortes durante a execução.</p></article>
+          <article class="guide-card"><span class="guide-number" aria-hidden="true">2</span><strong>Movimento visível</strong><p>Enquadre o corpo, as articulações relevantes e o equipamento usado no exercício.</p></article>
+          <article class="guide-card"><span class="guide-number" aria-hidden="true">3</span><strong>Pessoa-alvo rastreável</strong><p>Outras pessoas podem aparecer, desde que você descreva quem será analisado e ela não fique encoberta.</p></article>
+          <article class="guide-card"><span class="guide-number" aria-hidden="true">4</span><strong>Câmera fixa e boa luz</strong><p>Apoie o celular, evite zoom e filme sem contraluz.</p></article>
+          <article class="guide-card"><span class="guide-number" aria-hidden="true">5</span><strong>Até o limite informado</strong><p>Envie apenas a série que deseja analisar, respeitando a duração indicada pelo serviço.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="page-section" aria-labelledby="upload-title">
+      <div class="wrap">
+        <p class="section-label">02 · Enviar</p>
+        <h2 id="upload-title">Analisar exercício</h2>
+        <p class="section-intro">O exercício não precisa ser selecionado: a IA tentará identificar o movimento, a variação e o equipamento. O processamento pode levar alguns minutos.</p>
+
+        <form id="analysis-form" class="panel" novalidate aria-describedby="capture-help">
+          <div>
+            <input id="video-file" class="visually-hidden" type="file" accept="video/*" aria-describedby="file-help file-meta">
+            <label id="drop-zone" class="drop-zone" for="video-file">
+              <span class="drop-icon" aria-hidden="true">＋</span>
+              <span class="drop-title">Escolher vídeo ou soltar o arquivo aqui</span>
+              <span id="file-help" class="drop-help">MP4, MOV, WebM ou outro formato de vídeo aceito pelo navegador</span>
+            </label>
+          </div>
+
+          <div id="file-summary" class="file-summary" hidden aria-live="polite">
+            <div>
+              <div id="file-name" class="file-name"></div>
+              <div id="file-meta" class="file-meta"></div>
+            </div>
+            <button id="remove-file" class="button danger small-button" type="button">Remover vídeo</button>
+          </div>
+          <video id="video-preview" class="preview" controls playsinline preload="metadata" aria-label="Prévia do vídeo selecionado" hidden></video>
+
+          <div class="notice">
+            <h3>Identificação automática</h3>
+            <p>Não é necessário informar o exercício ou a máquina. Primeiro, o sistema identifica exercício, variação e equipamento; depois, aplica uma metodologia específica quando disponível ou uma análise observacional genérica da execução.</p>
+          </div>
+
+          <div class="fields">
+            <div class="field">
+              <label for="capture-angle">Ângulo da câmera</label>
+              <select id="capture-angle" name="capture_angle" aria-describedby="angle-help">
+                <option value="unknown">Não sei / identificar automaticamente</option>
+                <option value="frontal">Frontal</option>
+                <option value="lateral">Lateral</option>
+                <option value="posterior">Posterior (por trás)</option>
+                <option value="diagonal">Diagonal</option>
+              </select>
+              <p id="angle-help" class="field-help">Informe o ângulo usado. A análise também verificará o enquadramento detectado.</p>
+            </div>
+            <div class="field">
+              <label for="practitioner-name">Nome do praticante <span class="optional">(opcional)</span></label>
+              <input id="practitioner-name" name="practitioner_name" type="text" maxlength="120" autocomplete="name" placeholder="Ex.: Ana">
+            </div>
+            <div class="field">
+              <label for="practitioner-id">Código do praticante <span class="optional">(opcional)</span></label>
+              <input id="practitioner-id" name="practitioner_id" type="text" maxlength="120" autocomplete="off" placeholder="Ex.: ALUNO-042" aria-describedby="practitioner-id-help">
+              <p id="practitioner-id-help" class="field-help">Use apenas se sua demonstração já identifica o aluno.</p>
+            </div>
+            <div class="field">
+              <label for="practitioner-outfit">Roupa ou aparência da pessoa-alvo <span class="optional">(opcional)</span></label>
+              <input id="practitioner-outfit" name="practitioner_outfit" type="text" maxlength="240" autocomplete="off" placeholder="Ex.: camiseta azul e shorts pretos" aria-describedby="practitioner-outfit-help">
+              <p id="practitioner-outfit-help" class="field-help">Ajuda a seguir a pessoa certa quando há mais gente no vídeo. Não usamos reconhecimento facial.</p>
+            </div>
+            <div class="field full">
+              <label for="practitioner-notes">Características e posição da pessoa-alvo <span class="optional">(opcional)</span></label>
+              <textarea id="practitioner-notes" name="practitioner_notes" maxlength="500" placeholder="Ex.: camiseta azul, shorts preto, pessoa à esquerda usando a máquina mais próxima" aria-describedby="practitioner-notes-help target-voice-status target-voice-privacy"></textarea>
+              <div class="voice-entry">
+                <button id="target-voice-button" class="voice-button" type="button" aria-controls="practitioner-notes" aria-describedby="practitioner-notes-help target-voice-status target-voice-privacy" aria-pressed="false" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+                    <path d="M5 10a7 7 0 0 0 14 0"></path>
+                    <path d="M12 17v5"></path>
+                    <path d="M8 22h8"></path>
+                  </svg>
+                  <span id="target-voice-label">Gravar descrição por voz</span>
+                </button>
+                <span id="target-voice-status" class="voice-status" role="status" aria-live="polite" aria-atomic="true">Verificando a gravação por voz…</span>
+              </div>
+              <p id="practitioner-notes-help" class="field-help">Toque no microfone e diga roupa, cores, posição e equipamento da pessoa por até 30 segundos. O Gemini transcreverá acima para você revisar, corrigir ou complementar.</p>
+              <p id="target-voice-privacy" class="voice-privacy">A gravação curta é enviada temporariamente ao Gemini por meio do BITVAR. O BITVAR não a salva: os arquivos temporários são removidos após a transcrição, e a análise do vídeo recebe somente o texto revisado.</p>
+            </div>
+          </div>
+
+          <div class="choice-row">
+            <label class="check" for="with-audio">
+              <input id="with-audio" name="with_audio" type="checkbox" checked>
+              <span><strong>Gerar áudio do relatório</strong><br><span class="small">Útil para ouvir o feedback sem depender da leitura da tela.</span></span>
+            </label>
+            <label class="check" for="persist">
+              <input id="persist" name="persist" type="checkbox" disabled>
+              <span><strong>Salvar análise no servidor</strong><br><span id="persist-help" class="small">Indisponível por padrão; o relatório pode ser baixado localmente.</span></span>
+            </label>
+          </div>
+
+          <div class="notice" style="margin-top:22px">
+            <label class="check" for="consent">
+              <input id="consent" type="checkbox" required>
+              <span><strong>Confirmo que tenho autorização para enviar este vídeo e, se eu usar o microfone, minha descrição em áudio.</strong><br><span class="small">O vídeo será processado para gerar a análise. A gravação curta será usada somente para transcrição e não será salva pelo BITVAR.</span></span>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button id="submit-button" class="button" type="submit" disabled>Analisar vídeo</button>
+            <span id="submit-hint" class="muted small">Selecione um vídeo para continuar.</span>
+          </div>
+
+          <div id="processing" class="processing" role="status" aria-live="polite" aria-atomic="true" hidden>
+            <div class="processing-row">
+              <span class="spinner" aria-hidden="true"></span>
+              <div><strong>Processando o vídeo…</strong><br><span class="muted small">A IA está identificando exercício, variação, equipamento e pessoa-alvo antes de analisar ritmo, amplitude, controle, alinhamento e consistência observáveis. Isto pode levar alguns minutos.</span></div>
+            </div>
+            <progress aria-label="Análise em andamento">Processando</progress>
+          </div>
+        </form>
+
+        <div id="form-error" class="notice error" role="alert" tabindex="-1" hidden></div>
+      </div>
+    </section>
+
+    <section id="results" class="page-section" aria-labelledby="results-title" tabindex="-1" hidden>
+      <div class="wrap">
+        <div class="results-header">
+          <div>
+            <p class="section-label">03 · Relatório</p>
+            <h2 id="results-title">Resultado da análise</h2>
+            <p id="results-subtitle" class="section-intro"></p>
+          </div>
+          <button id="new-analysis-top" class="button secondary" type="button">Analisar outro vídeo</button>
+        </div>
+
+        <div id="result-warnings"></div>
+        <div id="result-chips" class="chips" aria-label="Dados gerais da análise"></div>
+        <div id="recapture-panel"></div>
+        <div id="result-content"></div>
+
+        <div class="disclaimer"><strong>Importante:</strong> esta é uma POC de orientação de movimento. O resultado não é diagnóstico médico, avaliação fisioterapêutica nem prescrição de treino. O score, quando exibido, é um indicador experimental ainda não validado contra uma base de referência. Em caso de dor ou limitação, procure um profissional habilitado.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">BITVAR IA · Vertical Academia · Identificação automática e relatório construtivo por vídeo</div>
+  </footer>
+
+  <script>
+    "use strict";
+
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const VOICE_RECORDER_MIME_TYPES = [
+      "audio/webm;codecs=opus",
+      "audio/ogg;codecs=opus",
+      "audio/mp4;codecs=mp4a.40.2",
+      "audio/mp4",
+    ];
+    const state = {
+      apiReady: false,
+      busy: false,
+      file: null,
+      durationSeconds: null,
+      previewUrl: null,
+      selectionToken: 0,
+      health: null,
+      lastResult: null,
+      persistenceAvailable: false,
+      voiceSupported: false,
+      voiceBackendReady: false,
+      voicePhase: "idle",
+      voiceRecorder: null,
+      voiceStream: null,
+      voiceChunks: [],
+      voiceTimer: null,
+      voiceAbortController: null,
+      voiceSessionToken: 0,
+    };
+
+    const ui = {
+      form: $("#analysis-form"),
+      apiStatus: $("#api-status"),
+      fileInput: $("#video-file"),
+      dropZone: $("#drop-zone"),
+      fileSummary: $("#file-summary"),
+      fileName: $("#file-name"),
+      fileMeta: $("#file-meta"),
+      removeFile: $("#remove-file"),
+      preview: $("#video-preview"),
+      submit: $("#submit-button"),
+      submitHint: $("#submit-hint"),
+      processing: $("#processing"),
+      error: $("#form-error"),
+      results: $("#results"),
+      resultsTitle: $("#results-title"),
+      resultsSubtitle: $("#results-subtitle"),
+      warnings: $("#result-warnings"),
+      chips: $("#result-chips"),
+      recapture: $("#recapture-panel"),
+      content: $("#result-content"),
+      notes: $("#practitioner-notes"),
+      consent: $("#consent"),
+      voiceButton: $("#target-voice-button"),
+      voiceLabel: $("#target-voice-label"),
+      voiceStatus: $("#target-voice-status"),
+    };
+
+    function node(tag, attributes = {}, ...children) {
+      const element = document.createElement(tag);
+      Object.entries(attributes).forEach(([key, value]) => {
+        if (value === null || value === undefined) return;
+        if (key === "class") element.className = value;
+        else if (key === "text") element.textContent = value;
+        else if (key === "hidden") element.hidden = Boolean(value);
+        else element.setAttribute(key, String(value));
+      });
+      children.flat(Infinity).forEach((child) => {
+        if (child === null || child === undefined || child === false) return;
+        element.append(child instanceof Node ? child : document.createTextNode(String(child)));
+      });
+      return element;
+    }
+
+    function asArray(value) {
+      if (value === null || value === undefined || value === "") return [];
+      return Array.isArray(value) ? value : [value];
+    }
+
+    function objectText(value) {
+      if (value === null || value === undefined || value === "") return "—";
+      if (typeof value === "boolean") return value ? "Sim" : "Não";
+      if (Array.isArray(value)) return value.map(objectText).join(", ");
+      if (typeof value === "object") {
+        return value.label || value.name || value.value || value.observation || JSON.stringify(value);
+      }
+      const domainLabels = {
+        baixa: "Baixa", low: "Baixa", media: "Média", medium: "Média", alta: "Alta", high: "Alta",
+        unknown: "Não informado", tracked: "Rastreada", ambiguous: "Ambígua", not_found: "Não encontrada",
+        bodyweight: "Peso corporal", barbell: "Barra", dumbbell: "Halter", kettlebell: "Kettlebell",
+        smith_machine: "Máquina Smith", cable_machine: "Máquina de cabos",
+        selectorized_machine: "Máquina com placas seletoras", plate_loaded_machine: "Máquina carregada com anilhas",
+        other: "Outro",
+        exercise_specific: "Metodologia específica do exercício",
+        general_execution: "Análise observacional genérica",
+        generic_execution: "Análise observacional genérica",
+        none: "Somente identificação",
+        adequada_ao_padrao_observado: "Adequada ao padrão observado",
+        parcialmente_adequada: "Parcialmente adequada",
+        necessita_ajustes: "Necessita de ajustes",
+        ajuste_leve: "Refinamento sugerido",
+        nao_avaliavel: "Não avaliável",
+        nao_aplicavel: "Não aplicável",
+        lento_controlado: "Lento e controlado",
+        moderado_controlado: "Moderado e controlado",
+        rapido_controlado: "Rápido e controlado",
+        rapido_sem_controle: "Rápido com perda de controle observável",
+        irregular: "Irregular",
+        consistente: "Consistente",
+        variavel: "Variável",
+        inconclusivo: "Inconclusivo",
+        consistente_controlada: "Consistente e controlada",
+        reduzida_consistente: "Reduzida e consistente",
+        encurtada_abruptamente: "Encurtada de forma abrupta",
+        nao_observavel: "Não observável",
+        desvio_repetido: "Desvio repetido",
+        mudanca_abrupta: "Mudança abrupta",
+        estavel: "Estável",
+        oscilacao_leve: "Oscilação leve",
+        perda_repetida: "Perda repetida de estabilidade",
+        coerente_no_plano_visivel: "Coerente no plano visível",
+        variacao_repetida: "Variação repetida",
+        contato_e_ajuste_estaveis: "Contato e ajuste estáveis",
+        perda_de_contato: "Perda de contato",
+        ajuste_ou_posicao_instavel: "Ajuste ou posição instável",
+        impacto_no_fim_do_curso: "Impacto no fim do curso",
+        repeticoes_padronizadas: "Repetições padronizadas",
+        variacao_progressiva: "Variação progressiva",
+        muito_irregular: "Muito irregular",
+        transicoes_controladas: "Transições controladas",
+        uso_de_impulso_ou_rebote: "Uso de impulso ou rebote",
+        travamento_ou_impacto_abrupto: "Travamento ou impacto abrupto",
+      };
+      if (domainLabels[String(value).toLowerCase()]) return domainLabels[String(value).toLowerCase()];
+      return String(value);
+    }
+
+    function humanize(key) {
+      const labels = {
+        status: "Status", confidence: "Confiança", detected_camera_angle: "Ângulo detectado",
+        detected_angle: "Ângulo detectado", capture_angle: "Ângulo informado", full_body_visible: "Corpo inteiro visível",
+        whole_body_visible: "Corpo inteiro visível", exercise_visible: "Exercício visível",
+        feet_visible: "Pés visíveis", single_person_visible: "Pessoa-alvo isolada no enquadramento", single_person: "Pessoa-alvo isolada no enquadramento",
+        target_person_trackable: "Pessoa-alvo rastreável", other_people_visible: "Outras pessoas visíveis",
+        target_ambiguous: "Pessoa-alvo ambígua",
+        stable_camera: "Câmera estável", camera_stable: "Câmera estável", adequate_lighting: "Iluminação adequada",
+        lighting_adequate: "Iluminação adequada", framing_adequate: "Enquadramento adequado", complete: "Completa",
+        detected: "Detectadas", count: "Quantidade", total: "Total", duration_s: "Duração", duration_seconds: "Duração",
+        exercise_detected: "Exercício identificado", detected_repetitions: "Repetições detectadas",
+        complete_repetitions: "Repetições completas", range_consistency: "Consistência da amplitude",
+        tempo_consistency: "Consistência do ritmo", trajectory_consistency: "Consistência da trajetória",
+        tempo_style: "Ritmo observado", average_repetition_seconds: "Duração média por repetição",
+        repetition_duration_variation: "Variação da duração entre repetições",
+        relevant_body_regions_visible: "Regiões corporais relevantes visíveis",
+        equipment_visible: "Equipamento visível",
+        tempo: "Ritmo", range_of_motion: "Amplitude", symmetry: "Simetria", pattern: "Padrão observado",
+        inicio: "Início", descida: "Descida", fundo: "Fundo", subida: "Subida", fim: "Fim",
+        ida: "Ida", transicao: "Transição", retorno: "Retorno",
+        descent: "Descida", bottom: "Fundo", ascent: "Subida", lockout: "Finalização", overall_observation: "Observação geral",
+      };
+      return labels[key] || String(key).replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes)) return "";
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function formatSeconds(value) {
+      const seconds = Number(value);
+      if (!Number.isFinite(seconds)) return "—";
+      const minutes = Math.floor(seconds / 60);
+      const rest = seconds - minutes * 60;
+      const precise = Number.isInteger(rest) ? String(rest) : rest.toFixed(1);
+      return minutes ? `${minutes}:${precise.padStart(4, "0")}` : `${precise}s`;
+    }
+
+    function setApiStatus(message, kind = "") {
+      ui.apiStatus.textContent = message;
+      ui.apiStatus.className = `api-status mono ${kind}`.trim();
+    }
+
+    function setError(message, requestId = "") {
+      if (!message) {
+        ui.error.hidden = true;
+        ui.error.replaceChildren();
+        return;
+      }
+      const title = node("strong", {}, "Não foi possível concluir: ");
+      const content = node("span", {}, message);
+      ui.error.replaceChildren(title, content);
+      if (requestId) ui.error.append(node("div", { class: "small mono", style: "margin-top:8px" }, `Código da solicitação: ${requestId}`));
+      ui.error.hidden = false;
+      ui.error.focus({ preventScroll: true });
+      ui.error.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "center" });
+    }
+
+    function reducedMotion() {
+      return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    function voiceMaxSeconds() {
+      const voice = state.health && state.health.voice_transcription;
+      const seconds = Number(voice && voice.max_duration_seconds);
+      return Number.isFinite(seconds) && seconds > 0 ? seconds : 30;
+    }
+
+    function voiceMaxBytes() {
+      const voice = state.health && state.health.voice_transcription;
+      const mb = Number(voice && voice.max_upload_mb);
+      return Number.isFinite(mb) && mb > 0 ? mb * 1024 * 1024 : 8 * 1024 * 1024;
+    }
+
+    function voiceOperationActive() {
+      return ["requesting", "recording", "stopping", "transcribing"].includes(state.voicePhase);
+    }
+
+    function setVoiceStatus(message, kind = "") {
+      ui.voiceStatus.textContent = message;
+      ui.voiceStatus.className = `voice-status ${kind}`.trim();
+    }
+
+    function clearVoiceTimer() {
+      if (state.voiceTimer) window.clearTimeout(state.voiceTimer);
+      state.voiceTimer = null;
+    }
+
+    function stopVoiceTracks(stream = state.voiceStream) {
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+      if (stream === state.voiceStream) state.voiceStream = null;
+    }
+
+    function refreshVoiceControl() {
+      const recording = state.voicePhase === "recording";
+      const stopping = state.voicePhase === "stopping";
+      const transcribing = state.voicePhase === "transcribing";
+      const requesting = state.voicePhase === "requesting";
+      ui.voiceButton.classList.toggle("listening", recording);
+      ui.voiceButton.setAttribute("aria-pressed", recording || stopping ? "true" : "false");
+      if (recording) ui.voiceLabel.textContent = "Parar e transcrever";
+      else if (stopping) ui.voiceLabel.textContent = "Preparando áudio…";
+      else if (transcribing) ui.voiceLabel.textContent = "Transcrevendo com Gemini…";
+      else if (requesting) ui.voiceLabel.textContent = "Abrindo microfone…";
+      else ui.voiceLabel.textContent = "Gravar descrição por voz";
+      ui.voiceButton.disabled = state.busy
+        || !state.voiceSupported
+        || !state.voiceBackendReady
+        || requesting
+        || stopping
+        || transcribing;
+      const mediaLocked = state.busy || voiceOperationActive();
+      ui.fileInput.disabled = mediaLocked;
+      ui.removeFile.disabled = mediaLocked;
+      ui.dropZone.setAttribute("aria-disabled", mediaLocked ? "true" : "false");
+    }
+
+    function setVoicePhase(phase) {
+      state.voicePhase = phase;
+      refreshVoiceControl();
+      updateSubmitState();
+    }
+
+    function syncVoiceCapabilityFromHealth() {
+      const voice = state.health && state.health.voice_transcription;
+      state.voiceBackendReady = Boolean(state.apiReady && voice && voice.available === true);
+      refreshVoiceControl();
+      if (voiceOperationActive()) return;
+      if (!state.voiceSupported) {
+        setVoiceStatus("Gravação por voz indisponível neste navegador; você ainda pode digitar a descrição.", "error");
+      } else if (!state.voiceBackendReady) {
+        setVoiceStatus("Transcrição por voz indisponível no serviço; você ainda pode digitar a descrição.", "error");
+      } else {
+        setVoiceStatus(`Toque no microfone para gravar até ${Math.round(voiceMaxSeconds())} segundos.`);
+      }
+    }
+
+    function initializeVoiceInput() {
+      state.voiceSupported = Boolean(
+        window.isSecureContext
+        && window.MediaRecorder
+        && navigator.mediaDevices
+        && navigator.mediaDevices.getUserMedia
+      );
+      refreshVoiceControl();
+      if (state.voiceSupported) {
+        setVoiceStatus("Aguardando a disponibilidade do serviço de transcrição…");
+      } else {
+        setVoiceStatus("Gravação por voz indisponível neste navegador; você ainda pode digitar a descrição.", "error");
+      }
+    }
+
+    function preferredVoiceRecorderOptions() {
+      if (!window.MediaRecorder || typeof window.MediaRecorder.isTypeSupported !== "function") return {};
+      const mimeType = VOICE_RECORDER_MIME_TYPES.find((candidate) => window.MediaRecorder.isTypeSupported(candidate));
+      return mimeType ? { mimeType } : {};
+    }
+
+    function voiceRecorderErrorMessage(error) {
+      const name = error && error.name;
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        return "Permissão do microfone negada. Libere o acesso nas configurações do navegador ou digite a descrição.";
+      }
+      if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        return "Nenhum microfone foi encontrado. Conecte um microfone ou digite a descrição.";
+      }
+      if (name === "NotReadableError" || name === "TrackStartError") {
+        return "O microfone está ocupado ou indisponível. Feche outros aplicativos e tente novamente.";
+      }
+      if (name === "AbortError") return "A gravação foi interrompida. Tente novamente.";
+      return "Não foi possível usar o microfone. Você pode tentar novamente ou digitar a descrição.";
+    }
+
+    function voiceFileExtension(mimeType) {
+      const base = String(mimeType || "").split(";", 1)[0].toLowerCase();
+      if (base.includes("ogg")) return "ogg";
+      if (base.includes("mp4")) return "m4a";
+      if (base.includes("wav")) return "wav";
+      if (base.includes("mpeg") || base.includes("mp3")) return "mp3";
+      return "webm";
+    }
+
+    function appendVoiceTranscript(value) {
+      const transcript = String(value || "").replace(/\s+/g, " ").trim();
+      if (!transcript) return { added: false, truncated: false };
+      const existing = ui.notes.value.trim();
+      const separator = existing ? (/[.!?;:]$/.test(existing) ? " " : ". ") : "";
+      const maxLength = Number(ui.notes.maxLength) > 0 ? Number(ui.notes.maxLength) : 500;
+      const available = maxLength - existing.length - separator.length;
+      if (available <= 0) return { added: false, truncated: true };
+      let addition = transcript;
+      let truncated = false;
+      if (addition.length > available) {
+        addition = addition.slice(0, available).trimEnd();
+        const boundary = addition.lastIndexOf(" ");
+        if (boundary >= Math.floor(available / 2)) addition = addition.slice(0, boundary).trimEnd();
+        truncated = true;
+      }
+      ui.notes.value = `${existing}${separator}${addition}`;
+      ui.notes.dispatchEvent(new Event("input", { bubbles: true }));
+      return { added: Boolean(addition), truncated };
+    }
+
+    function cancelVoiceOperation({ silent = false } = {}) {
+      const recorder = state.voiceRecorder;
+      state.voiceSessionToken += 1;
+      clearVoiceTimer();
+      if (state.voiceAbortController) state.voiceAbortController.abort();
+      state.voiceAbortController = null;
+      state.voiceRecorder = null;
+      state.voiceChunks = [];
+      if (recorder && recorder.state !== "inactive") {
+        try { recorder.stop(); } catch (error) { /* já encerrado pelo navegador */ }
+      }
+      stopVoiceTracks();
+      setVoicePhase("idle");
+      if (!silent) syncVoiceCapabilityFromHealth();
+    }
+
+    async function transcribeVoiceBlob(blob, token) {
+      if (token !== state.voiceSessionToken) return;
+      if (!blob || blob.size === 0) {
+        setVoicePhase("idle");
+        setVoiceStatus("Nenhum áudio foi capturado. Tente novamente ou digite a descrição.", "error");
+        return;
+      }
+      if (blob.size > voiceMaxBytes()) {
+        setVoicePhase("idle");
+        setVoiceStatus("A gravação ficou acima do limite permitido. Grave uma descrição mais curta.", "error");
+        return;
+      }
+      const controller = new AbortController();
+      state.voiceAbortController = controller;
+      setVoicePhase("transcribing");
+      setVoiceStatus("Enviando a gravação curta e transcrevendo com o Gemini…", "transcribing");
+      const data = new FormData();
+      const mimeType = blob.type || "application/octet-stream";
+      data.append("audio", blob, `descricao-pessoa.${voiceFileExtension(mimeType)}`);
+      data.append("consent", "true");
+      try {
+        const response = await fetch("/academia/transcribe-target", {
+          method: "POST",
+          headers: { Accept: "application/json" },
+          body: data,
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(detailMessage(payload.detail) || `Erro ${response.status} na transcrição.`);
+        if (token !== state.voiceSessionToken) return;
+        const appended = appendVoiceTranscript(payload.transcript);
+        setVoicePhase("idle");
+        if (!appended.added) {
+          setVoiceStatus("O campo de descrição já atingiu o limite. Edite o texto antes de tentar novamente.", "error");
+          return;
+        }
+        const limited = payload.truncated === true || appended.truncated;
+        setVoiceStatus(
+          limited
+            ? "Transcrição adicionada até o limite do campo. Revise e ajuste o texto."
+            : "Transcrição adicionada. Revise o texto antes de analisar o vídeo.",
+          limited ? "transcribing" : "listening"
+        );
+        ui.notes.focus({ preventScroll: true });
+        ui.notes.setSelectionRange(ui.notes.value.length, ui.notes.value.length);
+      } catch (error) {
+        if (error && error.name === "AbortError") return;
+        if (token !== state.voiceSessionToken) return;
+        setVoicePhase("idle");
+        const message = error instanceof TypeError
+          ? "Falha de conexão durante a transcrição. Tente novamente ou digite a descrição."
+          : error.message;
+        setVoiceStatus(message || "Não foi possível transcrever a gravação.", "error");
+      } finally {
+        if (token === state.voiceSessionToken) state.voiceAbortController = null;
+      }
+    }
+
+    async function finishVoiceRecording(token, recorder, chunks) {
+      clearVoiceTimer();
+      stopVoiceTracks();
+      if (token !== state.voiceSessionToken) return;
+      state.voiceRecorder = null;
+      state.voiceChunks = [];
+      const chunkType = chunks.find((chunk) => chunk && chunk.type)?.type;
+      const mimeType = recorder.mimeType || chunkType || "application/octet-stream";
+      const blob = new Blob(chunks, { type: mimeType });
+      await transcribeVoiceBlob(blob, token);
+    }
+
+    function stopVoiceRecording(automatic = false) {
+      const recorder = state.voiceRecorder;
+      if (state.voicePhase !== "recording" || !recorder) return;
+      clearVoiceTimer();
+      setVoicePhase("stopping");
+      setVoiceStatus(
+        automatic
+          ? "Limite de gravação atingido. Preparando o áudio para o Gemini…"
+          : "Gravação encerrada. Preparando o áudio para o Gemini…",
+        "transcribing"
+      );
+      try {
+        recorder.stop();
+      } catch (error) {
+        cancelVoiceOperation({ silent: true });
+        setVoiceStatus("Não foi possível finalizar a gravação. Tente novamente.", "error");
+      }
+    }
+
+    async function startVoiceRecording() {
+      if (state.voicePhase === "recording") {
+        stopVoiceRecording();
+        return;
+      }
+      if (voiceOperationActive()) return;
+      if (!ui.consent.checked) {
+        setVoiceStatus("Confirme a autorização abaixo antes de abrir o microfone.", "error");
+        ui.consent.focus();
+        return;
+      }
+      if (ui.notes.value.length >= ui.notes.maxLength) {
+        setVoiceStatus("O campo de descrição já atingiu o limite. Edite o texto antes de gravar.", "error");
+        ui.notes.focus();
+        return;
+      }
+      if (!state.voiceSupported || !state.voiceBackendReady) {
+        syncVoiceCapabilityFromHealth();
+        return;
+      }
+      const token = ++state.voiceSessionToken;
+      setVoicePhase("requesting");
+      setVoiceStatus("Solicitando acesso ao microfone…", "transcribing");
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+          },
+          video: false,
+        });
+        if (token !== state.voiceSessionToken) {
+          stopVoiceTracks(stream);
+          return;
+        }
+        state.voiceStream = stream;
+        const recorder = new MediaRecorder(stream, preferredVoiceRecorderOptions());
+        const chunks = [];
+        state.voiceRecorder = recorder;
+        state.voiceChunks = chunks;
+        recorder.addEventListener("dataavailable", (event) => {
+          if (token === state.voiceSessionToken && event.data && event.data.size) chunks.push(event.data);
+        });
+        recorder.addEventListener("stop", () => finishVoiceRecording(token, recorder, chunks), { once: true });
+        recorder.addEventListener("error", (event) => {
+          if (token !== state.voiceSessionToken) return;
+          cancelVoiceOperation({ silent: true });
+          setVoiceStatus(voiceRecorderErrorMessage(event.error || event), "error");
+        }, { once: true });
+        recorder.start(250);
+        setVoicePhase("recording");
+        setVoiceStatus(`Ouvindo… diga as características e toque para parar. Limite: ${Math.round(voiceMaxSeconds())}s.`, "listening");
+        state.voiceTimer = window.setTimeout(
+          () => stopVoiceRecording(true),
+          Math.max(1000, Math.floor((voiceMaxSeconds() - 0.5) * 1000))
+        );
+      } catch (error) {
+        stopVoiceTracks();
+        if (token !== state.voiceSessionToken) return;
+        state.voiceRecorder = null;
+        state.voiceChunks = [];
+        setVoicePhase("idle");
+        setVoiceStatus(voiceRecorderErrorMessage(error), "error");
+      }
+    }
+
+    function updateSubmitState() {
+      const consented = $("#consent").checked;
+      const enabled = state.apiReady && Boolean(state.file) && consented && !state.busy && !voiceOperationActive();
+      ui.submit.disabled = !enabled;
+      if (state.busy) ui.submitHint.textContent = "Aguarde a análise terminar.";
+      else if (voiceOperationActive()) ui.submitHint.textContent = "Finalize a descrição por voz antes de analisar.";
+      else if (!state.apiReady) ui.submitHint.textContent = "O serviço de análise não está disponível agora.";
+      else if (!state.file) ui.submitHint.textContent = "Selecione um vídeo para continuar.";
+      else if (!consented) ui.submitHint.textContent = "Confirme a autorização para enviar o vídeo.";
+      else ui.submitHint.textContent = "Vídeo pronto para análise.";
+    }
+
+    function setBusy(busy) {
+      if (busy && voiceOperationActive()) cancelVoiceOperation({ silent: true });
+      state.busy = busy;
+      ui.form.setAttribute("aria-busy", busy ? "true" : "false");
+      ui.processing.hidden = !busy;
+      ui.form.querySelectorAll("input, select, textarea, button").forEach((control) => {
+        if (control === ui.submit || control === ui.voiceButton) return;
+        control.disabled = busy || control.id === "persist";
+      });
+      refreshVoiceControl();
+      updateSubmitState();
+    }
+
+    function maxUploadBytes() {
+      const mb = Number(state.health && state.health.max_upload_mb);
+      return Number.isFinite(mb) && mb > 0 ? mb * 1024 * 1024 : null;
+    }
+
+    function maxVideoSeconds() {
+      const health = state.health || {};
+      const value = Number(
+        health.max_video_seconds || health.video_max_seconds || health.academia_video_max_seconds ||
+        health.clip_max_seconds || health.max_duration_seconds
+      );
+      return Number.isFinite(value) && value > 0 ? value : null;
+    }
+
+    async function checkHealth() {
+      setApiStatus("Verificando o serviço…");
+      try {
+        const response = await fetch("/academia/health", { headers: { Accept: "application/json" } });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(detailMessage(data.detail) || `Erro ${response.status}`);
+        state.health = data;
+        state.apiReady = data.configured !== false;
+        state.persistenceAvailable = data.persistence_available === true;
+        const persist = $("#persist");
+        persist.checked = false;
+        persist.disabled = true;
+        $("#persist-help").textContent = state.persistenceAvailable
+          ? "Disponível somente pela API administrativa autenticada; use o download local nesta página."
+          : "Indisponível por padrão; o relatório pode ser baixado localmente.";
+        if (state.apiReady) {
+          const model = data.analysis_model ? ` · ${data.analysis_model}` : "";
+          setApiStatus(`SERVIÇO PRONTO${model}`, "ready");
+          const limits = [];
+          if (data.max_upload_mb) limits.push(`até ${data.max_upload_mb} MB`);
+          if (maxVideoSeconds()) limits.push(`até ${Math.round(maxVideoSeconds())}s`);
+          if (limits.length) $("#file-help").textContent = `Vídeo · ${limits.join(" · ")}`;
+        } else {
+          setApiStatus("ANÁLISE INDISPONÍVEL · SEM CONFIGURAÇÃO", "unavailable");
+        }
+      } catch (error) {
+        state.apiReady = false;
+        setApiStatus("SERVIÇO OFFLINE", "unavailable");
+      }
+      syncVoiceCapabilityFromHealth();
+      updateSubmitState();
+    }
+
+    function clearPreviewUrl() {
+      if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
+      state.previewUrl = null;
+    }
+
+    function clearFile({ focus = false } = {}) {
+      const cancelledPhase = voiceOperationActive() ? state.voicePhase : null;
+      const cancelledVoice = Boolean(cancelledPhase);
+      if (cancelledVoice) cancelVoiceOperation({ silent: true });
+      state.selectionToken += 1;
+      state.file = null;
+      state.durationSeconds = null;
+      ui.fileInput.value = "";
+      clearPreviewUrl();
+      ui.preview.removeAttribute("src");
+      ui.preview.hidden = true;
+      ui.fileSummary.hidden = true;
+      ui.fileName.textContent = "";
+      ui.fileMeta.textContent = "";
+      $("#consent").checked = false;
+      $("#persist").checked = false;
+      setError("");
+      if (cancelledVoice) {
+        setVoiceStatus(
+          cancelledPhase === "transcribing"
+            ? "A tela deixou de aguardar a transcrição. Se o envio já começou, o servidor concluirá o descarte temporário do áudio."
+            : "A captura de voz foi interrompida antes da transcrição.",
+          "error"
+        );
+      }
+      updateSubmitState();
+      if (focus) ui.fileInput.focus();
+    }
+
+    function isProbablyVideo(file) {
+      if (file.type && file.type.startsWith("video/")) return true;
+      return /\.(mp4|mov|m4v|webm|avi|mpeg|mpg)$/i.test(file.name || "");
+    }
+
+    async function selectFile(file) {
+      if (!file) return;
+      if (voiceOperationActive()) return;
+      setError("");
+      if (!isProbablyVideo(file)) {
+        clearFile();
+        setError("Selecione um arquivo de vídeo válido.");
+        return;
+      }
+      const maxBytes = maxUploadBytes();
+      if (maxBytes && file.size > maxBytes) {
+        clearFile();
+        setError(`O arquivo tem ${formatBytes(file.size)}. O limite informado pelo serviço é ${formatBytes(maxBytes)}.`);
+        return;
+      }
+
+      state.file = file;
+      state.durationSeconds = null;
+      const token = ++state.selectionToken;
+      clearPreviewUrl();
+      state.previewUrl = URL.createObjectURL(file);
+      ui.preview.src = state.previewUrl;
+      ui.preview.hidden = false;
+      ui.fileName.textContent = file.name;
+      ui.fileMeta.textContent = `${formatBytes(file.size)} · verificando duração…`;
+      ui.fileSummary.hidden = false;
+      updateSubmitState();
+
+      const metadata = document.createElement("video");
+      metadata.preload = "metadata";
+      const metadataUrl = URL.createObjectURL(file);
+      metadata.src = metadataUrl;
+      metadata.onloadedmetadata = () => {
+        URL.revokeObjectURL(metadataUrl);
+        if (token !== state.selectionToken) return;
+        if (Number.isFinite(metadata.duration)) state.durationSeconds = metadata.duration;
+        const maxSeconds = maxVideoSeconds();
+        if (maxSeconds && state.durationSeconds > maxSeconds) {
+          const duration = state.durationSeconds;
+          clearFile();
+          setError(`O vídeo tem ${formatSeconds(duration)} e ultrapassa o limite de ${formatSeconds(maxSeconds)}. Envie apenas a série que deseja analisar.`);
+          return;
+        }
+        ui.fileMeta.textContent = [formatBytes(file.size), state.durationSeconds ? formatSeconds(state.durationSeconds) : "duração desconhecida"].join(" · ");
+        updateSubmitState();
+      };
+      metadata.onerror = () => {
+        URL.revokeObjectURL(metadataUrl);
+        if (token !== state.selectionToken) return;
+        ui.fileMeta.textContent = `${formatBytes(file.size)} · duração será verificada pelo servidor`;
+        updateSubmitState();
+      };
+    }
+
+    function detailMessage(detail) {
+      if (!detail) return "";
+      if (typeof detail === "string") return detail;
+      if (Array.isArray(detail)) {
+        return detail.map((item) => item.msg || item.message || objectText(item)).join(" · ");
+      }
+      return detail.message || detail.msg || objectText(detail);
+    }
+
+    function makeFormData() {
+      const data = new FormData();
+      data.append("file", state.file);
+      data.append("capture_angle", $("#capture-angle").value);
+      data.append("with_audio", $("#with-audio").checked ? "true" : "false");
+      data.append("persist", "false");
+      data.append("consent", "true");
+      const name = $("#practitioner-name").value.trim();
+      const id = $("#practitioner-id").value.trim();
+      const outfit = $("#practitioner-outfit").value.trim();
+      const notes = $("#practitioner-notes").value.trim();
+      if (name) data.append("practitioner_name", name);
+      if (id) data.append("practitioner_id", id);
+      if (outfit) data.append("practitioner_outfit", outfit);
+      if (notes) data.append("practitioner_notes", notes);
+      if (Number.isFinite(state.durationSeconds)) data.append("duration_seconds", String(state.durationSeconds));
+      return data;
+    }
+
+    async function submitAnalysis(event) {
+      event.preventDefault();
+      if (voiceOperationActive()) {
+        setVoiceStatus("Finalize a descrição por voz antes de analisar o vídeo.", "error");
+        return;
+      }
+      if (!$("#consent").checked) {
+        setError("Confirme que você tem autorização para enviar o vídeo.");
+        $("#consent").focus();
+        return;
+      }
+      if (!state.file || !state.apiReady || state.busy) return;
+      setError("");
+      ui.results.hidden = true;
+      const formData = makeFormData();
+      setBusy(true);
+      try {
+        const response = await fetch("/academia/analyze", {
+          method: "POST",
+          headers: { Accept: "application/json" },
+          body: formData,
+        });
+        const requestId = response.headers.get("x-request-id") || "";
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const message = detailMessage(data.detail) || `O serviço respondeu com erro ${response.status}.`;
+          const error = new Error(message);
+          error.requestId = requestId;
+          throw error;
+        }
+        renderResult(data);
+      } catch (error) {
+        const fallback = error instanceof TypeError ? "Falha de conexão com o serviço. Confira sua rede e tente novamente." : error.message;
+        setError(fallback || "Erro inesperado durante a análise.", error.requestId || "");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function chip(label, value) {
+      if (value === null || value === undefined || value === "") return null;
+      return node("span", { class: "chip" }, node("strong", {}, `${label}:`), ` ${value}`);
+    }
+
+    function firstPresent(...values) {
+      return values.find((value) => value !== null && value !== undefined && value !== "");
+    }
+
+    function methodologyScope(data) {
+      const identification = data && data.identification && typeof data.identification === "object"
+        ? data.identification
+        : {};
+      const route = data && data.route && typeof data.route === "object" ? data.route : {};
+      const metrics = data && data.metrics && typeof data.metrics === "object" ? data.metrics : {};
+      const explicit = firstPresent(
+        identification.methodology_scope,
+        route.methodology_scope,
+        metrics.methodology_scope
+      );
+      if (["general_execution", "generic_execution"].includes(String(explicit || "").toLowerCase())) {
+        return "general_execution";
+      }
+      if (String(explicit || "").toLowerCase() === "exercise_specific") return "exercise_specific";
+      if (String(metrics.analysis_mode || "").toLowerCase() === "general_execution") return "general_execution";
+      if (route.methodology_version || metrics.methodology_version) return "exercise_specific";
+      return "none";
+    }
+
+    function isGeneralExecution(data) {
+      return methodologyScope(data) === "general_execution";
+    }
+
+    function methodologyScopeLabel(scope) {
+      return objectText(scope || "none");
+    }
+
+    function identificationDetails(data) {
+      const identification = data && data.identification && typeof data.identification === "object"
+        ? data.identification
+        : {};
+      const equipment = identification.equipment && typeof identification.equipment === "object"
+        ? identification.equipment
+        : {};
+      const target = identification.target && typeof identification.target === "object"
+        ? identification.target
+        : {};
+      const interval = identification.active_interval && typeof identification.active_interval === "object"
+        ? identification.active_interval
+        : {};
+      const route = data && data.route && typeof data.route === "object" ? data.route : {};
+      const metrics = data && data.metrics && typeof data.metrics === "object" ? data.metrics : {};
+      const methodologyAvailable = typeof identification.methodology_available === "boolean"
+        ? identification.methodology_available
+        : Boolean(route.methodology_version || metrics.methodology_version);
+      const scope = methodologyScope(data);
+      return {
+        raw: identification,
+        exercise: firstPresent(
+          identification.exercise_label,
+          identification.exercise_name_pt_br,
+          identification.exercise_name,
+          route.exercise_label,
+          metrics.exercise_label,
+          identification.exercise_family
+        ),
+        variation: firstPresent(identification.variation, identification.variation_pt_br),
+        confidence: identification.confidence,
+        methodologyAvailable: methodologyAvailable || scope === "general_execution",
+        methodologyScope: scope,
+        equipmentName: firstPresent(
+          equipment.name,
+          equipment.equipment_name_pt_br,
+          equipment.machine,
+          identification.equipment_name_pt_br,
+          typeof identification.equipment === "string" ? identification.equipment : null
+        ),
+        equipmentCategory: firstPresent(equipment.category, identification.equipment_category),
+        targetStatus: firstPresent(target.status, identification.target_status),
+        multiplePeopleVisible: firstPresent(target.multiple_people_visible, identification.multiple_people_visible),
+        intervalStart: firstPresent(interval.start_s, identification.active_start_s),
+        intervalEnd: firstPresent(interval.end_s, identification.active_end_s),
+      };
+    }
+
+    function methodologyAvailabilityLabel(details) {
+      if (details.methodologyScope === "general_execution") return "Análise observacional genérica";
+      if (details.methodologyScope === "exercise_specific") return "Metodologia específica";
+      return details.methodologyAvailable ? "Disponível" : "Ainda não disponível";
+    }
+
+    function equipmentLabel(details) {
+      const name = details.equipmentName ? objectText(details.equipmentName) : "";
+      const category = details.equipmentCategory ? objectText(details.equipmentCategory) : "";
+      if (name && category && name.toLowerCase() !== category.toLowerCase()) return `${name} (${category})`;
+      return name || category || null;
+    }
+
+    function identificationCard(data) {
+      const details = identificationDetails(data);
+      if (!Object.keys(details.raw).length) return null;
+      const card = node("article", { class: "card full" }, node("h3", { class: "card-title" }, "Identificação automática"));
+      const dl = node("dl", { class: "kv-list" });
+      [
+        ["Exercício", details.exercise],
+        ["Variação", details.variation],
+        ["Equipamento ou máquina", equipmentLabel(details)],
+        ["Confiança da identificação", details.confidence ? objectText(details.confidence) : null],
+        ["Tipo de análise", methodologyAvailabilityLabel(details)],
+        ["Pessoa-alvo", details.targetStatus ? objectText(details.targetStatus) : null],
+        ["Outras pessoas visíveis", typeof details.multiplePeopleVisible === "boolean" ? details.multiplePeopleVisible : null],
+        [
+          "Trecho principal",
+          details.intervalStart !== undefined && details.intervalEnd !== undefined
+            ? `${formatSeconds(details.intervalStart)} a ${formatSeconds(details.intervalEnd)}`
+            : null,
+        ],
+      ].forEach(([label, value]) => {
+        if (value === null || value === undefined || value === "") return;
+        dl.append(keyValueRow(label, value));
+      });
+      card.append(dl);
+      return card;
+    }
+
+    function listStrings(value) {
+      return asArray(value).map((item) => {
+        if (typeof item === "string" || typeof item === "number") return String(item);
+        return item.label || item.message || item.description || item.observation || item.instruction || objectText(item);
+      }).filter(Boolean);
+    }
+
+    function notice(kind, title, messages) {
+      const items = listStrings(messages);
+      if (!items.length) return null;
+      const box = node("div", { class: `notice ${kind}` }, node("h3", {}, title));
+      if (items.length === 1) box.append(node("p", {}, items[0]));
+      else box.append(node("ul", { class: "plain-list" }, items.map((item) => node("li", {}, item))));
+      return box;
+    }
+
+    function statusLabel(value) {
+      const key = String(value || "").toLowerCase();
+      const labels = {
+        complete: "Análise concluída", completed: "Análise concluída", recapture_required: "Nova captura necessária",
+        adequate: "Adequado", adequado: "Adequado", limited: "Análise limitada", limitado: "Análise limitada",
+        inadequate: "Inadequado para análise", inadequado: "Inadequado para análise",
+        unsupported_exercise: "Exercício identificado · metodologia indisponível",
+        exercise_unknown: "Exercício não identificado", unknown: "Não informado",
+      };
+      return labels[key] || humanize(key || "indefinido");
+    }
+
+    function renderCaptureQuality(quality) {
+      if (!quality || typeof quality !== "object") return null;
+      const card = node("article", { class: "card" }, node("h3", { class: "card-title" }, "Qualidade da captura"));
+      const ignored = new Set(["issues", "limitations", "recapture_instructions", "instructions", "status"]);
+      const dl = node("dl", { class: "quality-list" });
+      if (quality.status) dl.append(keyValueRow("Status", statusLabel(quality.status)));
+      Object.entries(quality).forEach(([key, value]) => {
+        if (ignored.has(key) || value === null || value === undefined || typeof value === "object") return;
+        dl.append(keyValueRow(humanize(key), value));
+      });
+      card.append(dl);
+      const issues = listStrings(quality.issues || quality.limitations);
+      if (issues.length) card.append(node("div", { class: "notice warning" }, node("strong", {}, "Limitações observadas"), node("ul", { class: "plain-list" }, issues.map((item) => node("li", {}, item)))));
+      return card;
+    }
+
+    function keyValueRow(label, value) {
+      const formatted = typeof value === "boolean" ? (value ? "Sim" : "Não") : objectText(value);
+      const cls = typeof value === "boolean" ? (value ? "yes" : "no") : "";
+      return node("div", { class: "quality-row" }, node("dt", {}, label), node("dd", { class: cls }, formatted));
+    }
+
+    function positivesCard(positives) {
+      const values = listStrings(positives);
+      const card = node("article", { class: "card constructive" }, node("h3", { class: "card-title" }, "O que já está adequado"));
+      if (values.length) card.append(node("ul", { class: "plain-list" }, values.map((item) => node("li", {}, item))));
+      else card.append(node("p", { class: "empty-copy" }, "Nenhum ponto positivo foi descrito com segurança neste vídeo."));
+      return card;
+    }
+
+    function improvementsCard(primary, secondary) {
+      const values = listStrings(secondary);
+      const card = node("article", { class: "card priority" }, node("h3", { class: "card-title" }, "Foco prático de evolução"));
+      if (primary) card.append(node("p", {}, objectText(primary)));
+      else card.append(node("p", { class: "empty-copy" }, "Nenhum foco adicional foi indicado nesta análise."));
+      if (values.length) {
+        card.append(node("h3", {}, "Outras sugestões práticas"));
+        card.append(node("ul", { class: "plain-list" }, values.map((item) => node("li", {}, item))));
+      }
+      return card;
+    }
+
+    function scoreValue(score) {
+      if (score === null || score === undefined) return null;
+      if (typeof score === "number") return score;
+      if (typeof score === "object") return score.score ?? score.value ?? score.total ?? null;
+      const number = Number(score);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function scoreCard(score) {
+      const value = scoreValue(score);
+      if (score === null || score === undefined) return null;
+      const maximum = typeof score === "object" ? Number(score.max || score.maximum || 100) : 100;
+      const card = node("article", { class: "card" }, node("h3", { class: "card-title" }, "Indicador de execução"));
+      const layout = node("div", { class: "score-layout" });
+      const displayed = value === null ? "—" : Number(value).toFixed(Number.isInteger(Number(value)) ? 0 : 1);
+      layout.append(node("div", {}, node("div", { class: "score-number" }, displayed), node("div", { class: "score-denominator" }, value === null ? "não calculado" : `/ ${Number.isFinite(maximum) ? maximum : 100}`)));
+      layout.append(node("div", {}, node("span", { class: "poc-label" }, "Indicador POC · não validado"), node("p", { class: "muted" }, "Este número resume a resposta do modelo para a demonstração. Não mede diagnóstico, risco de lesão nem desempenho clínico.")));
+      card.append(layout);
+      if (score && typeof score === "object") {
+        if (score.criteria_present !== undefined && score.criteria_total !== undefined) {
+          card.append(node("p", { class: "muted small" }, `Cobertura: ${score.criteria_present}/${score.criteria_total} critérios observáveis.`));
+        }
+        if (score.note || score.observation) card.append(node("p", { class: "muted small" }, score.note || score.observation));
+      }
+      return card;
+    }
+
+    function formatCoverage(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return null;
+      const percentage = number <= 1 ? number * 100 : number;
+      return `${Math.round(Math.max(0, Math.min(100, percentage)))}%`;
+    }
+
+    function reliabilityCard(summary) {
+      if (!summary || typeof summary !== "object") return null;
+      const reliability = summary.reliability && typeof summary.reliability === "object"
+        ? summary.reliability
+        : {};
+      if (!Object.keys(reliability).length && !summary.classification) return null;
+      const card = node("article", { class: "card reliability" }, node("h3", { class: "card-title" }, "Confiabilidade da leitura"));
+      if (summary.classification) {
+        card.append(node("p", { class: "summary-classification" }, objectText(summary.classification)));
+      }
+      const dl = node("dl", { class: "kv-list" });
+      [
+        ["Nível de confiabilidade", reliability.level ? objectText(reliability.level) : null],
+        ["Cobertura observacional", formatCoverage(reliability.coverage)],
+        [
+          "Critérios avaliados",
+          reliability.evaluated_criteria !== undefined && reliability.applicable_criteria !== undefined
+            ? `${reliability.evaluated_criteria}/${reliability.applicable_criteria} aplicáveis`
+            : null,
+        ],
+        ["Repetições completas", reliability.complete_repetitions],
+      ].forEach(([label, value]) => {
+        if (value === null || value === undefined || value === "") return;
+        dl.append(keyValueRow(label, value));
+      });
+      if (dl.childElementCount) card.append(dl);
+      const basis = listStrings(reliability.basis);
+      if (basis.length) {
+        card.append(node("p", { class: "muted small" }, "Base desta leitura:"));
+        card.append(node("ul", { class: "plain-list" }, basis.map((item) => node("li", {}, item))));
+      }
+      card.append(node("p", { class: "muted small" }, "A cobertura informa quanto do movimento ficou observável; não é uma probabilidade de acerto nem uma nota de execução."));
+      return card;
+    }
+
+    function trainingRelevanceCard(relevance) {
+      if (!relevance || typeof relevance !== "object" || !Object.keys(relevance).length) return null;
+      const card = node("article", { class: "card training-relevance" }, node("h3", { class: "card-title" }, "Relevância para o treino"));
+      const dl = node("dl", { class: "kv-list" });
+      if (relevance.observed_style) dl.append(keyValueRow("Ritmo observado", objectText(relevance.observed_style)));
+      card.append(dl);
+      const emphasis = listStrings(relevance.observable_emphasis);
+      if (emphasis.length) {
+        card.append(node("p", { class: "muted small" }, "Ênfases observáveis nesta execução:"));
+        card.append(node("ul", { class: "plain-list" }, emphasis.map((item) => node("li", {}, item))));
+      }
+      if (relevance.performance_interpretation) {
+        card.append(node("p", { class: "criterion-copy" }, node("strong", {}, "Interpretação condicional: "), objectText(relevance.performance_interpretation)));
+      }
+      const unknowns = listStrings(relevance.cannot_determine_without);
+      if (unknowns.length) {
+        card.append(node("p", { class: "muted small" }, "Para concluir sobre desempenho ou adaptação, ainda seriam necessários:"));
+        card.append(node("ul", { class: "plain-list" }, unknowns.map((item) => node("li", {}, item))));
+      }
+      card.append(node("p", { class: "muted small" }, "Um vídeo isolado não comprova eficácia, hipertrofia, ganho de força ou desempenho futuro."));
+      return card;
+    }
+
+    function movementCard(movement) {
+      if (!movement || (typeof movement === "object" && !Object.keys(movement).length)) return null;
+      const card = node("article", { class: "card" }, node("h3", { class: "card-title" }, "Leitura do movimento"));
+      if (typeof movement !== "object") {
+        card.append(node("p", {}, objectText(movement)));
+        return card;
+      }
+      const dl = node("dl", { class: "kv-list" });
+      Object.entries(movement).forEach(([key, value]) => {
+        if (value === null || value === undefined || value === "") return;
+        const formatted = key === "average_repetition_seconds"
+          ? formatSeconds(value)
+          : key === "repetition_duration_variation"
+            ? formatCoverage(value)
+            : objectText(value);
+        dl.append(node("div", { class: "kv-row" }, node("dt", {}, humanize(key)), node("dd", {}, formatted)));
+      });
+      card.append(dl.childElementCount ? dl : node("p", { class: "empty-copy" }, "Sem dados consolidados do movimento."));
+      return card;
+    }
+
+    function normalizeSegments(repetitions) {
+      if (Array.isArray(repetitions)) return repetitions;
+      if (!repetitions || typeof repetitions !== "object") return [];
+      return repetitions.segments || repetitions.items || repetitions.repetitions || [];
+    }
+
+    function repetitionsCard(repetitions) {
+      if (!repetitions) return null;
+      const segments = normalizeSegments(repetitions);
+      const detected = Array.isArray(repetitions) ? repetitions.length : (repetitions.detected ?? repetitions.count ?? repetitions.total ?? segments.length);
+      const card = node("article", { class: "card full" }, node("h3", { class: "card-title" }, "Repetições e segmentos"));
+      card.append(node("p", { class: "muted" }, `${detected ?? segments.length} repetição(ões) detectada(s). Os tempos são aproximados.`));
+      if (!segments.length) {
+        card.append(node("p", { class: "empty-copy" }, "O serviço não devolveu segmentos individuais."));
+        return card;
+      }
+      const list = node("div", { class: "repetition-list" });
+      segments.forEach((segment, index) => {
+        const item = typeof segment === "object" ? segment : { observation: segment };
+        const number = item.index ?? item.repetition ?? item.number ?? index + 1;
+        const complete = item.complete;
+        const head = node("div", { class: "repetition-head" }, node("span", { class: "repetition-title" }, `Repetição ${number}`));
+        if (complete !== undefined) head.append(node("span", { class: `verdict ${complete ? "adequado" : "nao-avaliavel"}` }, complete ? "Completa" : "Incompleta"));
+        const times = [];
+        const start = item.start_s ?? item.start_seconds ?? item.start;
+        const bottom = item.bottom_s ?? item.bottom_seconds ?? item.bottom;
+        const transition = item.transition_s ?? item.transition_seconds ?? item.transition;
+        const end = item.end_s ?? item.end_seconds ?? item.end;
+        if (start !== undefined) times.push(`início ${formatSeconds(start)}`);
+        if (transition !== undefined) times.push(`transição ${formatSeconds(transition)}`);
+        else if (bottom !== undefined) times.push(`ponto mais baixo ${formatSeconds(bottom)}`);
+        if (end !== undefined) times.push(`fim ${formatSeconds(end)}`);
+        const box = node("div", { class: "repetition" }, head);
+        if (times.length) box.append(node("div", { class: "timestamps" }, times.join(" · ")));
+        const phases = asArray(item.phases).map((phase) => {
+          if (!phase || typeof phase !== "object" || phase.observable === false || phase.timestamp_s === undefined) return null;
+          return `${humanize(phase.phase || "fase")} ${formatSeconds(phase.timestamp_s)}`;
+        }).filter(Boolean);
+        if (phases.length) box.append(node("div", { class: "timestamps" }, `Fases: ${phases.join(" · ")}`));
+        if (item.duration_seconds !== undefined) box.append(node("div", { class: "timestamps" }, `Duração: ${formatSeconds(item.duration_seconds)}`));
+        if (item.confidence) box.append(node("div", { class: "timestamps" }, `Confiança: ${objectText(item.confidence)}`));
+        if (item.observation || item.notes) box.append(node("p", { class: "criterion-copy" }, objectText(item.observation || item.notes)));
+        list.append(box);
+      });
+      card.append(list);
+      return card;
+    }
+
+    function normalizeChecklist(checklist) {
+      if (Array.isArray(checklist)) return checklist;
+      if (!checklist || typeof checklist !== "object") return [];
+      return Object.entries(checklist).map(([key, value]) => typeof value === "object" ? { id: key, ...value } : { id: key, verdict: value });
+    }
+
+    function normalizeVerdict(verdict) {
+      const raw = String(verdict || "nao_avaliavel").toLowerCase().replaceAll(" ", "_").replaceAll("-", "_");
+      if (["adequado", "adequate", "ok", "correto", "correct"].includes(raw)) return { cls: "adequado", label: "Adequado" };
+      if (["ajuste_leve", "light_adjustment", "refinamento", "refinement"].includes(raw)) return { cls: "ajuste-leve", label: "Refinamento sugerido" };
+      if (["a_corrigir", "needs_correction", "corrigir", "attention", "inadequado"].includes(raw)) return { cls: "a-corrigir", label: "A corrigir" };
+      if (["nao_aplicavel", "not_applicable"].includes(raw)) return { cls: "nao-aplicavel", label: "Não aplicável" };
+      return { cls: "nao-avaliavel", label: "Não avaliável" };
+    }
+
+    function checklistCard(checklist, generic = false) {
+      const criteria = normalizeChecklist(checklist);
+      if (!criteria.length) return null;
+      const card = node("article", { class: "card full" }, node("h3", { class: "card-title" }, "Análise técnica da execução"));
+      const list = node("div", { class: "checklist" });
+      criteria.forEach((criterion, index) => {
+        const item = typeof criterion === "object" ? criterion : { label: `Critério ${index + 1}`, verdict: criterion };
+        const title = item.label || item.name || item.criterion || item.id || `Critério ${index + 1}`;
+        const verdict = normalizeVerdict(item.verdict || item.status || item.result);
+        const head = node("div", { class: "criterion-head" }, node("h4", { class: "criterion-title" }, title), node("span", { class: `verdict ${verdict.cls}` }, verdict.label));
+        const box = node("div", { class: "criterion" }, head);
+        if (item.confidence) box.append(node("div", { class: "timestamps" }, `Confiança: ${objectText(item.confidence)}`));
+        if (item.observation || item.evidence) box.append(node("p", { class: "criterion-copy" }, objectText(item.observation || item.evidence)));
+        const suggestion = item.coaching_suggestion || item.correction || item.recommendation;
+        if (suggestion) box.append(node("p", { class: "criterion-suggestion" }, node("strong", {}, "Sugestão prática: "), objectText(suggestion)));
+        if (item.muscle_context) box.append(node("p", { class: "criterion-copy" }, node("strong", {}, "Contexto muscular: "), objectText(item.muscle_context)));
+        const timestamps = asArray(item.evidence_timestamps_s || item.timestamps_s || item.timestamps).map(formatSeconds).filter((value) => value !== "—");
+        const repetitions = asArray(item.affected_repetitions || item.repetitions).filter((value) => value !== null && value !== undefined);
+        if (timestamps.length) box.append(node("div", { class: "timestamps" }, `Evidências: ${timestamps.join(", ")}`));
+        if (repetitions.length) box.append(node("div", { class: "timestamps" }, `Repetições relacionadas: ${repetitions.join(", ")}`));
+        list.append(box);
+      });
+      card.append(list);
+      if (generic) {
+        card.append(node("p", { class: "muted small" }, "Checklist observacional geral: descreve apenas o que ficou visível e não substitui uma metodologia específica do exercício."));
+      }
+      return card;
+    }
+
+    function literatureCard(metrics) {
+      const references = asArray(metrics && metrics.literature_references);
+      const notice = metrics && metrics.muscle_activation_notice;
+      const roles = listStrings(metrics && metrics.expected_muscle_roles);
+      if (!notice && !references.length && !roles.length) return null;
+      const card = node("article", { class: "card full" }, node("h3", { class: "card-title" }, "Contexto muscular e literatura"));
+      if (notice) card.append(node("p", { class: "criterion-copy" }, objectText(notice)));
+      if (roles.length) {
+        card.append(node("p", { class: "muted small" }, "Papéis musculares esperados para esta família de exercício:"));
+        card.append(node("ul", { class: "plain-list" }, roles.map((item) => node("li", {}, item))));
+      }
+      if (references.length) {
+        const list = node("ul", { class: "plain-list" });
+        references.forEach((reference) => {
+          if (!reference) return;
+          const citation = typeof reference === "object" ? reference.citation : reference;
+          const url = typeof reference === "object" ? reference.url : null;
+          const item = node("li", {}, objectText(citation));
+          if (url) item.append(" ", node("a", { href: String(url), target: "_blank", rel: "noopener noreferrer" }, "Abrir fonte"));
+          list.append(item);
+        });
+        card.append(list);
+      }
+      return card;
+    }
+
+    function narrativeCard(narrative) {
+      if (!narrative) return null;
+      return node("article", { class: "card full" }, node("h3", { class: "card-title" }, "Relatório em linguagem acessível"), node("div", { class: "narrative" }, narrative));
+    }
+
+    function audioCard(data) {
+      if (!data.audio_base64) return null;
+      const mime = data.audio_mime || "audio/wav";
+      const src = String(data.audio_base64).startsWith("data:") ? data.audio_base64 : `data:${mime};base64,${data.audio_base64}`;
+      const audio = node("audio", { controls: "", preload: "metadata", "aria-label": "Áudio do relatório da análise" });
+      audio.src = src;
+      return node("article", { class: "card full" }, node("h3", { class: "card-title" }, "Ouvir relatório"), audio);
+    }
+
+    function actionsCard(data) {
+      const card = node("article", { class: "card full" }, node("h3", { class: "card-title" }, "Salvar e compartilhar"));
+      const bar = node("div", { class: "action-bar" });
+      bar.append(actionButton("Baixar relatório (.txt)", () => downloadText(buildTextReport(data), reportFilename("txt"), "text/plain;charset=utf-8")));
+      bar.append(actionButton("Baixar dados (.json)", () => downloadText(JSON.stringify(data, null, 2), reportFilename("json"), "application/json;charset=utf-8")));
+      if (data.audio_base64) bar.append(actionButton("Baixar áudio", () => downloadAudio(data)));
+      if (navigator.share) bar.append(actionButton("Compartilhar relatório", () => shareReport(data)));
+      card.append(bar);
+
+      if (data.persisted_id !== null && data.persisted_id !== undefined) {
+        const persisted = node("div", { class: "persisted-box" }, node("h3", {}, `Análise salva #${data.persisted_id}`));
+        persisted.append(node("p", { class: "muted small" }, "O histórico é administrativo e protegido; use os botões acima para levar uma cópia deste relatório."));
+        card.append(persisted);
+      }
+      return card;
+    }
+
+    function actionButton(label, handler) {
+      const button = node("button", { class: "button secondary", type: "button" }, label);
+      button.addEventListener("click", handler);
+      return button;
+    }
+
+    function renderRecapture(data, quality) {
+      const metrics = data.metrics || {};
+      const instructions = listStrings(
+        quality.recapture_instructions || quality.instructions || metrics.recapture_instructions || metrics.limitations || data.warnings
+      );
+      const panel = node("div", { class: "notice warning" },
+        node("h3", {}, "Precisamos de uma nova gravação"),
+        node("p", {}, "O enquadramento ou o rastreamento da pessoa-alvo não permite avaliar o movimento com segurança. Nenhuma correção técnica foi presumida a partir deste vídeo.")
+      );
+      if (instructions.length) panel.append(node("ul", { class: "plain-list" }, instructions.map((item) => node("li", {}, item))));
+      const retry = node("button", { class: "button", type: "button", style: "margin-top:14px" }, "Escolher outro vídeo");
+      retry.addEventListener("click", () => startNewAnalysis());
+      panel.append(retry);
+      ui.recapture.replaceChildren(panel);
+      const grid = node("div", { class: "results-grid", style: "margin-top:14px" });
+      const detectedCard = identificationCard(data);
+      if (detectedCard) grid.append(detectedCard);
+      const captureCard = renderCaptureQuality(quality);
+      if (captureCard) grid.append(captureCard);
+      const recaptureNarrative = narrativeCard(data.narrative);
+      const recaptureAudio = audioCard(data);
+      if (recaptureNarrative) grid.append(recaptureNarrative);
+      if (recaptureAudio) grid.append(recaptureAudio);
+      grid.append(actionsCard(data));
+      ui.content.replaceChildren(grid);
+    }
+
+    function renderIdentificationOnly(data, status) {
+      const details = identificationDetails(data);
+      const isUnsupported = status === "unsupported_exercise";
+      const isUnknown = status === "exercise_unknown";
+      const title = isUnsupported
+        ? "Exercício identificado, sem metodologia técnica"
+        : isUnknown
+          ? "Identificação inconclusiva"
+          : "Análise técnica não disponível";
+      const message = isUnsupported
+        ? "O sistema identificou o exercício, a variação e o equipamento quando observáveis, mas esta POC ainda não possui uma metodologia compatível. Por segurança, nenhum score, checklist ou correção foi gerado."
+        : isUnknown
+          ? "Não foi possível identificar o exercício com confiança suficiente. Por segurança, nenhuma metodologia técnica, score ou correção foi aplicada."
+          : "A resposta não trouxe uma rota e métricas técnicas compatíveis. O resultado abaixo fica limitado à identificação automática.";
+      const panel = node("div", { class: "notice warning" }, node("h3", {}, title), node("p", {}, message));
+      if (details.multiplePeopleVisible === true && details.targetStatus !== "tracked") {
+        panel.append(node("p", {}, "Tente descrever melhor a roupa e a posição da pessoa-alvo, mantendo-a visível durante toda a série."));
+      }
+      ui.recapture.replaceChildren(panel);
+
+      const grid = node("div", { class: "results-grid", style: "margin-top:14px" });
+      [
+        identificationCard(data),
+        narrativeCard(data.narrative),
+        audioCard(data),
+        actionsCard(data),
+      ].filter(Boolean).forEach((item) => grid.append(item));
+      ui.content.replaceChildren(grid);
+    }
+
+    function renderWarnings(data, quality, isRecapture, analysisStatus) {
+      const warnings = listStrings(data.warnings);
+      const limitations = listStrings((data.metrics || {}).limitations || quality.limitations);
+      const boxes = [];
+      if (analysisStatus === "limited" && !isRecapture) {
+        boxes.push(notice("warning", "Análise limitada", limitations.length ? limitations : ["Alguns critérios não estavam observáveis com segurança; interprete somente os itens avaliados."]));
+      }
+      if (warnings.length && !isRecapture) boxes.push(notice("warning", "Avisos da análise", warnings));
+      if (limitations.length && !isRecapture && analysisStatus !== "limited") boxes.push(notice("warning", "Limitações desta leitura", limitations));
+      ui.warnings.replaceChildren(...boxes.filter(Boolean));
+    }
+
+    function renderResult(data) {
+      state.lastResult = data;
+      const hasMetrics = Boolean(data.metrics && typeof data.metrics === "object" && Object.keys(data.metrics).length);
+      const hasRoute = Boolean(data.route && typeof data.route === "object" && Object.keys(data.route).length);
+      const metrics = hasMetrics ? data.metrics : {};
+      const quality = metrics.capture_quality || {};
+      const status = String(data.analysis_status || data.status || "complete").toLowerCase();
+      const isRecapture = status === "recapture_required";
+      const identification = identificationDetails(data);
+      const generic = isGeneralExecution(data);
+      const identificationOnly = ["unsupported_exercise", "exercise_unknown"].includes(status)
+        || !hasMetrics
+        || (!generic && (!hasRoute || !identification.methodologyAvailable));
+      if (isRecapture) {
+        ui.resultsTitle.textContent = "Nova captura necessária";
+        ui.resultsSubtitle.textContent = "O sistema protegeu a qualidade do relatório e não avaliou o que não estava visível ou rastreável.";
+      } else if (identificationOnly) {
+        ui.resultsTitle.textContent = status === "exercise_unknown" ? "Identificação inconclusiva" : "Identificação concluída";
+        ui.resultsSubtitle.textContent = status === "unsupported_exercise"
+          ? "O exercício foi reconhecido, mas ainda não possui metodologia técnica nesta POC."
+          : "Confira os dados identificados e, se necessário, grave novamente com melhor visibilidade.";
+      } else {
+        ui.resultsTitle.textContent = "Análise concluída";
+        ui.resultsSubtitle.textContent = generic
+          ? "Confira a execução observável, a cobertura da leitura e os ajustes práticos sem interpretar o resultado como previsão de performance."
+          : "Confira primeiro os acertos; depois, use as sugestões como focos práticos de evolução.";
+      }
+      ui.recapture.replaceChildren();
+      ui.content.replaceChildren();
+      ui.chips.replaceChildren();
+
+      const route = hasRoute ? data.route : {};
+      const practitioner = data.practitioner || {};
+      const routeAngle = route.capture_angle || route.camera_angle || quality.detected_camera_angle || $("#capture-angle").value;
+      [
+        chip("Status", statusLabel(status)),
+        chip("Exercício", identification.exercise ? objectText(identification.exercise) : null),
+        chip("Variação", identification.variation ? objectText(identification.variation) : null),
+        chip("Equipamento", equipmentLabel(identification)),
+        chip("Confiança da identificação", identification.confidence ? objectText(identification.confidence) : null),
+        chip("Tipo de análise", methodologyScopeLabel(identification.methodologyScope)),
+        chip("Ângulo", statusLabel(routeAngle).replace("Unknown", "Não informado")),
+        chip("Metodologia", route.methodology_version || metrics.methodology_version),
+        chip("Validação", (route.methodology_status || metrics.methodology_status) === "poc_unvalidated" ? "POC não validada" : route.methodology_status || metrics.methodology_status),
+        chip("Duração", route.duration_seconds !== undefined ? formatSeconds(route.duration_seconds) : null),
+        chip("Praticante", practitioner.name || practitioner.practitioner_name || $("#practitioner-name").value.trim()),
+      ].filter(Boolean).forEach((item) => ui.chips.append(item));
+
+      renderWarnings(data, quality, isRecapture, status);
+      if (isRecapture) {
+        renderRecapture(data, quality);
+      } else if (identificationOnly) {
+        renderIdentificationOnly(data, status);
+      } else {
+        const grid = node("div", { class: "results-grid" });
+        const positives = metrics.positive_points || metrics.positives || [];
+        const priority = metrics.priority_improvement || metrics.key_improvement;
+        const secondary = metrics.secondary_improvements || [];
+        grid.append(positivesCard(positives));
+        grid.append(improvementsCard(priority, secondary));
+        [
+          identificationCard(data),
+          renderCaptureQuality(quality),
+          generic ? reliabilityCard(metrics.execution_summary) : null,
+          generic ? trainingRelevanceCard(metrics.training_relevance) : null,
+          generic ? null : scoreCard(metrics.weighted_execution_score),
+          movementCard(metrics.movement_summary || metrics.movement),
+          repetitionsCard(metrics.repetitions),
+          checklistCard(metrics.checklist, generic),
+          literatureCard(metrics),
+          narrativeCard(data.narrative),
+          audioCard(data),
+          actionsCard(data),
+        ].filter(Boolean).forEach((item) => grid.append(item));
+        ui.content.replaceChildren(grid);
+      }
+
+      ui.results.hidden = false;
+      ui.results.focus({ preventScroll: true });
+      ui.results.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
+    }
+
+    function reportFilename(extension) {
+      return `bitvar-academia-${new Date().toISOString().slice(0, 10)}.${extension}`;
+    }
+
+    function buildTextReport(data) {
+      const hasMetrics = Boolean(data.metrics && typeof data.metrics === "object" && Object.keys(data.metrics).length);
+      const hasRoute = Boolean(data.route && typeof data.route === "object" && Object.keys(data.route).length);
+      const metrics = hasMetrics ? data.metrics : {};
+      const quality = metrics.capture_quality || {};
+      const route = hasRoute ? data.route : {};
+      const practitioner = data.practitioner || {};
+      const identification = identificationDetails(data);
+      const status = String(data.analysis_status || data.status || "complete").toLowerCase();
+      const generic = isGeneralExecution(data);
+      const identificationOnly = ["unsupported_exercise", "exercise_unknown"].includes(status)
+        || !hasMetrics
+        || (!generic && (!hasRoute || !identification.methodologyAvailable));
+      const lines = ["BITVAR IA — ANÁLISE DE MUSCULAÇÃO", ""];
+      if (practitioner.name || practitioner.practitioner_name) lines.push(`Praticante: ${practitioner.name || practitioner.practitioner_name}`);
+      if (practitioner.id || practitioner.practitioner_id) lines.push(`Código: ${practitioner.id || practitioner.practitioner_id}`);
+      lines.push(`Status: ${statusLabel(status)}`);
+      if (identification.exercise) lines.push(`Exercício identificado: ${objectText(identification.exercise)}`);
+      if (identification.variation) lines.push(`Variação: ${objectText(identification.variation)}`);
+      if (equipmentLabel(identification)) lines.push(`Equipamento ou máquina: ${equipmentLabel(identification)}`);
+      if (identification.confidence) lines.push(`Confiança da identificação: ${objectText(identification.confidence)}`);
+      lines.push(`Tipo de análise: ${methodologyScopeLabel(identification.methodologyScope)}`);
+      if (route.methodology_version || metrics.methodology_version) lines.push(`Metodologia: ${route.methodology_version || metrics.methodology_version}`);
+      if (route.duration_seconds !== undefined) lines.push(`Duração: ${formatSeconds(route.duration_seconds)}`);
+      lines.push("");
+
+      const issues = listStrings(quality.issues || quality.limitations || metrics.limitations);
+      if (status === "recapture_required") {
+        lines.push("NOVA CAPTURA NECESSÁRIA", "O enquadramento não permitiu avaliar o movimento com segurança.");
+        const instructions = listStrings(quality.recapture_instructions || quality.instructions || metrics.recapture_instructions || data.warnings);
+        [...issues, ...instructions].forEach((item) => lines.push(`- ${item}`));
+        lines.push("");
+      } else if (identificationOnly) {
+        lines.push(status === "unsupported_exercise" ? "METODOLOGIA TÉCNICA AINDA NÃO DISPONÍVEL" : "IDENTIFICAÇÃO INCONCLUSIVA");
+        lines.push(status === "unsupported_exercise"
+          ? "O exercício foi identificado, mas esta POC não gerou score, checklist ou correções sem uma metodologia compatível."
+          : "O exercício não foi identificado com confiança suficiente; nenhum score, checklist ou correção técnica foi gerado.");
+        lines.push("");
+        if (data.narrative) lines.push("RELATÓRIO", data.narrative, "");
+      } else {
+        const positives = listStrings(metrics.positive_points || metrics.positives);
+        if (generic) {
+          const summary = metrics.execution_summary || {};
+          const reliability = summary.reliability || {};
+          lines.push("CLASSIFICAÇÃO DA EXECUÇÃO", objectText(summary.classification || "nao_avaliavel"), "");
+          lines.push("CONFIABILIDADE E COBERTURA");
+          if (reliability.level) lines.push(`- Nível: ${objectText(reliability.level)}`);
+          if (formatCoverage(reliability.coverage)) lines.push(`- Cobertura observacional: ${formatCoverage(reliability.coverage)}`);
+          if (reliability.evaluated_criteria !== undefined && reliability.applicable_criteria !== undefined) {
+            lines.push(`- Critérios avaliados: ${reliability.evaluated_criteria}/${reliability.applicable_criteria} aplicáveis`);
+          }
+          if (reliability.complete_repetitions !== undefined) lines.push(`- Repetições completas: ${reliability.complete_repetitions}`);
+          listStrings(reliability.basis).forEach((item) => lines.push(`- ${item}`));
+          lines.push("A cobertura informa observabilidade; não é probabilidade de acerto nem nota.", "");
+
+          const relevance = metrics.training_relevance || {};
+          lines.push("RELEVÂNCIA CONDICIONAL PARA O TREINO");
+          if (relevance.observed_style) lines.push(`- Ritmo observado: ${objectText(relevance.observed_style)}`);
+          listStrings(relevance.observable_emphasis).forEach((item) => lines.push(`- Ênfase observável: ${item}`));
+          if (relevance.performance_interpretation) lines.push(`- Interpretação condicional: ${objectText(relevance.performance_interpretation)}`);
+          listStrings(relevance.cannot_determine_without).forEach((item) => lines.push(`- Não determinável sem: ${item}`));
+          lines.push("Um vídeo isolado não comprova eficácia, hipertrofia, ganho de força ou desempenho futuro.", "");
+
+          const movement = metrics.movement_summary || metrics.movement || {};
+          lines.push("LEITURA DO MOVIMENTO");
+          [
+            ["Ritmo", movement.tempo_style],
+            ["Consistência do ritmo", movement.tempo_consistency],
+            ["Consistência da amplitude", movement.range_consistency],
+            ["Consistência da trajetória", movement.trajectory_consistency],
+            ["Observação geral", movement.overall_observation],
+          ].forEach(([label, value]) => {
+            if (value !== null && value !== undefined && value !== "") lines.push(`- ${label}: ${objectText(value)}`);
+          });
+          if (movement.average_repetition_seconds !== null && movement.average_repetition_seconds !== undefined) {
+            lines.push(`- Duração média por repetição: ${formatSeconds(movement.average_repetition_seconds)}`);
+          }
+          if (movement.repetition_duration_variation !== null && movement.repetition_duration_variation !== undefined) {
+            lines.push(`- Variação relativa da duração: ${formatCoverage(movement.repetition_duration_variation)}`);
+          }
+          lines.push("");
+
+          const repetitions = normalizeSegments(metrics.repetitions);
+          if (repetitions.length) {
+            lines.push("REPETIÇÕES E SEGMENTOS");
+            repetitions.forEach((item, index) => {
+              const repetition = item && typeof item === "object" ? item : {};
+              const number = repetition.index ?? index + 1;
+              const state = repetition.complete === false ? "Incompleta" : "Completa";
+              const markers = [];
+              if (repetition.start_s !== null && repetition.start_s !== undefined) markers.push(`início ${formatSeconds(repetition.start_s)}`);
+              if (repetition.transition_s !== null && repetition.transition_s !== undefined) markers.push(`transição ${formatSeconds(repetition.transition_s)}`);
+              if (repetition.end_s !== null && repetition.end_s !== undefined) markers.push(`fim ${formatSeconds(repetition.end_s)}`);
+              lines.push(`- Repetição ${number}: ${state}${markers.length ? ` · ${markers.join(" · ")}` : ""}`);
+            });
+            lines.push("");
+          }
+        }
+        lines.push("O QUE JÁ ESTÁ ADEQUADO");
+        if (positives.length) positives.forEach((item) => lines.push(`- ${item}`));
+        else lines.push("- Nenhum ponto positivo foi descrito com segurança.");
+        lines.push("", "FOCO PRÁTICO DE EVOLUÇÃO", objectText(metrics.priority_improvement || metrics.key_improvement || "Nenhum foco adicional foi indicado nesta análise."), "");
+        const secondary = listStrings(metrics.secondary_improvements);
+        if (secondary.length) {
+          lines.push("OUTRAS SUGESTÕES PRÁTICAS");
+          secondary.forEach((item) => lines.push(`- ${item}`));
+          lines.push("");
+        }
+        const score = generic ? null : scoreValue(metrics.weighted_execution_score);
+        if (score !== null) lines.push(`INDICADOR POC NÃO VALIDADO: ${score}/100`, "Este indicador é experimental e não representa diagnóstico ou risco de lesão.", "");
+        const criteria = normalizeChecklist(metrics.checklist);
+        if (criteria.length) {
+          lines.push("ANÁLISE TÉCNICA DA EXECUÇÃO");
+          criteria.forEach((item, index) => {
+            const criterion = typeof item === "object" ? item : { verdict: item };
+            const title = criterion.label || criterion.name || criterion.criterion || criterion.id || `Critério ${index + 1}`;
+            const verdict = normalizeVerdict(criterion.verdict || criterion.status || criterion.result);
+            lines.push(`- ${title}: ${verdict.label}`);
+            if (criterion.observation || criterion.evidence) lines.push(`  ${objectText(criterion.observation || criterion.evidence)}`);
+            const suggestion = criterion.coaching_suggestion || criterion.correction || criterion.recommendation;
+            if (suggestion) lines.push(`  Sugestão prática: ${objectText(suggestion)}`);
+            if (criterion.muscle_context) lines.push(`  Contexto muscular: ${objectText(criterion.muscle_context)}`);
+          });
+          if (generic) lines.push("Checklist observacional geral; não substitui uma metodologia específica do exercício.");
+          lines.push("");
+        }
+        const roles = listStrings(metrics.expected_muscle_roles);
+        if (roles.length) {
+          lines.push("PAPÉIS MUSCULARES ESPERADOS");
+          roles.forEach((item) => lines.push(`- ${item}`));
+          lines.push("");
+        }
+        if (metrics.muscle_activation_notice) lines.push("CONTEXTO MUSCULAR", objectText(metrics.muscle_activation_notice), "");
+        const references = asArray(metrics.literature_references);
+        if (references.length) {
+          lines.push("REFERÊNCIAS DA METODOLOGIA");
+          references.forEach((reference) => {
+            if (!reference) return;
+            const citation = typeof reference === "object" ? reference.citation : reference;
+            const url = typeof reference === "object" ? reference.url : null;
+            lines.push(`- ${objectText(citation)}${url ? ` — ${url}` : ""}`);
+          });
+          lines.push("");
+        }
+        if (data.narrative) lines.push("RELATÓRIO", data.narrative, "");
+      }
+      const warnings = listStrings(data.warnings);
+      if (warnings.length) {
+        lines.push("AVISOS");
+        warnings.forEach((item) => lines.push(`- ${item}`));
+        lines.push("");
+      }
+      lines.push("POC: resultado não validado clinicamente e não substitui avaliação profissional.", "— gerado por BITVAR IA");
+      return lines.join("\n");
+    }
+
+    function downloadText(text, filename, mime) {
+      const blob = new Blob([text], { type: mime });
+      downloadBlob(blob, filename);
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const anchor = node("a", { href: url, download: filename });
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    }
+
+    function downloadAudio(data) {
+      const mime = data.audio_mime || "audio/wav";
+      const extension = mime.includes("mpeg") ? "mp3" : mime.includes("ogg") ? "ogg" : "wav";
+      const src = String(data.audio_base64).startsWith("data:") ? data.audio_base64 : `data:${mime};base64,${data.audio_base64}`;
+      const anchor = node("a", { href: src, download: `bitvar-academia-audio.${extension}` });
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+    }
+
+    async function shareReport(data) {
+      try {
+        await navigator.share({ title: "BITVAR IA — Análise de Academia", text: buildTextReport(data) });
+      } catch (error) {
+        // O cancelamento da folha de compartilhamento não é uma falha da análise.
+      }
+    }
+
+    function startNewAnalysis() {
+      cancelVoiceOperation({ silent: true });
+      ui.results.hidden = true;
+      state.lastResult = null;
+      clearFile();
+      $("#practitioner-name").value = "";
+      $("#practitioner-id").value = "";
+      $("#practitioner-outfit").value = "";
+      $("#practitioner-notes").value = "";
+      syncVoiceCapabilityFromHealth();
+      ui.fileInput.focus();
+      ui.form.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "start" });
+    }
+
+    ui.fileInput.addEventListener("change", () => selectFile(ui.fileInput.files && ui.fileInput.files[0]));
+    ui.removeFile.addEventListener("click", () => clearFile({ focus: true }));
+    ui.consent.addEventListener("change", () => {
+      if (!ui.consent.checked && voiceOperationActive()) {
+        const cancelledPhase = state.voicePhase;
+        cancelVoiceOperation({ silent: true });
+        setVoiceStatus(
+          cancelledPhase === "transcribing"
+            ? "A tela deixou de aguardar a transcrição. Se o envio já começou, o servidor concluirá o descarte temporário do áudio."
+            : "A captura de voz foi interrompida porque a autorização foi desmarcada.",
+          "error"
+        );
+      }
+      updateSubmitState();
+    });
+    ui.voiceButton.addEventListener("click", startVoiceRecording);
+    ui.form.addEventListener("submit", submitAnalysis);
+    $("#new-analysis-top").addEventListener("click", startNewAnalysis);
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+      ui.dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        if (!state.busy && !voiceOperationActive()) ui.dropZone.classList.add("dragging");
+      });
+    });
+    ["dragleave", "drop"].forEach((eventName) => {
+      ui.dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        ui.dropZone.classList.remove("dragging");
+      });
+    });
+    ui.dropZone.addEventListener("drop", (event) => {
+      if (state.busy || voiceOperationActive()) return;
+      const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) selectFile(file);
+    });
+
+    window.addEventListener("pagehide", () => {
+      cancelVoiceOperation({ silent: true });
+      clearPreviewUrl();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (
+        document.hidden
+        && ["requesting", "recording", "stopping"].includes(state.voicePhase)
+      ) {
+        cancelVoiceOperation({ silent: true });
+        setVoiceStatus("A captura de voz foi interrompida porque a página ficou oculta.", "error");
+      }
+    });
+    window.addEventListener("beforeunload", () => {
+      cancelVoiceOperation({ silent: true });
+      clearPreviewUrl();
+    });
+    initializeVoiceInput();
+    checkHealth();
+  </script>
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITVAR IA · Visão Computacional — Avaliação do roboflow/supervision</title>
+<style>
+  :root{
+    --bg:#0a1119; --bg2:#0c1623; --card:#101d2e; --card2:#0e1a29;
+    --line:#1d2d44; --line2:#26384f;
+    --ink:#e9eff7; --dim:#a3b3c7; --faint:#6c7e95;
+    --green:#34d36a; --green-2:#7fe5a3; --green-glow:rgba(52,211,106,.14);
+    --blue:#5b9bd5; --blue-2:#93c2ec; --blue-glow:rgba(91,155,213,.16);
+    --red:#f4606e; --red-bg:rgba(244,96,110,.10); --red-line:rgba(244,96,110,.35);
+    --grn-bg:rgba(52,211,106,.09); --grn-line:rgba(52,211,106,.34);
+    --blu-bg:rgba(91,155,213,.09); --blu-line:rgba(91,155,213,.34);
+    --amber:#f0b54e; --amber-bg:rgba(240,181,78,.10); --amber-line:rgba(240,181,78,.34);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:
+      radial-gradient(1100px 600px at 80% -10%, rgba(91,155,213,.07), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(52,211,106,.05), transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(91,155,213,.25)}
+  a{color:var(--blue-2); text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 22px}
+
+  .topbar{position:sticky; top:0; z-index:50; backdrop-filter:blur(12px); background:rgba(8,15,24,.82); border-bottom:1px solid var(--line)}
+  .topbar .row{display:flex; align-items:center; gap:14px; height:58px}
+  .brand{display:flex; align-items:center; gap:9px; font-family:var(--mono); font-weight:700; letter-spacing:.14em; font-size:15px}
+  .dot{width:11px; height:11px; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px var(--green-glow), 0 0 14px var(--green)}
+  .brand small{color:var(--faint); font-weight:500; letter-spacing:.18em}
+  .badge{margin-left:auto; font-family:var(--mono); font-size:11.5px; letter-spacing:.12em; color:var(--green-2); border:1px solid var(--grn-line); background:var(--grn-bg); padding:5px 11px; border-radius:7px}
+
+  .subnav{position:sticky; top:58px; z-index:40; background:rgba(10,17,25,.9); backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
+  .subnav .row{display:flex; gap:4px; overflow-x:auto; padding:9px 0; scrollbar-width:none}
+  .subnav .row::-webkit-scrollbar{display:none}
+  .subnav a{font-family:var(--mono); font-size:12px; letter-spacing:.06em; color:var(--dim); white-space:nowrap; padding:6px 12px; border-radius:7px; border:1px solid transparent}
+  .subnav a:hover{color:var(--ink); background:rgba(255,255,255,.03); border-color:var(--line); text-decoration:none}
+
+  .hero{padding:58px 0 28px}
+  .kicker{font-family:var(--mono); font-size:12.5px; letter-spacing:.2em; color:var(--blue); text-transform:uppercase; margin-bottom:20px; line-height:1.7}
+  .kicker b{color:var(--green-2); font-weight:600}
+  h1{font-size:clamp(28px,5vw,48px); line-height:1.07; margin:0 0 18px; letter-spacing:-.02em; font-weight:800}
+  h1 .g{color:var(--green)} h1 .b{color:var(--blue-2)} h1 .r{color:var(--red)}
+  .lede{font-size:clamp(16px,2vw,19px); color:var(--dim); max-width:820px; margin:0}
+  .lede b{color:var(--ink)}
+  .metaline{display:flex; flex-wrap:wrap; gap:8px; margin-top:26px}
+  .chip{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; color:var(--dim); border:1px solid var(--line2); background:var(--card2); padding:6px 11px; border-radius:999px}
+  .chip b{color:var(--ink)}
+  .chip.g{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+  .chip.b{color:var(--blue-2); border-color:var(--blu-line); background:var(--blu-bg)}
+  .chip.r{color:var(--red); border-color:var(--red-line); background:var(--red-bg)}
+  .chip.a{color:var(--amber); border-color:var(--amber-line); background:var(--amber-bg)}
+
+  section{padding:30px 0; scroll-margin-top:128px}
+  .sec-h{display:flex; align-items:baseline; gap:14px; margin:0 0 10px; flex-wrap:wrap}
+  .sec-n{font-family:var(--mono); font-size:13px; color:var(--blue); letter-spacing:.1em}
+  .sec-h h2{font-size:clamp(22px,3vw,30px); margin:0; letter-spacing:-.01em; font-weight:750}
+  .sec-sub{color:var(--faint); font-size:14.5px; margin:0 0 24px; max-width:860px}
+  .sec-sub b{color:var(--dim)}
+
+  .card{background:linear-gradient(180deg,var(--card),var(--card2)); border:1px solid var(--line); border-radius:15px; padding:22px}
+  .grid{display:grid; gap:16px}
+  @media(min-width:760px){ .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:1fr 1fr 1fr} .g4{grid-template-columns:repeat(4,1fr)} }
+
+  .lbl{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--blue)}
+  .lbl.grn{color:var(--green)} .lbl.red{color:var(--red)} .lbl.amb{color:var(--amber)}
+
+  .stat{text-align:center}
+  .stat .v{font-family:var(--mono); font-weight:800; font-size:28px; letter-spacing:-.02em; color:var(--blue-2)}
+  .stat .v.g{color:var(--green-2)} .stat .v.a{color:var(--amber)} .stat .v.r{color:var(--red)}
+  .stat .k{font-size:12.5px; color:var(--faint); margin-top:3px}
+
+  .ba{display:grid; gap:12px; margin:6px 0 4px}
+  @media(min-width:720px){ .ba{grid-template-columns:1fr 1fr} }
+  .panel{border-radius:12px; padding:15px 16px; border:1px solid var(--line)}
+  .panel.bad{background:var(--red-bg); border-color:var(--red-line)}
+  .panel.good{background:var(--grn-bg); border-color:var(--grn-line)}
+  .panel.neu{background:var(--card2); border-color:var(--line2)}
+  .panel h4{margin:0 0 8px; font-size:12px; font-family:var(--mono); letter-spacing:.08em}
+  .panel.bad h4{color:var(--red)} .panel.good h4{color:var(--green-2)} .panel.neu h4{color:var(--blue-2)}
+  .panel p{margin:0 0 8px; font-size:13.8px; color:var(--ink)} .panel p:last-child{margin-bottom:0}
+  .panel ul{margin:6px 0 0; padding-left:18px} .panel li{font-size:13.4px; color:var(--dim); margin:5px 0} .panel li b{color:var(--ink)}
+  .inl{font-family:var(--mono); font-size:12px; color:var(--blue-2); background:rgba(91,155,213,.08); border:1px solid var(--blu-line); border-radius:5px; padding:1px 5px}
+  .inl.g{color:var(--green-2); background:rgba(52,211,106,.08); border-color:var(--grn-line)}
+  .inl.r{color:var(--red); background:var(--red-bg); border-color:var(--red-line)}
+
+  blockquote{margin:10px 0; padding:11px 15px; border-left:3px solid var(--line2); background:var(--card2); border-radius:0 10px 10px 0; color:var(--dim); font-size:13.8px; font-style:italic}
+  blockquote.b{border-left-color:var(--blue)} blockquote.r{border-left-color:var(--red)} blockquote.g{border-left-color:var(--green)}
+  blockquote cite{display:block; font-style:normal; font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; color:var(--faint); margin-top:6px}
+  blockquote b{color:var(--ink); font-style:normal}
+
+  ul.clean{margin:8px 0; padding-left:20px; color:var(--dim)} ul.clean li{margin:8px 0; font-size:14px} ul.clean li b{color:var(--ink)}
+
+  .callout{border:1px solid var(--line2); border-left:3px solid var(--blue); background:var(--card2); border-radius:0 12px 12px 0; padding:16px 18px; margin:16px 0}
+  .callout.amber{border-left-color:var(--amber)} .callout.green{border-left-color:var(--green)} .callout.red{border-left-color:var(--red)}
+  .callout .lbl{margin-bottom:7px; display:block}
+  .callout p{margin:0; color:var(--dim); font-size:14.2px} .callout p b{color:var(--ink)} .callout p+p{margin-top:9px}
+
+  table{width:100%; border-collapse:collapse; font-size:13.6px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-family:var(--mono); font-size:11px; letter-spacing:.09em; color:var(--faint); text-transform:uppercase; font-weight:600}
+  td b{color:var(--ink)} tr:last-child td{border-bottom:0}
+  .mono{font-family:var(--mono); font-size:12.3px; color:var(--blue-2)}
+  .tag{display:inline-block; font-family:var(--mono); font-size:10px; letter-spacing:.06em; padding:2px 7px; border-radius:6px; border:1px solid var(--line2); color:var(--dim); background:var(--card2)}
+  .tag.new{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+  .tag.red{color:var(--red); border-color:var(--red-line); background:var(--red-bg)}
+  .tag.amb{color:var(--amber); border-color:var(--amber-line); background:var(--amber-bg)}
+
+  .dod{margin-top:13px; border:1px dashed var(--blu-line); background:var(--blu-bg); border-radius:11px; padding:12px 15px; font-size:13.6px; color:var(--dim)}
+  .dod .lbl{margin-bottom:6px; display:block} .dod b{color:var(--blue-2)}
+
+  .loop{display:grid; gap:12px; margin-top:8px}
+  @media(min-width:760px){ .loop{grid-template-columns:repeat(5,1fr); align-items:stretch} }
+  .lnode{border:1px solid var(--line2); border-radius:12px; padding:14px 12px; background:var(--card)}
+  .lnode .ln{font-family:var(--mono); font-size:11px; color:var(--blue); letter-spacing:.08em}
+  .lnode h5{margin:7px 0 4px; font-size:14px} .lnode p{margin:0; color:var(--dim); font-size:12.5px}
+  .lnode.done{border-color:var(--grn-line); background:var(--grn-bg)} .lnode.done .ln{color:var(--green)}
+  .lnode.hot{border-color:var(--blu-line); background:var(--blu-bg)} .lnode.hot .ln{color:var(--blue-2)}
+
+  /* tier badge */
+  .tierbadge{font-family:var(--mono); font-weight:800; font-size:12.5px; color:#08111c; background:var(--green-2); border-radius:7px; padding:3px 9px; margin-right:6px}
+  .tierbadge.b{background:var(--blue-2)} .tierbadge.c{background:#8aa0bb}
+
+  /* code */
+  pre.code{font-family:var(--mono); font-size:12.6px; line-height:1.62; color:#cfe0f3; background:#091321; border:1px solid var(--line2); border-radius:13px; padding:17px 18px; overflow-x:auto; margin:14px 0}
+  pre.code .c{color:var(--faint)}     /* comentário */
+  pre.code .s{color:var(--green-2)}   /* string */
+  pre.code .f{color:var(--blue-2)}    /* nome/símbolo de destaque */
+  .kbd{font-family:var(--mono); font-size:12px; color:var(--amber); background:var(--amber-bg); border:1px solid var(--amber-line); border-radius:5px; padding:1px 6px}
+
+  .reflist{list-style:none; margin:10px 0 0; padding:0; display:grid; gap:9px}
+  .reflist li{font-size:13.4px; color:var(--dim); border:1px solid var(--line); border-radius:10px; padding:11px 13px; background:var(--card2)}
+  .reflist li b{color:var(--ink)} .reflist a{font-family:var(--mono); font-size:11.8px}
+
+  footer{border-top:1px solid var(--line); margin-top:36px; padding:28px 0 60px; color:var(--faint); font-family:var(--mono); font-size:12px; letter-spacing:.04em; line-height:1.8}
+  .hr{height:1px; background:linear-gradient(90deg,transparent,var(--line2),transparent); margin:0 0 22px}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap row">
+  <span class="dot"></span>
+  <span class="brand">BITVAR&nbsp;IA <small>· VISÃO COMPUTACIONAL</small></span>
+  <span class="badge">AVALIAÇÃO · roboflow/supervision · 30 JUN</span>
+</div></div>
+
+<nav class="subnav"><div class="wrap row">
+  <a href="#veredito">01 · Veredito</a>
+  <a href="#oque">02 · O que é (e não é)</a>
+  <a href="#estado">03 · Estado atual</a>
+  <a href="#crux">04 · Quant × Qualit</a>
+  <a href="#encaixe">05 · Onde encaixa</a>
+  <a href="#beach">06 · Ressalva beach tennis</a>
+  <a href="#custo">07 · Custo real</a>
+  <a href="#spike">08 · O spike</a>
+  <a href="#ref">09 · Referências</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">avaliação técnica · pedido: "ver se ajuda em alguma aplicabilidade aqui" · biblioteca <b>roboflow/supervision</b> + <b>roboflow/sports</b></div>
+  <h1>Visão computacional <span class="g">ajuda</span> —<br>mas no <span class="b">travamento do alvo</span>,<br>não nas <span class="r">estatísticas</span>.</h1>
+  <p class="lede">Conclusão honesta: <b>sim, há aplicabilidade real</b>, porém concentrada e com custo arquitetural alto. O <b>supervision</b> não é um <i>pip install</i> que melhora o produto de hoje — é <b>construir um sub‑pipeline de visão computacional</b>. O encaixe mais forte <b>não</b> é "consertar a contagem de estatística" (esse modo já está desligado); é <b>blindar a seleção do atleta‑alvo</b> — exatamente a dor que os últimos 5 commits da "Quadra Interativa" atacam na mão.</p>
+  <div class="metaline">
+    <span class="chip b">supervision = caixa de ferramentas, <b>não modelo</b></span>
+    <span class="chip r">roboflow/sports <b>não tem tênis</b></span>
+    <span class="chip a">modo <b>match</b> já está desligado</span>
+    <span class="chip g">encaixe nº1 · <b>travar o atleta</b> (pessoa = modelo pronto)</span>
+    <span class="chip">custo · CV por‑frame ⇒ <b>assíncrono + GPU</b></span>
+  </div>
+</div></header>
+
+<!-- 01 VEREDITO -->
+<section id="veredito"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">01</span><h2>Veredito em uma página</h2></div>
+  <p class="sec-sub">O resumo executivo antes do detalhe. Tudo abaixo está aprofundado nas seções seguintes e ancorado no código real (<span class="inl">app/tennis/</span>) e nas fontes primárias do supervision.</p>
+
+  <div class="grid g4" style="margin-bottom:18px">
+    <div class="card stat"><div class="v g">SIM*</div><div class="k">há aplicabilidade — *concentrada, não geral</div></div>
+    <div class="card stat"><div class="v b">cola</div><div class="k">supervision é glue, você traz o modelo</div></div>
+    <div class="card stat"><div class="v a">async</div><div class="k">força a migração que o §09 já previa</div></div>
+    <div class="card stat"><div class="v g">spike</div><div class="k">testável num clipe, sem treinar modelo</div></div>
+  </div>
+
+  <div class="ba">
+    <div class="panel good">
+      <h4>✓ ONDE CV REALMENTE AJUDA</h4>
+      <ul>
+        <li><b>Travar o atleta‑alvo</b> — detecção de pessoa (pré‑treinada) + <span class="inl g">ByteTrack</span> dá ID estável aos 4 jogadores e segue só o escolhido. Mata a falha "analisou o cara errado".</li>
+        <li><b>Medir o que o VLM só estima</b> — homografia (<span class="inl g">ViewTransformer</span>) a partir dos cantos da quadra → ocupação de zona, distância, heatmap. Vira número o que hoje é "rápido/lento".</li>
+        <li><b>Vídeo anotado + gabarito offline</b> — overlay visual e validação determinística (a Fase 5 do blueprint).</li>
+      </ul>
+    </div>
+    <div class="panel bad">
+      <h4>✕ ONDE NÃO AJUDA / CUSTA CARO</h4>
+      <ul>
+        <li><b>Coaching qualitativo</b> (o clip de hoje) é o forte do VLM — CV não melhora isso.</li>
+        <li><b>Não é turnkey pra tênis</b>, muito menos beach tennis: precisa de modelo de bola/quadra treinado em dado próprio.</li>
+        <li><b>Colisão de arquitetura</b>: inferência por‑frame numa VPS CPU‑only, síncrona, que é o host de produção.</li>
+        <li><b>Bounce / in‑out</b> (metade do toolkit clássico de tênis) <b>não se aplica</b> ao beach tennis.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout green">
+    <span class="lbl grn">a recomendação em uma frase</span>
+    <p>Não adote em bloco. <b>Faça um spike cirúrgico da hipótese de maior valor</b> (travar o alvo) num único clipe, offline, num ambiente com GPU — <b>zero treino de modelo</b> (pessoa é classe pronta). Se provar que mata a falha do "atleta errado", aí decide o investimento em infra assíncrona. Homografia é fase 2; bola/velocidade é pesquisa; bounce/in‑out se descarta.</p>
+  </div>
+</div></section>
+
+<!-- 02 O QUE É -->
+<section id="oque"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">02</span><h2>O que o supervision é — e o que não é</h2></div>
+  <p class="sec-sub">O ponto que muda toda a conversa de custo. Verificado nas fontes primárias (README, código‑fonte e docs), não de memória.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <span class="lbl">supervision = caixa de ferramentas</span>
+      <p style="color:var(--dim); font-size:14px; margin:10px 0 0">O próprio README: <i>"model agnostic. Just plug in any classification, detection, or segmentation model."</i> Ele <b>não faz inferência e não faz chamada de rede</b> — é <span class="inl">numpy</span> + <span class="inl">opencv</span> puro. É o <b>"pandas + matplotlib da detecção de objetos"</b>: padroniza a saída de qualquer modelo num <span class="inl">sv.Detections</span> e te dá <b>tracking, zonas, anotadores e métricas</b>. <b>Você traz o modelo.</b></p>
+    </div>
+    <div class="card">
+      <span class="lbl">roboflow/sports = exemplos (futebol e basquete)</span>
+      <p style="color:var(--dim); font-size:14px; margin:10px 0 0">Repo de <b>receitas aplicadas</b>, não biblioteca de produção. <b>Não tem tênis</b> — nada de beach tennis. O reutilizável de lá é genérico: o <span class="inl g">ViewTransformer</span> (homografia via <span class="inl">cv2.findHomography</span>, <b>agnóstico de esporte</b>) e a renderização "radar" (<span class="inl">draw_pitch</span>). O <span class="inl">SoccerPitchConfiguration</span> é hardcoded — você escreveria um <span class="inl">BeachTennisCourtConfiguration</span> à mão.</p>
+    </div>
+  </div>
+
+  <div class="callout amber" style="margin-top:18px">
+    <span class="lbl amb">leitura honesta do que "adotar supervision" significa</span>
+    <p>Não é instalar uma lib e ganhar análise de tênis. É <b>escrever um pipeline de CV</b> (detector → tracking → homografia → lógica), usando o supervision como cola de alta qualidade. Os primitivos certos existem e são bons — <span class="inl">sv.ByteTrack</span>, <span class="inl">sv.PolygonZone</span>, <span class="inl">sv.InferenceSlicer</span> (bola pequena), <span class="inl">sv.KeyPoints</span>, anotadores, <span class="inl">get_video_frames_generator</span>/<span class="inl">VideoSink</span> — mas a montagem e os <b>modelos</b> são por sua conta. Licença <b>MIT</b>, Python <b>≥3.10</b> (já é o seu caso). O supervision <b>não</b> puxa <span class="inl">torch</span>; o peso de 1–3&nbsp;GB vem do backend de modelo (Ultralytics / Inference).</p>
+  </div>
+</div></section>
+
+<!-- 03 ESTADO ATUAL -->
+<section id="estado"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">03</span><h2>O estado atual — por que o encaixe não é onde parece</h2></div>
+  <p class="sec-sub">Três fatos do código de hoje que reposicionam a decisão. Todos verificados em <span class="inl">app/tennis/</span>.</p>
+
+  <div class="grid g3">
+    <div class="card" style="border-color:var(--amber-line)">
+      <span class="lbl amb">1 · 100% "manda pro Gemini"</span>
+      <p style="color:var(--dim); font-size:13.6px; margin:9px 0 0">Não existe CV nenhum hoje: zero OpenCV, numpy, torch, extração de frame, tracking ou homografia. O vídeo sobe como <b>bytes opacos</b> pro Files API; <span class="inl">VideoMetadata(fps)</span> só diz ao Google como amostrar. É <b>greenfield</b> — nada pra refatorar, mas nada pra reusar.</p>
+    </div>
+    <div class="card" style="border-color:var(--amber-line)">
+      <span class="lbl amb">2 · o modo <span class="inl">match</span> está desligado</span>
+      <p style="color:var(--dim); font-size:13.6px; margin:9px 0 0"><span class="inl">routing.py:decide_mode</span> sempre retorna <span class="inl">"clip"</span> (linhas 83‑96). Todo o <span class="inl">MatchAnalysis</span> (aces, winners, rally length, % de saque), os pesos por gênero e os benchmarks ATP/WTA são <b>dead code na requisição</b>. O gargalo "contar estatística por VLM é aproximado" foi <b>contornado</b>, não resolvido.</p>
+    </div>
+    <div class="card" style="border-color:var(--blu-line)">
+      <span class="lbl">3 · o schema recusa métrica de propósito</span>
+      <p style="color:var(--dim); font-size:13.6px; margin:9px 0 0">As zonas são qualitativas (<span class="inl">fundo/meio/rede</span>), nunca coordenadas. O prompt <b>proíbe</b> o modelo de dar velocidade/tempo em número. A justificativa está escrita no código: <i>"não dá medida métrica sem homografia"</i>.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="lbl">o gap está escrito no próprio código — não é encaixe forçado</span>
+    <p>O repo <b>documenta</b> exatamente a fronteira que o supervision foi feito pra cruzar:</p>
+    <blockquote class="b" style="margin-top:10px">"Zonas qualitativas e relativas (<b>NÃO coordenadas</b>): o VLM raciocina espaço grosseiro a partir de uma câmera, mas <b>não dá medida métrica sem homografia</b>."<cite>app/tennis/models.py:60‑62</cite></blockquote>
+    <blockquote class="b">"NÃO estime tempos de reação nem velocidades em números (ms, m/s) — descreva qualitativamente (rápido/lento/tardio)."<cite>app/tennis/prompts.py:184‑185</cite></blockquote>
+    <p><b>Homografia + tracking é o núcleo do supervision</b> (<span class="inl g">ViewTransformer</span>, <span class="inl g">ByteTrack</span>, <span class="inl g">PolygonZone</span>). E mais: a feature recém‑commitada <b>"Quadra Interativa"</b> — usuário escolhe a câmera, toca o quadrante onde o alvo começa e descreve a cor pra "seguir o mesmo atleta" — é um <b>substituto manual e humano de detecção de quadra + tracking de jogadores</b>. Os <i>seams</i> do schema (<span class="inl">camera_reference</span>, <span class="inl">target_quadrant</span>, <span class="inl">target_appearance</span>, e o auto‑check <span class="inl">_check_target_sector</span> em <span class="inl">service.py:310‑341</span>) já estão prontos pra um módulo de CV preencher automaticamente.</p>
+  </div>
+</div></section>
+
+<!-- 04 CRUX -->
+<section id="crux"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">04</span><h2>A divisão que decide tudo — quantitativo × qualitativo</h2></div>
+  <p class="sec-sub">VLM e CV são <b>fortes em coisas opostas</b>. Sobrepor os dois no lugar errado é desperdício; no lugar certo, é complementaridade.</p>
+
+  <div class="ba">
+    <div class="panel neu">
+      <h4>VLM (Gemini) — bom em PERCEPÇÃO e COACHING</h4>
+      <ul>
+        <li>Notas técnicas 0‑10 (preparação, contato, biomecânica, base).</li>
+        <li>Classificação de golpe / fase / lateralidade.</li>
+        <li>Narrativa, evidência visual, leitura tática relacional do ponto.</li>
+        <li>Incerteza auto‑declarada (<span class="inl">phase_confidence</span>…).</li>
+      </ul>
+      <p style="margin-top:9px; color:var(--green-2); font-size:13px">▸ é o <b>clip de hoje</b>, e funciona. CV não melhora isto.</p>
+    </div>
+    <div class="panel neu">
+      <h4>CV (supervision + modelo) — bom em MEDIÇÃO e GEOMETRIA</h4>
+      <ul>
+        <li>Contagens exatas (golpes, trocas) e identidade estável por frame.</li>
+        <li>Posição na quadra, distância, heatmap, ocupação de zona.</li>
+        <li>Velocidade (px→metros via homografia) — quando a bola é detectável.</li>
+        <li>Gabarito determinístico pra validar/calibrar.</li>
+      </ul>
+      <p style="margin-top:9px; color:var(--blue-2); font-size:13px">▸ é o <b>quantitativo que o schema recusa</b> e o <b>match desligado</b>.</p>
+    </div>
+  </div>
+
+  <div class="callout green">
+    <span class="lbl grn">frase estratégica</span>
+    <p><b>CV é a resposta durável para <i>medição</i></b> — números determinísticos que o VLM sempre vai aproximar mal. O <b>VLM continua dono da <i>percepção e do coaching</i></b>. O supervision é a cola certa pra metade‑medição — desde que vocês topem deixar de ser "uma chamada de API" e virar "um pipeline de vídeo".</p>
+  </div>
+</div></section>
+
+<!-- 05 ENCAIXE -->
+<section id="encaixe"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">05</span><h2>Onde encaixa aqui — 3 superfícies, por ROI</h2></div>
+  <p class="sec-sub">Ordenadas por valor/esforço. (A) ataca a dor ativa e não precisa de modelo treinado; (B) destrava métrica nova reusando o que a UI já coleta; (C) é brinde de baixo risco.</p>
+
+  <div class="card" style="margin-bottom:16px; border-color:var(--grn-line)">
+    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px">
+      <span class="tierbadge">A</span><strong style="font-size:16px">Travar o atleta‑alvo por detecção + tracking</strong>
+      <span class="tag new">maior alavanca</span><span class="tag">sem treinar modelo</span>
+    </div>
+    <p style="color:var(--dim); font-size:14px; margin:6px 0 12px">É a recomendação principal: ataca a dor <b>ativa</b> (os 5 commits da Quadra Interativa) e os <i>seams</i> já existem.</p>
+    <div class="ba" style="grid-template-columns:1fr">
+      <div class="panel bad"><h4>✕ HOJE</h4><p>Com 4 jogadores, ancoragem por aparência ("o de azul") é fraca. O usuário escolhe câmera + toca quadrante + descreve cor; o <span class="inl">_check_target_sector</span> só consegue <b>avisar</b> "pode ter pego o atleta errado". <span class="inl">subject_lock_confidence</span> é auto‑declarado pelo VLM.</p></div>
+      <div class="panel good"><h4>✓ COM CV</h4><p>Detecção de pessoa (<b>YOLO classe "person" — pré‑treinada, zero treino</b>) + <span class="inl g">sv.ByteTrack</span> dá IDs estáveis aos 4 jogadores. O usuário clica no jogador <b>de verdade</b>; o tracker segue ao longo do clipe. Daí ou <b>(i)</b> destaca/recorta o alvo nos frames e manda <b>esse vídeo anotado</b> pro Gemini — ele fisicamente não analisa a pessoa errada — ou <b>(ii)</b> preenche o lock de forma determinística.</p></div>
+    </div>
+    <p style="color:var(--faint); font-size:13px; margin:10px 0 0"><b style="color:var(--amber)">Honestidade:</b> em duplas, quadra pequena = <b>oclusão</b> → o ByteTrack troca IDs quando jogadores se cruzam. Mitigável (re‑ID por aparência, que vocês já coletam), mas não é mágica.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:16px; border-color:var(--blu-line)">
+    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px">
+      <span class="tierbadge b">B</span><strong style="font-size:16px">Destravar métrica espacial REAL via homografia</strong>
+      <span class="tag">fase 2</span>
+    </div>
+    <ul class="clean" style="margin-top:4px">
+      <li>O <span class="inl">models.py:60</span> e o <span class="inl">prompts.py:184</span> <b>proíbem</b> o VLM de dar número "porque não há homografia". O <span class="inl g">ViewTransformer</span> <b>é</b> a homografia (<span class="inl">cv2.findHomography</span> + <span class="inl">perspectiveTransform</span>).</li>
+      <li><b>Jogada esperta:</b> a Quadra Interativa já faz o usuário indicar a geometria da câmera. Estenda a UI pra capturar os <b>4 cantos da quadra</b> (mais alguns toques) → alimenta o <span class="inl">ViewTransformer</span> direto → <b>você não precisa de modelo de keypoints da quadra</b>, porque o humano dá a calibração. A UI manual <b>é</b> a calibração.</li>
+      <li>Converte <span class="inl">fundo/meio/rede</span> (qualitativo) em <b>ocupação medida</b>, heatmap e distância — só com detecção de pessoa + homografia. Velocidade de ataque (km/h) viria por cima <b>se</b> a bola for detectável (ver §06: é o calcanhar).</li>
+    </ul>
+  </div>
+
+  <div class="card" style="margin-bottom:18px; border-color:var(--line2)">
+    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px">
+      <span class="tierbadge c">C</span><strong style="font-size:16px">Vídeo anotado + harness de validação offline</strong>
+      <span class="tag">opcional · baixo risco</span>
+    </div>
+    <ul class="clean" style="margin-top:4px">
+      <li><b>Vídeo anotado</b> (anotadores <span class="inl">Box</span>/<span class="inl">Trace</span>/<span class="inl">HeatMap</span>) pra treinador <b>vidente</b> — mas a missão aqui é <b>acessibilidade (áudio)</b>, então é secundário, não core.</li>
+      <li><b>Gabarito offline:</b> rodar CV fora do caminho de produção pra <b>validar/calibrar</b> se um dia reviverem o <span class="inl">match</span> (a Fase 5: "testar contagem contra placar real"). Não toca a latência.</li>
+    </ul>
+  </div>
+
+  <div class="card" style="padding:6px 6px">
+    <table>
+      <thead><tr><th>Superfície</th><th>Valor</th><th>Esforço</th><th>Risco</th><th>Precisa treinar modelo?</th></tr></thead>
+      <tbody>
+        <tr><td><b>A · travar o alvo</b></td><td><span style="color:var(--green-2)">alto</span> (dor ativa)</td><td>médio</td><td>baixo</td><td><span style="color:var(--green-2)">Não</span> — "person" é pré‑treinado</td></tr>
+        <tr><td><b>B · homografia/métrica</b></td><td><span style="color:var(--blue-2)">médio‑alto</span> (métrica nova)</td><td>médio</td><td>médio</td><td>Não p/ jogador (cantos manuais)</td></tr>
+        <tr><td><b>B+ · velocidade de bola</b></td><td>alto, se sair</td><td><span style="color:var(--red)">alto</span></td><td><span style="color:var(--red)">alto</span></td><td><span style="color:var(--red)">Sim</span> — bola de beach tennis</td></tr>
+        <tr><td><b>C · vídeo anotado</b></td><td>baixo (acessibilidade)</td><td>baixo</td><td>baixo</td><td>Não</td></tr>
+        <tr><td><b>C · gabarito offline</b></td><td>médio (calibragem)</td><td>baixo</td><td>nenhum</td><td>Não p/ jogador</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- 06 BEACH TENNIS -->
+<section id="beach"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">06</span><h2>Ressalva crítica — é beach tennis, não tênis</h2></div>
+  <p class="sec-sub">A literatura de "tênis‑CV" assume quadra de saibro/dura, singles, com quique. O seu schema é <b>beach tennis, duplas</b> (<span class="inl">models.py:81‑83</span>). Isso <b>derruba metade do toolkit clássico</b>.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <span class="lbl red">o que NÃO se aplica</span>
+      <ul class="clean" style="margin-top:10px">
+        <li><b>Bounce / in‑out.</b> Beach tennis é jogo de <b>voleio</b> (sem quique no chão). Toda a técnica de "detecção de bounce" e "linha in/out" — staple do tênis‑CV — é <b>irrelevante</b> aqui.</li>
+        <li><b>Modelos prontos não transferem.</b> Os modelos de keypoints/bola de <i>tênis</i> do Roboflow Universe foram treinados em quadra dura, saque‑e‑fundo. <b>Areia, rede a 1,7m, quadra 16×8m, 4 jogadores aglomerados</b> são outro domínio.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="lbl grn">o que SOBREVIVE</span>
+      <ul class="clean" style="margin-top:10px">
+        <li><b>Detecção/tracking de pessoas</b> — classe "person" é genérica, funciona livre. <b>É a superfície (A).</b></li>
+        <li><b>Heatmap / ocupação de posição</b> via homografia com cantos manuais (B).</li>
+        <li><b>Contagem de golpes</b> por contato raquete‑bola (se a bola for detectável).</li>
+        <li><b>Identidade do alvo</b> — o de maior valor, e o mais robusto.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout amber">
+    <span class="lbl amb">consequência prática</span>
+    <p>A <b>bola</b> é o calcanhar: bola de beach tennis é pequena, rápida, com motion blur, contra areia/céu. Detectá‑la exige <b>modelo treinado em dado próprio</b> (o supervision tem o <span class="inl">InferenceSlicer</span>/SAHI pra ajudar com objeto pequeno, mas não inventa o detector). Por isso: <b>lidere por métrica de jogador</b> (só precisa de "person" + homografia) e trate <b>velocidade de bola como pesquisa</b>, não como base. <b>Descarte bounce/in‑out.</b></p>
+  </div>
+</div></section>
+
+<!-- 07 CUSTO -->
+<section id="custo"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">07</span><h2>O custo real — sem maquiagem</h2></div>
+  <p class="sec-sub">CV de verdade colide de frente com a postura atual (uma chamada de API, síncrona, VPS única CPU‑only que é o host de produção).</p>
+
+  <div class="grid g2">
+    <div class="card" style="border-color:var(--red-line)">
+      <span class="lbl red">1 · colisão arquitetural</span>
+      <p style="color:var(--dim); font-size:13.8px; margin:9px 0 0">Hoje é "manda bytes pro Gemini". Inferência <b>por‑frame</b> numa VPS <b>CPU‑only, host de produção, síncrona, sem fila de jobs</b>, força exatamente a migração pra <b>assíncrono (job + polling)</b> que o blueprint §09 já aponta — <b>mais</b> GPU local ou inferência hospedada.</p>
+    </div>
+    <div class="card" style="border-color:var(--amber-line)">
+      <span class="lbl amb">2 · peso & deps</span>
+      <p style="color:var(--dim); font-size:13.8px; margin:9px 0 0">O supervision em si é <b>leve</b> (numpy/opencv). O peso de <b>1–3&nbsp;GB</b> vem do backend de modelo (<span class="inl">torch</span> + Ultralytics/Inference) vs. a imagem enxuta de hoje (só <span class="inl">google-genai</span> + FastAPI + psycopg).</p>
+    </div>
+  </div>
+
+  <div class="card" style="padding:6px 6px; margin-top:16px">
+    <table>
+      <thead><tr><th>Inferência</th><th>Prós</th><th>Contras</th><th>Viés LGPD / privacidade</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Hospedada</b><br><span class="mono">Roboflow serverless</span></td>
+          <td>Sem GPU; acesso instantâneo a modelos do Universe; ótimo p/ protótipo.</td>
+          <td>Custo por chamada; latência de rede; caro/lento p/ vídeo longo (frame a frame).</td>
+          <td><span style="color:var(--red)">Frames SAEM do ambiente.</span> Atrita com a postura cuidadosa de vocês (sem reconhecimento facial, LGPD citado em <span class="inl">SubjectHint</span>).</td>
+        </tr>
+        <tr>
+          <td><b>Local</b><br><span class="mono">Ultralytics / inference</span></td>
+          <td>Frames ficam em casa; sem custo por chamada; sem dependência de rede.</td>
+          <td>Você fornece a compute; <b>GPU fortemente preferível</b> p/ vídeo (CPU é lento demais).</td>
+          <td><span style="color:var(--green-2)">Dados não saem.</span> Alinhado à privacidade — ao custo de uma GPU.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="color:var(--faint); font-size:13px; margin:12px 2px 0">Pra vídeo, o padrão realista é <b>inferência local em GPU</b> (com o supervision pra tracking/zonas/anotação), reservando a API hospedada pra protótipo ou volume baixo.</p>
+</div></section>
+
+<!-- 08 SPIKE -->
+<section id="spike"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">08</span><h2>O spike — testar a hipótese de maior valor barato</h2></div>
+  <p class="sec-sub">Antes de mexer em qualquer infra: provar (ou refutar) a superfície (A) num único clipe, <b>offline</b>, num ambiente com GPU (Colab serve). Zero treino de modelo. Esqueleto abaixo — ponto de partida, não cópia‑cola garantida.</p>
+
+  <pre class="code"><span class="c"># spike_target_lock.py — prova de conceito (A): travar o atleta-alvo</span>
+<span class="c"># Rodar com GPU (Colab serve). NÃO entra em produção — é experimento offline.</span>
+<span class="c">#   pip install supervision ultralytics</span>
+import numpy as np, supervision as sv
+from ultralytics import YOLO
+
+SOURCE = <span class="s">"00000201.mp4"</span>            <span class="c"># o clipe de calibragem que vocês já usam</span>
+TARGET = <span class="s">"clip_alvo_anotado.mp4"</span>   <span class="c"># saída: mesmo clipe, só o ALVO destacado</span>
+
+model   = YOLO(<span class="s">"yolo11m.pt"</span>)         <span class="c"># classe 0 = 'person' (pré-treinado, zero treino)</span>
+tracker = sv.ByteTrack()
+box, trace, label = sv.BoxAnnotator(), sv.TraceAnnotator(), sv.LabelAnnotator()
+info    = sv.VideoInfo.from_video_path(SOURCE)
+TARGET_ID = None                       <span class="c"># trava no 1º frame, a partir do quadrante da UI</span>
+
+def annotate(frame, i):
+    global TARGET_ID
+    res = model(frame, classes=[<span class="f">0</span>], verbose=False)[<span class="f">0</span>]
+    det = sv.Detections.from_ultralytics(res)
+    det = tracker.update_with_detections(det)
+
+    <span class="c"># Q3 do Caio = canto inferior-esquerdo do frame (x &lt; meio, y &gt; meio)</span>
+    if TARGET_ID is None and len(det):
+        for xyxy, tid in zip(det.xyxy, det.tracker_id):
+            cx, cy = (xyxy[<span class="f">0</span>]+xyxy[<span class="f">2</span>])/<span class="f">2</span>, (xyxy[<span class="f">1</span>]+xyxy[<span class="f">3</span>])/<span class="f">2</span>
+            if cx &lt; info.width/<span class="f">2</span> and cy &gt; info.height/<span class="f">2</span>:
+                TARGET_ID = int(tid); break
+
+    mask = det.tracker_id == TARGET_ID if TARGET_ID is not None else np.zeros(len(det), bool)
+    alvo = det[mask]
+    out  = box.annotate(frame.copy(), alvo)
+    out  = trace.annotate(out, alvo)
+    return label.annotate(out, alvo, labels=[<span class="s">f"ALVO #{TARGET_ID}"</span>]*len(alvo))
+
+sv.process_video(source_path=SOURCE, target_path=TARGET, callback=annotate)
+print(<span class="s">"ok ->"</span>, TARGET)</pre>
+
+  <div class="dod">
+    <span class="lbl">✓ Critério de aceite do spike (no clipe 00000201)</span>
+    <b>(a)</b> o overlay segue <b>o mesmo atleta</b> (azul, fundo‑esquerda = Q3) do começo ao fim, sem pular pro parceiro;
+    <b>(b)</b> mandar <b>o clipe anotado</b> pro mesmo prompt do Gemini e o laudo <b>parar de narrar o atleta errado</b>;
+    <b>(c)</b> contar quantos frames o tracker <b>perde/troca</b> o alvo (mede a fragilidade por oclusão antes de investir).
+  </div>
+
+  <div class="loop" style="margin-top:20px">
+    <div class="lnode hot"><span class="ln">01 ←</span><h5>Spike (A)</h5><p>1 clipe, offline, GPU. Sem treinar nada.</p></div>
+    <div class="lnode"><span class="ln">02</span><h5>Decisão de infra</h5><p>Provou? Aí sim: assíncrono + GPU/hospedado.</p></div>
+    <div class="lnode"><span class="ln">03</span><h5>Homografia (B)</h5><p>Cantos manuais da UI → ViewTransformer → métrica.</p></div>
+    <div class="lnode"><span class="ln">04</span><h5>Bola/velocidade</h5><p>Pesquisa: modelo de bola p/ beach tennis.</p></div>
+    <div class="lnode"><span class="ln">05</span><h5>Descartado</h5><p>Bounce / in‑out — não se aplica ao beach.</p></div>
+  </div>
+
+  <div class="callout green" style="margin-top:18px">
+    <span class="lbl grn">por que é o teste certo</span>
+    <p>Custa quase nada (sem treino, sem infra, sem tocar produção), mira a <b>hipótese de maior valor</b> e mapeia direto nos campos que vocês já criaram (<span class="inl">target_quadrant</span>, <span class="inl">observed_side</span>). Se <b>não</b> matar a falha do "atleta errado", você descobriu barato que CV não é o caminho — sem ter reescrito a arquitetura.</p>
+  </div>
+</div></section>
+
+<!-- 09 REFERENCIAS -->
+<section id="ref"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">09</span><h2>Referências — primitivos e fontes</h2></div>
+  <p class="sec-sub">Nomes de classe verificados nas docs/código. Modelos de tênis vivem <b>fora</b> do repo sports (Universe + comunidade).</p>
+
+  <div class="card" style="padding:6px 6px; margin-bottom:18px">
+    <table>
+      <thead><tr><th>Primitivo supervision</th><th>Uso no seu caso</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">sv.Detections</td><td>Container universal — converte saída de qualquer modelo (<span class="mono">from_ultralytics</span>, <span class="mono">from_inference</span>).</td></tr>
+        <tr><td class="mono">sv.ByteTrack</td><td><b>Superfície (A)</b> — IDs persistentes pros 4 jogadores; segue o alvo entre frames.</td></tr>
+        <tr><td class="mono">ViewTransformer <span class="tag">repo sports</span></td><td><b>Superfície (B)</b> — homografia px→quadra (<span class="mono">cv2.findHomography</span>). Agnóstico de esporte, reusável.</td></tr>
+        <tr><td class="mono">sv.PolygonZone</td><td>Ocupação por zona da quadra (recepção, rede) — contagem de presença.</td></tr>
+        <tr><td class="mono">sv.InferenceSlicer</td><td>SAHI/tiling — ajuda a detectar a <b>bola pequena</b> (não substitui o detector).</td></tr>
+        <tr><td class="mono">sv.KeyPoints + Vertex/Edge</td><td>Keypoints da quadra (homografia automática) ou pose do jogador.</td></tr>
+        <tr><td class="mono">Box/Trace/HeatMap Annotator</td><td><b>Superfície (C)</b> — overlay visual: caixa do alvo, rastro, mapa de calor.</td></tr>
+        <tr><td class="mono">get_video_frames_generator · VideoSink · process_video</td><td>Ler frames e escrever o vídeo anotado (o esqueleto do §08).</td></tr>
+        <tr><td class="mono">MeanAveragePrecision</td><td>Avaliar um detector próprio se você treinar bola/quadra de beach tennis.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ul class="reflist">
+    <li><b>supervision</b> — toolkit (MIT, Python ≥3.10) · <a href="https://github.com/roboflow/supervision">github.com/roboflow/supervision</a> · docs <a href="https://supervision.roboflow.com/">supervision.roboflow.com</a></li>
+    <li><b>roboflow/sports</b> — exemplos futebol/basquete; fonte do <span class="mono">ViewTransformer</span> · <a href="https://github.com/roboflow/sports">github.com/roboflow/sports</a></li>
+    <li><b>Ball Tracking in Sports</b> — receita de bola pequena (InferenceSlicer + NMS) · <a href="https://blog.roboflow.com/tracking-ball-sports-computer-vision/">blog.roboflow.com/tracking-ball-sports-computer-vision</a></li>
+    <li><b>Camera Calibration with Keypoints</b> — padrão keypoints da quadra → homografia · <a href="https://blog.roboflow.com/camera-calibration-sports-computer-vision/">blog.roboflow.com/camera-calibration-sports-computer-vision</a></li>
+    <li><b>Modelos de tênis (Roboflow Universe)</b> — <span class="mono">tennis-court-keypoints</span>, <span class="mono">tennis-ball-detection</span> (drop-in via Inference; <b>treinados em tênis, não beach</b> — validar transferência).</li>
+    <li><b>abdullahtarek/tennis_analysis</b> — pipeline tênis de referência (YOLO jogadores+bola, keypoints de quadra, mini‑court, velocidade, contagem) · <a href="https://github.com/abdullahtarek/tennis_analysis">github.com/abdullahtarek/tennis_analysis</a></li>
+  </ul>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="hr"></div>
+  BITVAR IA · avaliação de visão computacional — roboflow/supervision · 30 jun 2026<br>
+  veredito: aplicabilidade real mas concentrada · encaixe nº1 = travar o atleta‑alvo (pessoa = modelo pronto) · homografia destrava métrica via cantos manuais · bounce/in‑out não se aplica ao beach tennis · custo = inferência por‑frame ⇒ async + GPU/hospedado · próximo passo = spike num clipe sem tocar produção<br>
+  fontes verificadas: README/docs/código do supervision &amp; sports · código real em app/tennis/ · gerado por illumi · uso interno
+</div></footer>
+
+</body>
+</html>

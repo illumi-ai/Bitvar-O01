@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITVAR IA — Specs de Refinamento · Feedback Caio Bitvar (13/06/2026)</title>
+<style>
+  :root{
+    --bg:#070b14;
+    --bg-elev:#0c1322;
+    --bg-card:#101a2e;
+    --bg-card-2:#0e1626;
+    --border:#1d2a44;
+    --border-soft:#16223a;
+    --text:#e8eef8;
+    --text-dim:#8ea0bd;
+    --text-faint:#5e718f;
+    --green:#34d27b;
+    --green-bright:#54e89a;
+    --blue:#4a9eff;
+    --amber:#f5b544;
+    --coral:#ff6f6f;
+    --violet:#a98bff;
+    --grad:linear-gradient(90deg,var(--blue),var(--green));
+    --mono:"SF Mono","JetBrains Mono","Fira Code",ui-monospace,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(74,158,255,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgba(52,210,123,.08), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.65;
+    font-size:16px;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:80px;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px}
+
+  /* ───── HERO ───── */
+  header.hero{
+    padding:64px 0 40px;
+    border-bottom:1px solid var(--border-soft);
+    margin-bottom:8px;
+  }
+  .kicker{
+    font-family:var(--mono);
+    font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--green);display:flex;align-items:center;gap:10px;margin-bottom:20px;
+  }
+  .kicker .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green)}
+  h1{
+    font-size:clamp(28px,5vw,44px);line-height:1.1;letter-spacing:-.02em;font-weight:800;
+    margin-bottom:16px;
+  }
+  h1 .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--text-dim);font-size:17px;max-width:640px}
+  .meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+  .badge{
+    font-family:var(--mono);font-size:12px;letter-spacing:.04em;
+    padding:7px 13px;border:1px solid var(--border);border-radius:999px;
+    background:var(--bg-card);color:var(--text-dim);display:inline-flex;gap:8px;align-items:center;
+  }
+  .badge b{color:var(--text);font-weight:600}
+  .badge .g{color:var(--green)}
+
+  /* ───── VERDICT ───── */
+  .verdict{
+    margin:36px 0;padding:26px 28px;border-radius:16px;
+    background:linear-gradient(135deg,rgba(52,210,123,.10),rgba(74,158,255,.06));
+    border:1px solid rgba(52,210,123,.28);position:relative;overflow:hidden;
+  }
+  .verdict::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--grad)}
+  .verdict h3{font-size:13px;font-family:var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:14px}
+  .verdict p{font-size:18px;color:var(--text);line-height:1.55}
+  .verdict .pct{font-size:15px;color:var(--text-dim);margin-top:14px;font-family:var(--mono)}
+  .verdict .pct b{color:var(--green-bright);font-size:17px}
+
+  /* ───── TOC ───── */
+  nav.toc{
+    margin:40px 0;padding:24px 26px;border:1px solid var(--border);border-radius:14px;background:var(--bg-card-2);
+  }
+  nav.toc h4{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-faint);margin-bottom:16px}
+  nav.toc ol{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:8px 28px;counter-reset:toc}
+  nav.toc a{
+    color:var(--text-dim);text-decoration:none;font-size:14.5px;display:flex;gap:11px;align-items:baseline;
+    padding:5px 0;border-bottom:1px solid transparent;transition:color .15s
+  }
+  nav.toc a:hover{color:var(--green)}
+  nav.toc a .n{font-family:var(--mono);font-size:12px;color:var(--blue);min-width:26px}
+
+  /* ───── SECTIONS ───── */
+  section{margin:52px 0;scroll-margin-top:24px}
+  .sec-head{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+  .sec-head .tag{font-family:var(--mono);font-size:12px;color:var(--bg);background:var(--grad);padding:4px 10px;border-radius:6px;font-weight:700;letter-spacing:.05em}
+  h2{font-size:26px;letter-spacing:-.015em;font-weight:700}
+  .sec-desc{color:var(--text-dim);font-size:15.5px;margin:6px 0 26px;max-width:760px}
+  h3.block{font-size:13px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--blue);margin:36px 0 16px;display:flex;align-items:center;gap:10px}
+  h3.block::after{content:"";flex:1;height:1px;background:var(--border-soft)}
+
+  /* ───── SPEC CARDS ───── */
+  .spec{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+    padding:24px 26px;margin-bottom:18px;position:relative;
+  }
+  .spec:hover{border-color:#28395c}
+  .spec-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+  .spec-id{font-family:var(--mono);font-size:13px;color:var(--green);letter-spacing:.05em;margin-bottom:5px}
+  .spec h4{font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.3}
+  .pill{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border-radius:999px;white-space:nowrap;font-weight:600;flex-shrink:0}
+  .pill.now{background:rgba(52,210,123,.14);color:var(--green-bright);border:1px solid rgba(52,210,123,.3)}
+  .pill.future{background:rgba(245,181,68,.12);color:var(--amber);border:1px solid rgba(245,181,68,.28)}
+  .pill.core{background:rgba(74,158,255,.14);color:var(--blue);border:1px solid rgba(74,158,255,.3)}
+  .spec .lead{color:var(--text);font-size:15.5px;margin-bottom:16px}
+  .spec .field{margin:14px 0}
+  .spec .field .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint);margin-bottom:7px;display:block}
+  .spec ul{list-style:none;margin:0}
+  .spec ul li{position:relative;padding-left:22px;margin:7px 0;color:var(--text-dim);font-size:14.8px}
+  .spec ul li::before{content:"▸";position:absolute;left:2px;color:var(--green);font-size:13px}
+  .spec ul li b{color:var(--text);font-weight:600}
+
+  /* requirement / acceptance grid */
+  .req-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  @media(max-width:680px){.req-grid{grid-template-columns:1fr}.toc ol{grid-template-columns:1fr!important}}
+  .req-box{background:var(--bg-card-2);border:1px solid var(--border-soft);border-radius:10px;padding:14px 16px}
+  .req-box .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint);margin-bottom:9px;display:block}
+  .req-box.gap .lbl{color:var(--coral)}
+  .req-box.want .lbl{color:var(--green)}
+
+  /* ───── QUOTE ───── */
+  .quote{
+    border-left:3px solid var(--blue);background:rgba(74,158,255,.05);
+    padding:13px 18px;margin:16px 0 4px;border-radius:0 10px 10px 0;
+  }
+  .quote p{font-style:italic;color:#cdd9ec;font-size:14.5px;line-height:1.6}
+  .quote .who{font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:8px;font-style:normal;letter-spacing:.05em}
+  .quote .who b{color:var(--blue)}
+
+  /* characteristic chips */
+  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:6px}
+  .chip{font-family:var(--mono);font-size:13px;background:var(--bg-card-2);border:1px solid var(--border);border-radius:8px;padding:7px 13px;color:var(--text)}
+  .chip .new{color:var(--green);font-size:10px;vertical-align:super;margin-left:3px}
+
+  /* baseline panel */
+  .panel{background:var(--bg-card-2);border:1px solid var(--border);border-radius:14px;padding:24px 26px;margin:18px 0}
+  .panel-flow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-family:var(--mono);font-size:13px;color:var(--text-dim)}
+  .panel-flow .step{background:var(--bg-card);border:1px solid var(--border);padding:8px 13px;border-radius:8px;color:var(--text)}
+  .panel-flow .arrow{color:var(--green)}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-top:18px}
+  .metric{background:var(--bg-card);border:1px solid var(--border-soft);border-radius:10px;padding:13px 15px}
+  .metric .cat{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px}
+  .metric .row{display:flex;justify-content:space-between;font-size:13.5px;color:var(--text-dim);margin:4px 0}
+  .metric .row b{color:var(--text);font-family:var(--mono)}
+  .metric .row .s{color:var(--green);font-family:var(--mono)}
+
+  /* domain table */
+  table{width:100%;border-collapse:collapse;margin-top:16px;font-size:14.5px}
+  th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+  th{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);font-weight:600}
+  td b{color:var(--text)}
+  td{color:var(--text-dim)}
+  tr:last-child td{border-bottom:none}
+  .phase{font-family:var(--mono);color:var(--green);font-weight:600}
+
+  /* future cards */
+  .future-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:18px}
+  @media(max-width:680px){.future-grid{grid-template-columns:1fr}}
+  .fcard{background:var(--bg-card);border:1px solid rgba(245,181,68,.18);border-radius:12px;padding:18px 20px}
+  .fcard .ico{font-size:22px;margin-bottom:10px}
+  .fcard h5{font-size:15.5px;margin-bottom:8px;color:var(--text)}
+  .fcard p{font-size:13.8px;color:var(--text-dim)}
+
+  /* directive list for next AI */
+  .directive{background:linear-gradient(135deg,rgba(74,158,255,.07),rgba(52,210,123,.05));border:1px solid var(--border);border-radius:14px;padding:26px 28px}
+  .directive ol{margin-left:4px;counter-reset:d;list-style:none}
+  .directive ol li{position:relative;padding:11px 0 11px 44px;border-bottom:1px solid var(--border-soft);font-size:15px;color:var(--text)}
+  .directive ol li:last-child{border-bottom:none}
+  .directive ol li::before{counter-increment:d;content:counter(d,decimal-leading-zero);position:absolute;left:0;top:11px;font-family:var(--mono);font-size:12px;color:var(--bg);background:var(--grad);width:28px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-weight:700}
+  .directive ol li b{color:var(--green-bright)}
+
+  /* transcripts */
+  details{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+  summary{cursor:pointer;padding:16px 20px;font-family:var(--mono);font-size:14px;color:var(--text);list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary:hover{background:var(--bg-card-2)}
+  summary .time{color:var(--text-faint);font-size:12px}
+  summary .chev{color:var(--green);transition:transform .2s}
+  details[open] summary .chev{transform:rotate(90deg)}
+  details .body{padding:4px 22px 22px;color:var(--text-dim);font-size:14.5px;line-height:1.7;border-top:1px solid var(--border-soft)}
+  details .body p{margin-top:14px}
+
+  /* callout */
+  .callout{display:flex;gap:14px;padding:16px 20px;border-radius:12px;margin:18px 0;font-size:14.8px;line-height:1.6}
+  .callout.warn{background:rgba(245,181,68,.07);border:1px solid rgba(245,181,68,.22);color:#e8d9b8}
+  .callout.info{background:rgba(74,158,255,.06);border:1px solid rgba(74,158,255,.2);color:#cdddf2}
+  .callout .ico{font-size:18px;flex-shrink:0}
+  .callout b{color:var(--text)}
+
+  footer.foot{margin-top:64px;padding-top:28px;border-top:1px solid var(--border-soft);color:var(--text-faint);font-family:var(--mono);font-size:12px;text-align:center;line-height:1.9}
+  footer.foot .g{color:var(--green)}
+
+  a.inl{color:var(--blue);text-decoration:none;border-bottom:1px solid rgba(74,158,255,.3)}
+
+  @media print{
+    body{background:#fff;color:#111}
+    .verdict,.spec,.panel,.directive,details,nav.toc{break-inside:avoid}
+    .badge,.pill{border-color:#ccc}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ════════ HERO ════════ -->
+  <header class="hero">
+    <div class="kicker"><span class="dot"></span>BITVAR IA · Caderno de Refinamento · POC Beach Tennis</div>
+    <h1>Ponderações &amp; sugestões do <span class="grad">Caio Bitvar</span><br>sobre o protótipo de análise de atleta</h1>
+    <p class="sub">Especificações extraídas do feedback de <b>13/06/2026</b> (6 áudios + arquitetura textual + screenshots do teste real). Documento-fonte para alimentar a próxima iteração de IA.</p>
+    <div class="meta-row">
+      <span class="badge">📅 <b>13 jun 2026</b> · 05h38–08h14</span>
+      <span class="badge">🎧 <b>6 áudios</b> transcritos</span>
+      <span class="badge">📸 <b>8 prints</b> do output</span>
+      <span class="badge">🔗 <b>001.bitvar.illumiai.com/tennis</b></span>
+      <span class="badge"><span class="g">●</span> protótipo <b>validado</b></span>
+    </div>
+  </header>
+
+  <!-- ════════ VERDICT ════════ -->
+  <div class="verdict">
+    <h3>Veredito do Caio</h3>
+    <p>“Você entendeu <b>perfeitamente</b> a ideia. Ficou <b>muito além das expectativas</b>. A arquitetura está excelente — agora é só <b>lapidar</b>.”</p>
+    <div class="pct">Estágio declarado pelo cliente: <b>~90%</b> do caminho andado · fase atual = <b>ajuste fino</b> (não é refazer, é refinar a leitura)</div>
+  </div>
+
+  <p style="color:var(--text-dim);font-size:15px">
+    O protótipo já recebe um vídeo, identifica o atleta por descrição e devolve uma análise técnica completa (nota por golpe, execução, biomecânica, footwork, intenção tática e relatório do treinador). O feedback do Caio <b>não pede features novas de base</b> — ele pede precisão na <b>identificação da pessoa certa</b> e na <b>leitura correta do que ela está fazendo</b> em cada momento da quadra. Abaixo, tudo está estruturado como specs acionáveis.
+  </p>
+
+  <!-- ════════ TOC ════════ -->
+  <nav class="toc">
+    <h4>Índice</h4>
+    <ol>
+      <li><a href="#baseline"><span class="n">00</span> O que o protótipo já entrega (baseline)</a></li>
+      <li><a href="#arquitetura"><span class="n">01</span> A arquitetura do Caio (5 pontos)</a></li>
+      <li><a href="#bloco-a"><span class="n">A</span> Identificação &amp; rastreamento do atleta</a></li>
+      <li><a href="#bloco-b"><span class="n">B</span> Referência de câmera</a></li>
+      <li><a href="#bloco-c"><span class="n">C</span> Protocolos de análise por fase</a></li>
+      <li><a href="#bloco-d"><span class="n">D</span> Coerência &amp; granularidade da leitura</a></li>
+      <li><a href="#bloco-e"><span class="n">E</span> Saída, salvar &amp; redes sociais</a></li>
+      <li><a href="#dominio"><span class="n">02</span> Parâmetros do treinador (domínio)</a></li>
+      <li><a href="#futuro"><span class="n">F</span> Visão de futuro (roadmap)</a></li>
+      <li><a href="#resumo"><span class="n">03</span> Resumo para a próxima IA</a></li>
+      <li><a href="#transcricoes"><span class="n">04</span> Transcrições na íntegra</a></li>
+    </ol>
+  </nav>
+
+  <!-- ════════ BASELINE ════════ -->
+  <section id="baseline">
+    <div class="sec-head"><span class="tag">00</span><h2>O que o protótipo já entrega</h2></div>
+    <p class="sec-desc">Baseline atual em <b>001.bitvar.illumiai.com/tennis</b> — é sobre isto que o Caio está dando feedback. A próxima IA deve <b>refinar</b> este fluxo, não recomeçar.</p>
+
+    <div class="panel">
+      <div class="panel-flow">
+        <span class="step">Upload do vídeo</span><span class="arrow">→</span>
+        <span class="step">“Quem é você no vídeo?” (Nome · Roupa · Lado/Posição · Dicas)</span><span class="arrow">→</span>
+        <span class="step">Analisar</span><span class="arrow">→</span>
+        <span class="step">Análise técnica do lance</span>
+      </div>
+      <p style="color:var(--text-dim);font-size:13.5px;margin-top:16px;font-family:var(--mono)">
+        Config detectada nos prints: GÊNERO Masculino · MODO Clipe (lance) · fps 4 · media_res HIGH · thinking high · duração 45s · detecção limiar 75s · stack <b style="color:var(--text)">gemini-3.5-flash + 3.1-flash-tts</b> · opção “Gerar narração em voz (Vindemiatrix)” · sem persistência obrigatória.
+      </p>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="cat">Métrica-síntese</div>
+          <div class="row"><b>GOLPE: SMASH</b><span class="s">6.6/10</span></div>
+          <div class="row" style="font-size:12px;color:var(--text-faint)">radar: Preparação · Ponto · Finalização · Equilíbrio · Trajetória</div>
+        </div>
+        <div class="metric">
+          <div class="cat">Execução técnica</div>
+          <div class="row">Preparação <b class="s">7</b></div>
+          <div class="row">Ponto de contato <b class="s">6</b></div>
+          <div class="row">Finalização <b class="s">6</b></div>
+          <div class="row">Equilíbrio/postura <b class="s">7</b></div>
+          <div class="row">Trajetória raquete <b class="s">6</b></div>
+        </div>
+        <div class="metric">
+          <div class="cat">Footwork &amp; movimentação</div>
+          <div class="row">Split step <b class="s">8</b></div>
+          <div class="row">Posicionamento <b class="s">7</b></div>
+          <div class="row">Recuperação <b class="s">7</b></div>
+        </div>
+        <div class="metric">
+          <div class="cat">Biomecânica</div>
+          <div class="row">Cadeia cinética <b class="s">6</b></div>
+          <div class="row">Rotação quadril/ombro <b class="s">6</b></div>
+          <div class="row">Transferência de peso <b class="s">6</b></div>
+        </div>
+        <div class="metric">
+          <div class="cat">Intenção tática</div>
+          <div class="row">Colocação do golpe <b class="s">6</b></div>
+          <div class="row">Seleção do golpe <b class="s">8</b></div>
+        </div>
+        <div class="metric">
+          <div class="cat">+ Saída narrativa</div>
+          <div class="row" style="color:var(--text-dim)">“Principal correção” + <b>Relatório do treinador (PT-BR)</b> + narração TTS opcional</div>
+        </div>
+      </div>
+    </div>
+    <div class="callout info"><span class="ico">ℹ️</span><div>O teste foi feito com o atleta <b>“Marcelo Carvalho Dias · Camiseta Azul, short Azul, boné verde · Lado esquerdo do vídeo, lado direito da quadra · Destro, alto 1,95m”</b> sobre a câmera central. É exatamente este caso que o Caio usa como referência nos áudios.</div></div>
+  </section>
+
+  <!-- ════════ ARQUITETURA ════════ -->
+  <section id="arquitetura">
+    <div class="sec-head"><span class="tag">01</span><h2>A arquitetura proposta pelo Caio</h2></div>
+    <p class="sec-desc">Texto enviado pelo Caio às 06h38 (“Arquitetura da análise do atleta”). É o esqueleto que organiza todas as specs abaixo.</p>
+    <div class="spec">
+      <ul>
+        <li><b>1 · Leitura facial</b> — avaliar se, a partir dela, a IA consegue acompanhar o atleta <b>onde quer que ele esteja na quadra</b>, lendo as posições em que ele esteve durante a recepção ou durante o ataque dentro de um game.</li>
+        <li><b>2 · Referência da câmera</b> que está sendo utilizada para analisar.</li>
+        <li><b>3 · Características do atleta</b> — Nome · Altura · Peso · Cor · Características do cabelo ou boné · Camisa · Short.</li>
+        <li><b>4 · Parâmetros-base de análise</b> — <b>recepção, saque, ataque</b> durante o ponto disputado no game.</li>
+        <li><b>5 · Salvar o relatório</b> para divulgação nas redes sociais.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ════════ BLOCO A ════════ -->
+  <section id="bloco-a">
+    <div class="sec-head"><span class="tag">A</span><h2>Identificação &amp; rastreamento do atleta</h2></div>
+    <p class="sec-desc">O ponto nº1 do Caio. A IA precisa <b>cravar quem é a pessoa-alvo</b> e segui-la pela quadra, ignorando parceiro, adversário e quem está ao fundo.</p>
+
+    <!-- A1 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC A1</div><h4>Coleta ampliada de características do atleta</h4></div>
+        <span class="pill now">Agora · ajuste fino</span>
+      </div>
+      <p class="lead">Expandir os campos de identificação para que a descrição seja específica o bastante para a IA “travar” na pessoa certa. Quanto mais discriminante, mais fácil isolar o alvo.</p>
+      <div class="field">
+        <span class="lbl">Características a capturar (✦ = pedidas/reforçadas hoje)</span>
+        <div class="chips">
+          <span class="chip">Nome completo</span>
+          <span class="chip">Altura<span class="new">✦</span></span>
+          <span class="chip">Peso<span class="new">✦</span></span>
+          <span class="chip">Cor</span>
+          <span class="chip">Cabelo / boné<span class="new">✦</span></span>
+          <span class="chip">Camisa</span>
+          <span class="chip">Short</span>
+          <span class="chip">Raquete<span class="new">✦</span></span>
+          <span class="chip">Óculos<span class="new">✦</span></span>
+          <span class="chip">Destro / canhoto<span class="new">✦</span></span>
+        </div>
+      </div>
+      <div class="req-grid">
+        <div class="req-box gap"><span class="lbl">Hoje</span>Campos livres: Nome · Roupa/Aparência · Lado/Posição · “Outras dicas”.</div>
+        <div class="req-box want"><span class="lbl">Caio quer</span>Campos discriminantes (altura, peso, lateralidade, raquete, óculos) que ajudem a IA a isolar a pessoa, sobretudo quando há várias na quadra/de longe.</div>
+      </div>
+      <div class="quote"><p>“A gente só precisa identificar a pessoa, dar as características… pela altura e peso da pessoa fica bem específico. Uma característica de camisa, de short, raquete, óculos. Identifique-se claramente na quadra — porque jogador de longe fica mais complicado de identificar.”</p><div class="who"><b>Caio</b> · áudio 05h38</div></div>
+    </div>
+
+    <!-- A2 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC A2</div><h4>Leitura facial para identificação nominal</h4></div>
+        <span class="pill core">Núcleo da visão</span>
+      </div>
+      <p class="lead">A peça central que o Caio quer validar: fazer uma <b>leitura facial</b> do atleta para capturar o rosto e nomear quem é (“o fulano, o ciclano, o beltrano”), permitindo que a IA reconheça e siga aquele indivíduo específico no vídeo.</p>
+      <ul>
+        <li>Capturar a <b>imagem do rosto</b> e vincular ao perfil do atleta.</li>
+        <li>Com isso, a IA “lê o Caio, lê o Mateus, o João, o Mané e o Pelé” — separa um do outro.</li>
+        <li>É o que viabiliza o <b>acompanhamento contínuo</b> (ver A4): seguir o cara mesmo quando ele muda de posição.</li>
+      </ul>
+      <div class="callout warn"><span class="ico">❓</span><div><b>Pergunta aberta do Caio para a engenharia:</b> “É possível isso?” — confirmar a viabilidade técnica de reconhecimento facial no pipeline de vídeo e o que ele exige (resolução, frames, ângulo da câmera).</div></div>
+      <div class="quote"><p>“Fazer uma leitura facial da pessoa pra pegar a imagem do rosto e aí pegar o fulano, ciclano e o beltrano. Acho que seria fantástico. Por leitura facial.”</p><div class="who"><b>Caio</b> · áudio 05h38</div></div>
+    </div>
+
+    <!-- A3 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC A3</div><h4>Protocolo de identificação multi-pessoa</h4></div>
+        <span class="pill now">Agora · ajuste fino</span>
+      </div>
+      <p class="lead">Formalizar “protocolos de identificação / reconhecimento facial das características” para que a IA <b>isole o atleta-alvo</b> em cenas com várias pessoas (parceiro de dupla, adversários, público ao fundo).</p>
+      <div class="quote"><p>“A gente pode definir os protocolos de identificação, reconhecimento facial das características pra deixar bem específico pra IA conseguir ler a pessoa… aí ela faz a leitura correta e acompanha o cara onde ele estiver na quadra.”</p><div class="who"><b>Caio</b> · áudio 05h45</div></div>
+    </div>
+
+    <!-- A4 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC A4</div><h4>Rastreamento contínuo &amp; análise sensível à posição</h4></div>
+        <span class="pill now">Agora · ajuste fino</span>
+      </div>
+      <p class="lead">Seguir o atleta durante o game e <b>contextualizar a análise pela posição</b> em que ele estava. O feedback muda conforme o lado da quadra / lado da dupla.</p>
+      <ul>
+        <li>“Quando você esteve do <b>lado direito</b> da dupla, seus golpes foram esses.”</li>
+        <li>“Quando você esteve do <b>lado esquerdo</b>, foi isso que aconteceu.”</li>
+        <li>Registrar a mudança de posição (acontece o tempo todo) e ajustar a leitura — inclusive considerando se é destro ou canhoto.</li>
+      </ul>
+      <div class="quote"><p>“Esses ajustes finos é pra ela identificar a real posição do cara, o lugar que ele tá e o que realmente ele fez.”</p><div class="who"><b>Caio</b> · áudio 05h45</div></div>
+    </div>
+
+    <!-- A5 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC A5</div><h4>Integração futura: QR code + câmeras fixas</h4></div>
+        <span class="pill future">Futuro</span>
+      </div>
+      <p class="lead">Visão de produto: o atleta faz a leitura facial / lê um <b>QR code pelo celular</b> e isso é injetado no sistema da startup, que está <b>linkado dentro das câmeras</b> da quadra — automatizando a identificação sem descrição manual.</p>
+      <div class="quote"><p>“Faz uma leitura facial, pega o QR code pelo celular e já joga no sistema da startup que vai estar linkado dentro das câmeras.”</p><div class="who"><b>Caio</b> · áudio 05h38</div></div>
+    </div>
+  </section>
+
+  <!-- ════════ BLOCO B ════════ -->
+  <section id="bloco-b">
+    <div class="sec-head"><span class="tag">B</span><h2>Referência de câmera</h2></div>
+    <p class="sec-desc">Ponto nº2 da arquitetura. Padronizar qual câmera serve de base para a leitura espacial.</p>
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC B1</div><h4>Câmera central como referência-base</h4></div>
+        <span class="pill now">Agora · ajuste fino</span>
+      </div>
+      <p class="lead">Adotar a <b>câmera do centro</b> como referência padrão e registrar qual câmera está sendo usada, para que “lado esquerdo do vídeo” mapeie de forma consistente para “lado direito da quadra”.</p>
+      <ul>
+        <li>Guardar a <b>referência da câmera</b> usada em cada análise (metadado).</li>
+        <li>Estabelecer a convenção de mapeamento vídeo↔quadra a partir dessa câmera.</li>
+      </ul>
+      <div class="quote"><p>“Analisando a câmera do centro, a gente pode tomar ela sempre como base. Lado esquerdo do vídeo, lado direito da quadra.”</p><div class="who"><b>Caio</b> · áudio 06h19</div></div>
+    </div>
+  </section>
+
+  <!-- ════════ BLOCO C ════════ -->
+  <section id="bloco-c">
+    <div class="sec-head"><span class="tag">C</span><h2>Protocolos de análise por fase do jogo</h2></div>
+    <p class="sec-desc">Ponto nº4 da arquitetura e o segundo grande foco de hoje: a IA precisa <b>saber o que o atleta está fazendo</b> (recepção / saque / ataque / defesa) e avaliar contra o <b>movimento ideal</b> daquela fase.</p>
+
+    <!-- C1 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC C1</div><h4>Detecção da ação em curso</h4></div>
+        <span class="pill now">Agora · ajuste fino</span>
+      </div>
+      <p class="lead">A IA deve <b>identificar o papel/ação do atleta a cada momento</b> e direcionar a avaliação correspondente: está recebendo? está sacando? durante o game, está atacando (parceiro saca, ele ataca)?</p>
+      <div class="req-grid">
+        <div class="req-box gap"><span class="lbl">Risco observado</span>O protótipo classificou o lance como “SMASH”, mas o Caio aponta que o atleta-referência estava em <b>recepção de saque</b>. A leitura da ação precisa casar com a realidade.</div>
+        <div class="req-box want"><span class="lbl">Caio quer</span>Reconhecer corretamente recepção/saque/ataque/defesa e só então aplicar os parâmetros daquela fase.</div>
+      </div>
+      <div class="quote"><p>“Identificar se o cara está recebendo, se está sacando, se durante o game está atacando… pra ler o movimento correto da pessoa durante a partida.”</p><div class="who"><b>Caio</b> · áudios 06h31 e 06h57</div></div>
+    </div>
+
+    <!-- C2 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC C2</div><h4>Parâmetros-base ideais por fase (definidos com treinador)</h4></div>
+        <span class="pill now">Agora · ajuste fino</span>
+      </div>
+      <p class="lead">Para cada fase, definir o <b>“movimento ideal”</b> (gabarito) contra o qual o atleta é comparado. O Caio já está levantando esses parâmetros com o <b>treinador da equipe</b> dele e pede que o Mateus diga <b>quais parâmetros a IA precisa receber</b> para ser alimentada corretamente.</p>
+      <ul>
+        <li>Ex. <b>recepção de saque</b>: base, postura corporal para receber, tempo de reação em bolas curtas, velocidade do movimento de perna, antecipação da bola ao centro.</li>
+        <li>Passar o “relatório do movimento ideal” para quem saca e para quem recebe.</li>
+        <li>Referência cruzada usada pelo Caio: vídeo de um <b>levantador/armador de vôlei</b> como exemplo de “movimento ideal” a espelhar.</li>
+      </ul>
+      <div class="callout info"><span class="ico">🤝</span><div><b>Ação conjunta:</b> Caio fornece o gabarito técnico (com o treinador). Mateus define a especificação de entrada — “quais parâmetros você precisa pra alimentar ela certinho”.</div></div>
+      <div class="quote"><p>“A gente dá uma característica base da defesa, de uma recepção de saque, de como a defesa tem que estar, e ela avalia aquele momento. Conversei com o nosso treinador pra ver o que a gente consegue afinar.”</p><div class="who"><b>Caio</b> · áudio 06h20</div></div>
+    </div>
+
+    <!-- C3 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC C3</div><h4>Setorização &amp; melhor posicionamento</h4></div>
+        <span class="pill now">Agora · ajuste fino</span>
+      </div>
+      <p class="lead">Além de avaliar o golpe, indicar <b>qual a melhor posição</b> que o atleta deveria ocupar na quadra naquele contexto — a <b>setorização</b> ideal.</p>
+      <div class="quote"><p>“Qual a melhor posição que ele tem que estar na quadra? Qual a setorização?”</p><div class="who"><b>Caio</b> · áudio 06h57</div></div>
+    </div>
+  </section>
+
+  <!-- ════════ BLOCO D ════════ -->
+  <section id="bloco-d">
+    <div class="sec-head"><span class="tag">D</span><h2>Coerência &amp; granularidade da leitura</h2></div>
+    <p class="sec-desc">O critério de qualidade que o Caio quer validar nesta rodada: as respostas batem com o que realmente aconteceu no vídeo?</p>
+
+    <!-- D1 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC D1</div><h4>Validação de coerência das respostas</h4></div>
+        <span class="pill now">Agora · ajuste fino</span>
+      </div>
+      <p class="lead">Conferir, golpe a golpe, se os movimentos que a IA descreveu <b>são coerentes</b> com o que o atleta efetivamente fez no lance. É o teste central desta iteração.</p>
+      <div class="quote"><p>“Vamo analisar as respostas que ela deu, se estão coerentes, se esses movimentos que ele fez estão coerentes. Acho que a grande questão é essa pra gente afinar agora.”</p><div class="who"><b>Caio</b> · áudio 06h19</div></div>
+    </div>
+
+    <!-- D2 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC D2</div><h4>Granularidade do movimento (micro-detalhe)</h4></div>
+        <span class="pill now">Agora · ajuste fino</span>
+      </div>
+      <p class="lead">A leitura precisa descer ao detalhe biomecânico fino que um treinador enxerga — não só rotular o golpe.</p>
+      <ul>
+        <li>Exemplo real apontado: numa bola curta, o <b>movimento de perna estava lento</b>.</li>
+        <li>A <b>antecipação da bola ao centro estava lenta</b>.</li>
+        <li>Esses são os “parâmetros-base” que precisam entrar para identificar o que o atleta está fazendo.</li>
+      </ul>
+      <div class="quote"><p>“Esse menino que coloquei como referência estava fazendo recepção de saque. O movimento de perna dele numa bola curta tá lento; a antecipação da bola ao centro tá lenta. Esse parâmetro a gente tem que colocar.”</p><div class="who"><b>Caio</b> · áudio 06h57</div></div>
+    </div>
+  </section>
+
+  <!-- ════════ BLOCO E ════════ -->
+  <section id="bloco-e">
+    <div class="sec-head"><span class="tag">E</span><h2>Saída, salvar &amp; redes sociais</h2></div>
+    <p class="sec-desc">Ponto nº5 da arquitetura + uma fricção prática que o Caio bateu duas vezes.</p>
+
+    <!-- E1 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC E1</div><h4>Salvar o relatório &amp; exportar o teste</h4></div>
+        <span class="pill now">Agora · gap de UX</span>
+      </div>
+      <p class="lead">O Caio <b>perguntou duas vezes</b> como salvar a análise gerada e mandar de volta — hoje o fluxo é “sem persistência obrigatória”. Falta um caminho claro de <b>salvar / exportar / compartilhar</b> o resultado.</p>
+      <div class="quote"><p>“Como que eu faço pra salvar o meu teste aqui e mandar pra você? Salvar o documento que eu gerei?”</p><div class="who"><b>Caio</b> · áudio 05h38 (repetido)</div></div>
+    </div>
+
+    <!-- E2 -->
+    <div class="spec">
+      <div class="spec-top">
+        <div><div class="spec-id">SPEC E2</div><h4>Relatório pronto para divulgação em redes sociais</h4></div>
+        <span class="pill now">Agora</span>
+      </div>
+      <p class="lead">Gerar a saída em formato adequado para <b>divulgação nas redes sociais</b> (ponto 5 da arquitetura) — o relatório não é só interno, é peça de marketing do atleta/da plataforma.</p>
+    </div>
+  </section>
+
+  <!-- ════════ DOMÍNIO ════════ -->
+  <section id="dominio">
+    <div class="sec-head"><span class="tag">02</span><h2>Parâmetros do treinador — conhecimento de domínio</h2></div>
+    <p class="sec-desc">Gabarito inicial consolidado das falas do Caio. A ser completado com o treinador da equipe. Serve de base para a “entrada de parâmetros” que o Mateus vai especificar.</p>
+    <table>
+      <thead><tr><th style="width:130px">Fase</th><th>O que a IA avalia</th><th style="width:180px">Sinais de erro citados</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="phase">Recepção<br>(receptor)</td>
+          <td><b>Base</b> e <b>postura corporal</b> para receber os golpes · <b>tempo de reação</b> em bolas curtas · velocidade do <b>movimento de perna</b> · <b>antecipação</b> da bola ao centro</td>
+          <td>perna lenta na bola curta · antecipação ao centro lenta</td>
+        </tr>
+        <tr>
+          <td class="phase">Saque</td>
+          <td>Movimento ideal de saque (gabarito a definir com treinador) · comparar execução do atleta ao padrão</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="phase">Ataque</td>
+          <td>Quando o parceiro saca e ele ataca: leitura do golpe de ataque · melhor posição/setorização para atacar</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="phase">Contexto<br>posicional</td>
+          <td>Lado direito vs lado esquerdo da dupla → conjuntos de golpes e correções distintos · destro/canhoto altera a leitura</td>
+          <td>análise “genérica” sem considerar o lado</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout info"><span class="ico">🏐</span><div><b>Referência de “movimento ideal”:</b> o Caio mandou um vídeo de um <b>levantador/armador de vôlei</b> (Facebook) como exemplo do padrão de postura/movimento a ser usado como gabarito comparativo.</div></div>
+  </section>
+
+  <!-- ════════ FUTURO ════════ -->
+  <section id="futuro">
+    <div class="sec-head"><span class="tag">F</span><h2>Visão de futuro — roadmap</h2></div>
+    <p class="sec-desc">Explicitamente marcado pelo Caio como “pra um futuro” — não entra agora, mas orienta a direção do produto. “O negócio vai ficando louco.”</p>
+    <div class="future-grid">
+      <div class="fcard"><div class="ico">🎾</div><h5>Recomendação de equipamento</h5><p>Com base na característica de golpe/corrida do atleta, indicar a <b>raquete</b>, o <b>tênis</b> ou a <b>chuteira</b> ideal (ex.: estabilidade por posição).</p></div>
+      <div class="fcard"><div class="ico">🤝</div><h5>Marketplace de marcas</h5><p>Trazer empresas de <b>tênis e raquete</b> para dentro da recomendação — “cria um negócio no mercado que fica muito louco”.</p></div>
+      <div class="fcard"><div class="ico">🏟️</div><h5>Expansão multiesporte</h5><p>Mesmos protocolos para <b>tênis, vôlei, basquete</b> (ala, pivô), <b>futebol</b> (ex.: meia-esquerda) e <b>corrida 100m</b> (postura corporal).</p></div>
+      <div class="fcard"><div class="ico">🎯</div><h5>Aulas individuais</h5><p>Aplicar a análise em <b>aulas individuais</b>, não só em jogo — “vai ficar fantástico”.</p></div>
+      <div class="fcard"><div class="ico">📷</div><h5>Câmeras + QR (ver A5)</h5><p>Identificação automática via QR/leitura facial linkada às <b>câmeras fixas</b> da quadra.</p></div>
+      <div class="fcard"><div class="ico">🏃</div><h5>Performance por modalidade</h5><p>Ex. corredor de 100m: “com essa postura, melhore X; com tal tênis, sua performance melhora assim”.</p></div>
+    </div>
+  </section>
+
+  <!-- ════════ RESUMO P/ IA ════════ -->
+  <section id="resumo">
+    <div class="sec-head"><span class="tag">03</span><h2>Resumo para a próxima IA</h2></div>
+    <p class="sec-desc">Destilação acionável. Cole isto como diretriz de implementação da próxima iteração (foco = “ajuste fino”, manter o que já funciona).</p>
+    <div class="directive">
+      <ol>
+        <li><b>Identificação robusta do alvo:</b> ampliar características (altura, peso, lateralidade, raquete, óculos, cabelo/boné) e avaliar <b>leitura facial</b> para nomear e isolar o atleta entre várias pessoas.</li>
+        <li><b>Rastreamento contínuo:</b> seguir o atleta pela quadra e <b>contextualizar por posição</b> (lado direito vs esquerdo da dupla → correções diferentes; respeitar destro/canhoto).</li>
+        <li><b>Câmera-base:</b> usar a câmera central como referência e registrar o mapeamento vídeo↔quadra.</li>
+        <li><b>Detecção de ação:</b> classificar corretamente recepção / saque / ataque / defesa antes de avaliar — não rotular tudo como “smash”.</li>
+        <li><b>Gabarito por fase:</b> comparar contra o “movimento ideal” de cada fase (parâmetros a receber do treinador; ex. recepção = base, postura, tempo de reação, velocidade de perna, antecipação).</li>
+        <li><b>Granularidade de treinador:</b> descer ao micro-detalhe (perna lenta na bola curta, antecipação lenta ao centro).</li>
+        <li><b>Coerência:</b> garantir que a leitura bate com o que aconteceu no lance — esse é o critério de aceite desta rodada.</li>
+        <li><b>Setorização:</b> recomendar a melhor posição/posicionamento na quadra.</li>
+        <li><b>Salvar &amp; compartilhar:</b> permitir salvar o relatório e exportá-lo pronto para redes sociais (resolver a fricção “como salvo e te mando?”).</li>
+        <li><b>Não escopo agora (roadmap):</b> recomendação de equipamento + marcas, multiesporte, QR/câmeras, aulas individuais.</li>
+      </ol>
+    </div>
+    <div class="callout warn" style="margin-top:22px"><span class="ico">⚠️</span><div><b>Itens em aberto para a engenharia confirmar:</b> (1) viabilidade de reconhecimento facial no pipeline de vídeo e seus requisitos; (2) especificação exata dos parâmetros de entrada por fase (Mateus define, treinador valida); (3) formato/UX de salvar e exportar para redes sociais.</div></div>
+  </section>
+
+  <!-- ════════ TRANSCRIÇÕES ════════ -->
+  <section id="transcricoes">
+    <div class="sec-head"><span class="tag">04</span><h2>Transcrições na íntegra</h2></div>
+    <p class="sec-desc">Fonte bruta (ElevenLabs Scribe v2 · PT-BR 100%). Mantida para a próxima IA recuperar nuance que a síntese possa ter perdido.</p>
+
+    <details>
+      <summary><span>🎧 Áudio 137 — verdito + identificação + leitura facial</span><span class="time">05h38 · <span class="chev">›</span></span></summary>
+      <div class="body"><p>“Mateus, eu tentei te mandar… coloquei um vídeo, subi um vídeo aleatório. Cara, eu achei fantástico, fantástico. É exatamente — você entendeu exatamente o que a gente precisa. O que que a gente tem que afinar agora? Praticamente você já fez tudo. Primeira coisa: dar as informações pessoais da pessoa. Por exemplo: nome completo, altura; nós temos que colocar uma característica da pessoa específica daquela quadra, pra IA acompanhar onde ela for. A pessoa tá ali recepcionando o saque do lado direito, aí ela vai falar da recepção dela — a recepção tá ótima, tá isso, tá aquilo, os golpes assim durante o jogo. Depois, se ela mudar de posição pra receber, porque isso acontece: no momento que você ficou do lado esquerdo, você tem que mudar isso, isso e isso. A característica é essa — se você for destro ou canhoto. A gente tem que dar as informações específicas pra IA pegar a pessoa de fato. Como fazer isso? Pela altura da pessoa, se colocar a altura certinho; pelo peso da pessoa, fica bem específico. Característica de camisa, de short, raquete, óculos. A gente só precisa identificar a pessoa, dar as características pra identificar-se claramente na quadra — porque jogador de futebol de longe fica mais complicado. A partir daí a gente dá o parâmetro ideal pro atleta do beach tennis, ou nas aulas individuais. Como que eu faço pra salvar o meu teste e mandar pra você? Ficou fantástico. Eu achei que ia ser um negócio de outro mundo, mas é muito bacana. Tamo no caminho. Dando a possibilidade pra IA localizar de fato a pessoa na quadra — qual a característica específica? Ou seja, fazer uma leitura facial pra pegar a imagem do rosto e pegar o fulano, ciclano e beltrano. Por leitura facial. Pega o QR code, faz a leitura facial pelo celular e joga no sistema da startup que vai estar linkado dentro das câmeras. É possível isso? E como que eu salvo o documento que eu gerei?”</p></div>
+    </details>
+
+    <details>
+      <summary><span>🎧 Áudio 138 — protocolos de identificação + posição + futuro (equipamentos)</span><span class="time">05h45 · <span class="chev">›</span></span></summary>
+      <div class="body"><p>“Aí, Mateus, a gente pode definir os protocolos de identificação, reconhecimento facial das características pra deixar bem específico pra IA conseguir ler a pessoa — porque ela vai ler o Caio, o Mateus, o João, o Mané e o Pelé. Aí faz a leitura correta e acompanha o cara onde ele estiver na quadra. Quando você esteve do lado direito da dupla, os seus golpes foram esses; quando esteve do lado esquerdo, foi isso que aconteceu. Tô falando do beach tennis. Futebol: quando você tava jogando de meia-esquerda, fez isso, deveria ter feito aquilo; as sugestões são essas. Esses ajustes finos pra identificar a real posição do cara, o lugar que ele tá e o que realmente ele fez. Esses protocolos de identificação vão ser importantes durante a partida. No basquete, o cara que é ala, o que tá jogando de pivô — dá essas características específicas pra fazer a leitura da pessoa, as regiões que ela jogou, o que precisa melhorar. Não sei se isso é possível. E aí te falo outra coisa de como o negócio vai ficando louco: você pega um corredor de 100 metros — você tá com essa postura corporal, tem que melhorar isso; se usar o tênis tal, melhora sua performance. Aí você começa a trazer as empresas de tênis e de raquete: pela sua característica de golpe, a raquete indicada é essa; pela característica de corrida, o tênis é esse; pra sua posição, a chuteira tal te dá mais estabilidade. Cria um negócio no mercado que fica muito louco. Mas isso é pra um futuro. A princípio, isso que você já fez — você já andou 90% do caminho. Agora é ajuste fino.”</p></div>
+    </details>
+
+    <details>
+      <summary><span>🎧 Áudio 148 — caso de teste + câmera-base + coerência</span><span class="time">06h19 · <span class="chev">›</span></span></summary>
+      <div class="body"><p>“Mateus, o vídeo que eu analisei foi esse. Tô analisando esse cara de azul — camisa azul, short azul e boné verde. Analisando a câmera do centro, a gente pode tomar ela sempre como base. Lado esquerdo do vídeo, lado direito da quadra. Aí vamo analisar as respostas que ela deu, se estão coerentes, se esses movimentos que ele fez estão coerentes. Acho que a grande questão é essa pra gente afinar agora.”</p></div>
+    </details>
+
+    <details>
+      <summary><span>🎧 Áudio 149 — receptor: o que avaliar + pedido de parâmetros</span><span class="time">06h20 · <span class="chev">›</span></span></summary>
+      <div class="body"><p>“Nesse caso, ele tá como receptor — então o que que a IA vai avaliar? A base dele, a postura corporal pra receber os golpes, e o tempo de reação nas bolas curtas. Aí é onde você tem que me falar quais os parâmetros que você precisa pra alimentar ela certinho. Eu conversei até com o nosso treinador aqui pra ver o que a gente consegue afinar — a gente dá uma característica base da defesa, de uma recepção de saque, de como a defesa tem que estar, e ela avalia aquele momento.”</p></div>
+    </details>
+
+    <details>
+      <summary><span>🎧 Áudio 151 — referência de vôlei + ler a ação (saca/recebe)</span><span class="time">06h31 · <span class="chev">›</span></span></summary>
+      <div class="body"><p>“Eu peguei esse vídeo do Facebook, acho que dá um parâmetro legal. É vôlei, um levantador, um armador — a postura, o movimento, o que deve ser o ideal. Qual é o movimento ideal? Passar esse relatório do movimento ideal pro cara que tá sacando, pro que tá recebendo. É identificar se o cara está recebendo, se está sacando — tô falando do beach tennis; no tênis a mesma coisa; no vôlei se está sacando, recebendo, como ele está no jogo — pra ler o movimento correto da pessoa durante a partida. No basquete, no futebol, esses parâmetros vão ser muito importantes, esses protocolos de análise.”</p></div>
+    </details>
+
+    <details>
+      <summary><span>🎧 Áudio 154 — granularidade (perna lenta) + setorização + “arquitetura excelente”</span><span class="time">06h57 · <span class="chev">›</span></span></summary>
+      <div class="body"><p>“Esqueci de falar: nesse videozinho que te mandei, esse menino que coloquei como referência, que tava em evidência — ele tava fazendo recepção de saque. Você vê que o movimento de perna dele numa bola curta tá lento; a antecipação da bola ao centro tá lenta. Esse parâmetro a gente tem que colocar. Definir alguns parâmetros-base pra identificar o movimento que o cara tá fazendo — ela acompanhar: ele tá recebendo, tá sacando, durante o game tá atacando (o parceiro saca, ele ataca). Qual a melhor posição que ele tem que estar na quadra? Qual a setorização? O protótipo grosso, o cara tá perfeito — todas as análises que você fez. Agora a gente tem que afinar pra ela fazer a leitura correta do que a pessoa tá fazendo na quadra. Aí já era. Basicamente isso, mas a arquitetura tá excelente.”</p></div>
+    </details>
+  </section>
+
+  <footer class="foot">
+    <div><span class="g">BITVAR IA</span> · specs de refinamento extraídas do WhatsApp · Caio Bitvar × Mateus | illumi</div>
+    <div>Fonte: 6 áudios (Scribe v2) + arquitetura textual 06h38 + 8 prints do output · <b>13 jun 2026</b></div>
+    <div style="color:var(--text-faint);margin-top:6px">Documento gerado para servir de input à próxima iteração de IA · v1</div>
+  </footer>
+
+</div>
+</body>
+</html>

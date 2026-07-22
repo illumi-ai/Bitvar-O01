@@ -1,0 +1,22 @@
+# Deploy alternativo (blueprint §10.1): a app entra como mais um serviço numa
+# stack Traefik EXISTENTE que usa file provider (sem labels). Use este arquivo
+# quando já houver um Traefik rodando na VPS — diferente do docker-compose.yml
+# da raiz, que sobe a própria stack (traefik + db + api) com labels.
+#
+#   docker compose -f infra/bitvar-001/docker-compose.example.yml up -d --build
+services:
+  bitvar-001-app:
+    build: ../..
+    container_name: bitvar-001-app      # precisa bater com a URL do service no dynamic
+    restart: unless-stopped
+    env_file: ../../.env
+    expose:
+      - "8000"                          # porta interna. NÃO usar ports: (só o Traefik acessa)
+    networks:
+      - rede_externa                    # rede compartilhada do Traefik (e onde está o Postgres)
+    # SEM labels do Traefik — o roteamento vai no arquivo dynamic (ver dynamic.example.yml)
+
+networks:
+  rede_externa:
+    external: true
+    name: NOME_DA_REDE_EXTERNA          # descubra com: docker network ls

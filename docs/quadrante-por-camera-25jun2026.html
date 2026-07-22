@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITVAR IA · Quadrante × Ângulo da Câmera</title>
+<style>
+  :root{
+    --bg:#0a1119; --bg2:#0c1623; --card:#101d2e; --card2:#0e1a29;
+    --line:#1d2d44; --line2:#26384f;
+    --ink:#e9eff7; --dim:#a3b3c7; --faint:#6c7e95;
+    --green:#34d36a; --green-2:#7fe5a3; --green-glow:rgba(52,211,106,.14);
+    --blue:#5b9bd5; --blue-2:#93c2ec; --blue-glow:rgba(91,155,213,.16);
+    --red:#f4606e; --red-bg:rgba(244,96,110,.10); --red-line:rgba(244,96,110,.35);
+    --grn-bg:rgba(52,211,106,.09); --grn-line:rgba(52,211,106,.34);
+    --blu-bg:rgba(91,155,213,.09); --blu-line:rgba(91,155,213,.34);
+    --amber:#f0b54e; --amber-bg:rgba(240,181,78,.10); --amber-line:rgba(240,181,78,.34);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:
+      radial-gradient(1100px 600px at 80% -10%, rgba(91,155,213,.07), transparent 60%),
+      radial-gradient(900px 500px at 0% 0%, rgba(52,211,106,.05), transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(91,155,213,.25)}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 22px}
+
+  .topbar{position:sticky; top:0; z-index:50; backdrop-filter:blur(12px); background:rgba(8,15,24,.82); border-bottom:1px solid var(--line)}
+  .topbar .row{display:flex; align-items:center; gap:14px; height:58px}
+  .brand{display:flex; align-items:center; gap:9px; font-family:var(--mono); font-weight:700; letter-spacing:.14em; font-size:15px}
+  .dot{width:11px; height:11px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 4px var(--blue-glow), 0 0 14px var(--blue)}
+  .brand small{color:var(--faint); font-weight:500; letter-spacing:.18em}
+  .badge{margin-left:auto; font-family:var(--mono); font-size:11.5px; letter-spacing:.12em; color:var(--blue-2); border:1px solid var(--blu-line); background:var(--blu-bg); padding:5px 11px; border-radius:7px}
+
+  .subnav{position:sticky; top:58px; z-index:40; background:rgba(10,17,25,.9); backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
+  .subnav .row{display:flex; gap:4px; overflow-x:auto; padding:9px 0; scrollbar-width:none}
+  .subnav .row::-webkit-scrollbar{display:none}
+  .subnav a{font-family:var(--mono); font-size:12px; letter-spacing:.06em; color:var(--dim); white-space:nowrap; padding:6px 12px; border-radius:7px; border:1px solid transparent}
+  .subnav a:hover{color:var(--ink); background:rgba(255,255,255,.03); border-color:var(--line)}
+
+  .hero{padding:58px 0 28px}
+  .kicker{font-family:var(--mono); font-size:12.5px; letter-spacing:.2em; color:var(--blue); text-transform:uppercase; margin-bottom:20px; line-height:1.7}
+  .kicker b{color:var(--green-2); font-weight:600}
+  h1{font-size:clamp(27px,5vw,46px); line-height:1.08; margin:0 0 18px; letter-spacing:-.02em; font-weight:800}
+  h1 .g{color:var(--green)} h1 .b{color:var(--blue-2)}
+  .lede{font-size:clamp(16px,2vw,19px); color:var(--dim); max-width:810px; margin:0}
+  .lede b{color:var(--ink)}
+  .metaline{display:flex; flex-wrap:wrap; gap:8px; margin-top:26px}
+  .chip{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; color:var(--dim); border:1px solid var(--line2); background:var(--card2); padding:6px 11px; border-radius:999px}
+  .chip b{color:var(--ink)}
+  .chip.g{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+  .chip.b{color:var(--blue-2); border-color:var(--blu-line); background:var(--blu-bg)}
+
+  section{padding:30px 0; scroll-margin-top:128px}
+  .sec-h{display:flex; align-items:baseline; gap:14px; margin:0 0 10px; flex-wrap:wrap}
+  .sec-n{font-family:var(--mono); font-size:13px; color:var(--blue); letter-spacing:.1em}
+  .sec-h h2{font-size:clamp(22px,3vw,30px); margin:0; letter-spacing:-.01em; font-weight:750}
+  .sec-sub{color:var(--faint); font-size:14.5px; margin:0 0 24px; max-width:840px}
+  .sec-sub b{color:var(--dim)}
+
+  .card{background:linear-gradient(180deg,var(--card),var(--card2)); border:1px solid var(--line); border-radius:15px; padding:22px}
+  .grid{display:grid; gap:16px}
+  @media(min-width:760px){ .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:1fr 1fr 1fr} }
+
+  .lbl{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--blue)}
+  .lbl.grn{color:var(--green)} .lbl.amb{color:var(--amber)}
+
+  blockquote{margin:6px 0; padding:14px 18px; border-left:3px solid var(--blue); background:var(--card2); border-radius:0 12px 12px 0; color:var(--dim); font-size:15px; font-style:italic}
+  blockquote b{color:var(--ink); font-style:normal}
+  blockquote cite{display:block; font-style:normal; font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; color:var(--faint); margin-top:8px}
+
+  .inl{font-family:var(--mono); font-size:12px; color:var(--blue-2); background:rgba(91,155,213,.08); border:1px solid var(--blu-line); border-radius:5px; padding:1px 5px}
+  .inl.g{color:var(--green-2); background:rgba(52,211,106,.08); border-color:var(--grn-line)}
+
+  ul.clean{margin:8px 0; padding-left:20px; color:var(--dim)} ul.clean li{margin:8px 0; font-size:14px} ul.clean li b{color:var(--ink)}
+
+  .callout{border:1px solid var(--line2); border-left:3px solid var(--blue); background:var(--card2); border-radius:0 12px 12px 0; padding:16px 18px; margin:16px 0}
+  .callout.amber{border-left-color:var(--amber)} .callout.green{border-left-color:var(--green)}
+  .callout .lbl{margin-bottom:7px; display:block}
+  .callout p{margin:0; color:var(--dim); font-size:14.2px} .callout p b{color:var(--ink)}
+
+  /* camera maps */
+  .maps{display:grid; gap:18px; margin-top:8px}
+  @media(min-width:760px){ .maps{grid-template-columns:1fr 1fr} }
+  .mapcard{border:1px solid var(--line); border-radius:14px; padding:18px; background:var(--card2)}
+  .mapcard.hot{border-color:var(--blu-line)}
+  .mapcard h4{margin:0 0 3px; font-size:16px; display:flex; align-items:center; gap:8px}
+  .mapcard h4 .net{font-family:var(--mono); font-size:10px; letter-spacing:.08em; color:var(--blue-2); border:1px solid var(--blu-line); background:var(--blu-bg); padding:2px 7px; border-radius:6px}
+  .mapcard .cap{margin:0 0 13px; color:var(--faint); font-size:12.5px; font-family:var(--mono); letter-spacing:.03em}
+  .mapcard svg{width:100%; height:auto; display:block; border-radius:10px; background:#0b1422; border:1px solid var(--line)}
+  .qlist{margin:13px 0 0; padding:0; list-style:none; display:grid; gap:6px}
+  .qlist li{font-size:12.8px; color:var(--dim); display:flex; gap:9px; align-items:baseline}
+  .qn{font-family:var(--mono); font-weight:800; font-size:12px; min-width:21px; height:21px; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; color:var(--blue-2); border:1px solid var(--blu-line); background:var(--blu-bg)}
+  .qn.t{color:var(--green-2); border-color:var(--grn-line); background:var(--grn-bg)}
+
+  /* highlight bottom-left across both */
+  .keybox{margin-top:18px; border:1px solid var(--grn-line); background:var(--grn-bg); border-radius:14px; padding:18px 20px}
+  .keybox .big{font-family:var(--mono); font-weight:800; font-size:clamp(18px,3vw,26px); color:var(--green-2); letter-spacing:-.01em; margin:0 0 6px; line-height:1.25}
+  .keybox .big .b{color:var(--blue-2)}
+  .keybox p{margin:6px 0 0; color:var(--dim); font-size:14px}
+
+  table{width:100%; border-collapse:collapse; font-size:13.6px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-family:var(--mono); font-size:11px; letter-spacing:.09em; color:var(--faint); text-transform:uppercase; font-weight:600}
+  td b{color:var(--ink)} tr:last-child td{border-bottom:0}
+  .mono{font-family:var(--mono); font-size:12.3px; color:var(--blue-2)}
+  .qcell{font-family:var(--mono); font-weight:800; color:var(--blue-2)}
+  .qcell.azul{color:var(--green-2)}
+
+  /* phone mock */
+  .mock{max-width:340px; margin:0 auto; border:1px solid var(--line2); border-radius:26px; background:#0b1422; padding:14px 14px 18px; box-shadow:0 30px 60px -30px rgba(0,0,0,.7)}
+  .mock .mhead{display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:11px; color:var(--faint); letter-spacing:.1em; padding:2px 4px 12px}
+  .mock .mdot{width:8px;height:8px;border-radius:50%;background:var(--blue)}
+  .mlabel{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--blue); margin:14px 2px 7px}
+  .seg{display:flex; gap:6px}
+  .seg .opt{flex:1; text-align:center; font-size:13px; padding:11px 6px; border-radius:10px; border:1px solid var(--line2); color:var(--dim); background:var(--card)}
+  .seg .opt.on{color:var(--blue-2); border-color:var(--blu-line); background:var(--blu-bg); font-weight:600}
+  .pickmap{margin-top:10px; border:1px solid var(--line2); border-radius:12px; overflow:hidden; background:#0b1422}
+  .pickmap svg{width:100%; height:auto; display:block}
+  .swapnote{margin-top:10px; font-size:12px; color:var(--faint); text-align:center; font-family:var(--mono); letter-spacing:.03em}
+
+  /* steps */
+  .step{display:grid; grid-template-columns:auto 1fr; gap:14px; padding:14px 0; border-top:1px solid var(--line)}
+  .step:first-child{border-top:0}
+  .step .sid{font-family:var(--mono); font-weight:800; font-size:15px; color:var(--blue); border:1px solid var(--blu-line); background:var(--blu-bg); border-radius:10px; min-width:42px; height:42px; display:flex; align-items:center; justify-content:center}
+  .step .t{font-size:14.6px; color:var(--ink); margin:2px 0 3px; font-weight:650} .step .d{font-size:13.4px; color:var(--dim); margin:0}
+
+  footer{border-top:1px solid var(--line); margin-top:36px; padding:28px 0 60px; color:var(--faint); font-family:var(--mono); font-size:12px; letter-spacing:.04em; line-height:1.8}
+  .hr{height:1px; background:linear-gradient(90deg,transparent,var(--line2),transparent); margin:0 0 22px}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap row">
+  <span class="dot"></span>
+  <span class="brand">BITVAR&nbsp;IA <small>· SPEC QUADRANTE × CÂMERA</small></span>
+  <span class="badge">25 JUN 2026</span>
+</div></div>
+
+<nav class="subnav"><div class="wrap row">
+  <a href="#pedido">01 · O pedido</a>
+  <a href="#duas">02 · As duas câmeras</a>
+  <a href="#mesma">03 · Mesma posição, nº diferente</a>
+  <a href="#tela">04 · Na tela</a>
+  <a href="#projeto">05 · No projeto</a>
+  <a href="#tabela">06 · Tabela de referência</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">spec do quadrante · resposta ao áudio do <b>Caio</b> de hoje · grounded nos 2 vídeos reais (fundo + lateral)</div>
+  <h1>O quadrante depende<br>do <span class="b">ângulo da câmera</span>.</h1>
+  <p class="lede">O Caio mandou o áudio + o <b>vídeo lateralizado</b> pra cravar uma coisa: o atleta pode filmar de <b>fundo</b> ou da <b>lateral</b>, e o <b>mesmo lugar da quadra muda de número</b> conforme a câmera. Então a posição da câmera não é enfeite — ela é o que <b>define o mapa de quadrantes</b>. O usuário escolhe a câmera, e o quadrante se reorganiza junto.</p>
+  <div class="metaline">
+    <span class="chip b">2 câmeras: fundo · lateral</span>
+    <span class="chip">rede muda de orientação (horizontal ⇄ vertical)</span>
+    <span class="chip g">atleta de azul: Q3 no fundo = Q2 na lateral</span>
+  </div>
+</div></header>
+
+<!-- 01 PEDIDO -->
+<section id="pedido"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">01</span><h2>O que o Caio pediu</h2></div>
+  <p class="sec-sub">No quadrante que eu montei, só tinha a câmera de fundo. O áudio de hoje corrige isso.</p>
+  <blockquote>
+    "Uma coisa muito importante que eu vi no quadrante que você colocou: você deu a opção da <b>câmera de fundo</b>. A gente poderia dar <b>duas opções</b> pro atleta informar — câmera de fundo <b>ou</b> câmera lateral. Porque a gente pode ter o <b>vídeo lateralizado</b> (igual os primeiros que te mandei) ou o <b>vídeo de fundo</b> (igual o de agora). Vou te mandar o vídeo lateralizado pra você entender o que eu tô querendo dizer."
+    <cite>Caio — áudio de 25 jun 2026</cite>
+  </blockquote>
+  <div class="callout">
+    <span class="lbl">tradução</span>
+    <p>Antes (plano R2) eu tinha deixado a câmera como <b>só um rótulo</b>. O Caio está certo em subir isso de nível: a câmera é uma <b>escolha que reorganiza o mapa</b>. Cada ângulo vê a quadra de um jeito — a rede muda de lugar no quadro, e os times trocam de eixo. Sem declarar a câmera, "quadrante 2" fica ambíguo.</p>
+  </div>
+</div></section>
+
+<!-- 02 DUAS CAMERAS -->
+<section id="duas"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">02</span><h2>As duas câmeras, lado a lado</h2></div>
+  <p class="sec-sub">Cada mapa abaixo veio de um <b>vídeo real</b> que o Caio mandou. Repare na <b>rede</b> (azul tracejado): ela vira de horizontal pra vertical — e é isso que reorganiza tudo.</p>
+
+  <div class="maps">
+    <!-- FUNDO -->
+    <div class="mapcard">
+      <h4>Câmera de FUNDO <span class="net">rede ⎯ horizontal</span></h4>
+      <p class="cap">atrás da quadra, elevada · 1·2 no fundo, 3·4 na frente</p>
+      <svg viewBox="0 0 360 280" role="img" aria-label="Quadrantes — câmera de fundo">
+        <polygon points="100,50 260,50 335,235 25,235" fill="#0e1a29" stroke="#26384f" stroke-width="2"/>
+        <!-- net horizontal -->
+        <line x1="63" y1="142" x2="297" y2="142" stroke="#5b9bd5" stroke-width="2.6" stroke-dasharray="6 4"/>
+        <!-- center vertical -->
+        <line x1="180" y1="50" x2="180" y2="235" stroke="#26384f" stroke-width="1.5"/>
+        <text x="122" y="104" fill="#93c2ec" font-family="monospace" font-size="25" font-weight="800" text-anchor="middle">1</text>
+        <text x="238" y="104" fill="#93c2ec" font-family="monospace" font-size="25" font-weight="800" text-anchor="middle">2</text>
+        <text x="98" y="200" fill="#7fe5a3" font-family="monospace" font-size="25" font-weight="800" text-anchor="middle">3</text>
+        <text x="262" y="200" fill="#93c2ec" font-family="monospace" font-size="25" font-weight="800" text-anchor="middle">4</text>
+        <circle cx="98" cy="172" r="8" fill="#34d36a" stroke="#0b1422" stroke-width="2"/>
+        <text x="180" y="38" fill="#6c7e95" font-family="monospace" font-size="10" text-anchor="middle">▲ fundo (adversário)</text>
+        <text x="180" y="258" fill="#6c7e95" font-family="monospace" font-size="10" text-anchor="middle">câmera · seu time perto ▼</text>
+      </svg>
+      <ul class="qlist">
+        <li><span class="qn">1</span> fundo‑esquerda <span style="color:var(--faint)">· adversário</span></li>
+        <li><span class="qn">2</span> fundo‑direita <span style="color:var(--faint)">· adversário</span></li>
+        <li><span class="qn t">3</span> frente‑esquerda <span style="color:var(--green-2)">· atleta de azul</span></li>
+        <li><span class="qn">4</span> frente‑direita <span style="color:var(--faint)">· parceiro</span></li>
+      </ul>
+    </div>
+
+    <!-- LATERAL -->
+    <div class="mapcard hot">
+      <h4>Câmera LATERAL <span class="net">rede ⏐ vertical</span></h4>
+      <p class="cap">de lado, elevada · esquerda 1·2, direita 3·4</p>
+      <svg viewBox="0 0 360 280" role="img" aria-label="Quadrantes — câmera lateral">
+        <polygon points="30,58 330,48 340,225 20,235" fill="#0e1a29" stroke="#26384f" stroke-width="2"/>
+        <!-- net vertical -->
+        <line x1="180" y1="52" x2="180" y2="230" stroke="#5b9bd5" stroke-width="2.6" stroke-dasharray="6 4"/>
+        <!-- center horizontal -->
+        <line x1="25" y1="142" x2="335" y2="138" stroke="#26384f" stroke-width="1.5"/>
+        <text x="100" y="106" fill="#93c2ec" font-family="monospace" font-size="25" font-weight="800" text-anchor="middle">1</text>
+        <text x="98" y="198" fill="#7fe5a3" font-family="monospace" font-size="25" font-weight="800" text-anchor="middle">2</text>
+        <text x="260" y="104" fill="#93c2ec" font-family="monospace" font-size="25" font-weight="800" text-anchor="middle">3</text>
+        <text x="262" y="196" fill="#93c2ec" font-family="monospace" font-size="25" font-weight="800" text-anchor="middle">4</text>
+        <circle cx="98" cy="170" r="8" fill="#34d36a" stroke="#0b1422" stroke-width="2"/>
+        <text x="92" y="36" fill="#6c7e95" font-family="monospace" font-size="10" text-anchor="middle">time esq.</text>
+        <text x="268" y="36" fill="#6c7e95" font-family="monospace" font-size="10" text-anchor="middle">time dir.</text>
+        <text x="180" y="258" fill="#6c7e95" font-family="monospace" font-size="10" text-anchor="middle">◀ câmera na lateral · perto ▼</text>
+      </svg>
+      <ul class="qlist">
+        <li><span class="qn">1</span> esquerda‑fundo <span style="color:var(--faint)">· camisa clara</span></li>
+        <li><span class="qn t">2</span> esquerda‑perto <span style="color:var(--green-2)">· atleta de azul</span></li>
+        <li><span class="qn">3</span> direita‑fundo <span style="color:var(--faint)">· camisa preta</span></li>
+        <li><span class="qn">4</span> direita‑perto <span style="color:var(--faint)">· preta + boné</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout amber">
+    <span class="lbl amb">o que muda entre os dois</span>
+    <p>Na <b>câmera de fundo</b> a rede é <b>horizontal</b> e os times ficam em <b>cima (adversário) / embaixo (seu time)</b>. Na <b>lateral</b> a rede é <b>vertical</b> e os times ficam à <b>esquerda / direita</b>. Mesma quadra, dois enquadramentos completamente diferentes — por isso o mapa de quadrantes tem que ser <b>próprio de cada câmera</b>.</p>
+  </div>
+</div></section>
+
+<!-- 03 MESMA POSICAO -->
+<section id="mesma"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">03</span><h2>Mesma posição, número diferente</h2></div>
+  <p class="sec-sub">A prova mais limpa de por que a câmera precisa ser declarada. O atleta de <b>azul</b> aparece nos <b>dois</b> vídeos no <b>canto inferior‑esquerdo da tela</b> — e mesmo assim recebe número diferente.</p>
+
+  <div class="keybox">
+    <p class="big">O canto inferior‑esquerdo é <span class="b">Q3</span> visto de fundo,<br>mas <span class="b">Q2</span> visto da lateral.</p>
+    <p>O dedo do usuário toca <b>no mesmo lugar da tela</b> nos dois casos — mas o sistema só sabe traduzir esse toque no atleta certo (e falar a mesma língua que o Caio e o Juca) se souber <b>de qual câmera</b> veio o vídeo. É por isso que a câmera vem <b>primeiro</b>, antes do quadrante.</p>
+  </div>
+
+  <div class="card" style="margin-top:18px; padding:6px 6px">
+    <table>
+      <thead><tr><th>Posição física do atleta</th><th>Câmera FUNDO</th><th>Câmera LATERAL</th></tr></thead>
+      <tbody>
+        <tr><td><b>Azul</b> · perto da câmera, à esquerda <span style="color:var(--faint)">(o alvo do Caio)</span></td><td class="qcell azul">Q3</td><td class="qcell azul">Q2</td></tr>
+        <tr><td>Parceiro · perto, à direita</td><td class="qcell">Q4</td><td class="qcell">Q4</td></tr>
+        <tr><td>Adversário · longe, à esquerda</td><td class="qcell">Q1</td><td class="qcell">Q1</td></tr>
+        <tr><td>Adversário · longe, à direita</td><td class="qcell">Q2</td><td class="qcell">Q3</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sec-sub" style="margin-top:12px">Repare: <b>Q2 quer dizer coisas diferentes</b> em cada câmera (adversário no fundo × atleta de azul na lateral). Sem a câmera declarada, é impossível saber qual.</p>
+</div></section>
+
+<!-- 04 NA TELA -->
+<section id="tela"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">04</span><h2>Como fica na tela</h2></div>
+  <p class="sec-sub">Dois toques, na ordem certa: <b>1)</b> escolhe a câmera → o mapa se reorganiza sozinho; <b>2)</b> toca no quadrante do atleta. Simples assim.</p>
+
+  <div class="grid g2" style="align-items:start">
+    <div class="mock">
+      <div class="mhead"><span class="mdot"></span> passo 1 · escolher a câmera</div>
+      <div class="mlabel">Como o vídeo foi filmado?</div>
+      <div class="seg">
+        <div class="opt on">FUNDO</div>
+        <div class="opt">LATERAL</div>
+      </div>
+      <div class="pickmap" style="margin-top:12px">
+        <svg viewBox="0 0 320 180" role="img" aria-label="mapa fundo">
+          <polygon points="92,16 228,16 290,164 30,164" fill="#0e1a29" stroke="#26384f" stroke-width="2"/>
+          <line x1="58" y1="92" x2="262" y2="92" stroke="#5b9bd5" stroke-width="2" stroke-dasharray="5 4"/>
+          <line x1="160" y1="16" x2="160" y2="164" stroke="#26384f" stroke-width="1.3"/>
+          <text x="116" y="64" fill="#5d6f86" font-family="monospace" font-size="18" font-weight="800" text-anchor="middle">1</text>
+          <text x="204" y="64" fill="#5d6f86" font-family="monospace" font-size="18" font-weight="800" text-anchor="middle">2</text>
+          <text x="104" y="140" fill="#5d6f86" font-family="monospace" font-size="18" font-weight="800" text-anchor="middle">3</text>
+          <text x="216" y="140" fill="#5d6f86" font-family="monospace" font-size="18" font-weight="800" text-anchor="middle">4</text>
+        </svg>
+      </div>
+      <div class="swapnote">rede horizontal · times em cima/embaixo</div>
+    </div>
+
+    <div class="mock">
+      <div class="mhead"><span class="mdot"></span> passo 2 · tocar no atleta</div>
+      <div class="mlabel">Trocou pra LATERAL → mapa virou</div>
+      <div class="seg">
+        <div class="opt">FUNDO</div>
+        <div class="opt on">LATERAL</div>
+      </div>
+      <div class="pickmap" style="margin-top:12px">
+        <svg viewBox="0 0 320 180" role="img" aria-label="mapa lateral com Q2 selecionado">
+          <polygon points="28,20 292,14 300,160 20,166" fill="#0e1a29" stroke="#26384f" stroke-width="2"/>
+          <line x1="160" y1="16" x2="160" y2="162" stroke="#5b9bd5" stroke-width="2" stroke-dasharray="5 4"/>
+          <line x1="24" y1="90" x2="296" y2="88" stroke="#26384f" stroke-width="1.3"/>
+          <!-- Q2 highlight (esquerda-perto, bottom-left) -->
+          <polygon points="22,90 160,89 160,164 21,162" fill="rgba(52,211,106,.16)" stroke="#34d36a" stroke-width="2"/>
+          <text x="92" y="60" fill="#5d6f86" font-family="monospace" font-size="18" font-weight="800" text-anchor="middle">1</text>
+          <text x="92" y="134" fill="#7fe5a3" font-family="monospace" font-size="18" font-weight="800" text-anchor="middle">2</text>
+          <text x="228" y="58" fill="#5d6f86" font-family="monospace" font-size="18" font-weight="800" text-anchor="middle">3</text>
+          <text x="230" y="132" fill="#5d6f86" font-family="monospace" font-size="18" font-weight="800" text-anchor="middle">4</text>
+          <circle cx="92" cy="112" r="6" fill="#34d36a" stroke="#0b1422" stroke-width="2"/>
+        </svg>
+      </div>
+      <div class="swapnote">rede vertical · times esquerda/direita</div>
+    </div>
+  </div>
+  <div class="callout green">
+    <span class="lbl grn">o pulo do gato</span>
+    <p>É a <b>mesma grade 2×2</b> sobre o seu vídeo — o que muda é <b>a numeração e a leitura</b> que o sistema aplica, conforme a câmera que você declarou. O toque continua sendo no <b>seu próprio frame</b>; a câmera só diz ao sistema <b>como ler</b> aquele toque.</p>
+  </div>
+</div></section>
+
+<!-- 05 NO PROJETO -->
+<section id="projeto"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">05</span><h2>A mudança no projeto</h2></div>
+  <p class="sec-sub">O seletor de câmera passa a ser <b>load‑bearing</b>: ele escolhe qual mapa de quadrante o sistema usa. Encaixa no <span class="inl">app/tennis/</span> sem reescrever nada.</p>
+
+  <div class="card" style="padding:4px 18px">
+    <div class="step"><div class="sid">1</div><div>
+      <p class="t">Seletor de câmera primeiro <span style="font-family:var(--mono);font-size:10px;color:var(--faint)">· frontend</span></p>
+      <p class="d">Segmento <b>FUNDO · LATERAL</b> no topo do bloco de quadrante. Trocou a câmera → o mapa 2×2 e os rótulos se redesenham (rede horizontal ⇄ vertical). Arquivo: <span class="inl">app/static/tennis/index.html</span>.</p>
+    </div></div>
+    <div class="step"><div class="sid">2</div><div>
+      <p class="t">Dois mapas no <span class="inl">quadrants.py</span> <span style="font-family:var(--mono);font-size:10px;color:var(--faint)">· novo</span></p>
+      <p class="d">Uma tabela por câmera: <span class="inl">(câmera, quadrante) → canto do frame + leitura</span>. Ex.: <span class="inl">FUNDO·Q3 = inferior‑esquerdo</span> · <span class="inl">LATERAL·Q2 = inferior‑esquerdo</span> (mesmo canto, leitura diferente).</p>
+    </div></div>
+    <div class="step"><div class="sid">3</div><div>
+      <p class="t">Campo no schema <span style="font-family:var(--mono);font-size:10px;color:var(--faint)">· models.py</span></p>
+      <p class="d"><span class="inl">camera_position</span> (fundo · lateral) entra em <span class="inl">RouteInfo</span>, ao lado de <span class="inl">target_quadrant</span>. Opcional, com default <b>fundo</b> (não quebra vídeo antigo).</p>
+    </div></div>
+    <div class="step"><div class="sid">4</div><div>
+      <p class="t">Âncora do prompt por câmera <span style="font-family:var(--mono);font-size:10px;color:var(--faint)">· prompts.py</span></p>
+      <p class="d">O texto do alvo muda com a câmera: na <b>lateral</b>, "ignore a quadra do <b>outro lado da rede</b> (vertical)"; no <b>fundo</b>, "ignore a quadra <b>do fundo</b> e a adjacente". A rede orienta o "onde olhar".</p>
+    </div></div>
+    <div class="step"><div class="sid">5</div><div>
+      <p class="t">Auto‑check ciente da câmera</p>
+      <p class="d">A IA devolve em que <b>canto do frame</b> o atleta começou; o sistema compara com o quadrante (já traduzido pela câmera). Divergiu lado esquerda/direita → avisa "possível atleta errado".</p>
+    </div></div>
+  </div>
+</div></section>
+
+<!-- 06 TABELA -->
+<section id="tabela"><div class="wrap">
+  <div class="sec-h"><span class="sec-n">06</span><h2>Tabela de referência</h2></div>
+  <p class="sec-sub">O espelho exato pra implementar — cada quadrante, em cada câmera, vira um canto do quadro. <b>Convenção proposta</b>; se quiser trocar a ordem dos números, é 1 linha de tabela.</p>
+  <div class="card" style="padding:6px 6px">
+    <table>
+      <thead><tr><th>Câmera</th><th>Quadrante</th><th>Canto do frame</th><th>Leitura na quadra</th><th>Exemplo no vídeo</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">FUNDO</td><td class="qcell">Q1</td><td>superior‑esquerdo</td><td>fundo · esquerda</td><td>adversário</td></tr>
+        <tr><td class="mono">FUNDO</td><td class="qcell">Q2</td><td>superior‑direito</td><td>fundo · direita</td><td>adversário</td></tr>
+        <tr><td class="mono">FUNDO</td><td class="qcell azul">Q3</td><td>inferior‑esquerdo</td><td>frente · esquerda</td><td><b>atleta de azul</b></td></tr>
+        <tr><td class="mono">FUNDO</td><td class="qcell">Q4</td><td>inferior‑direito</td><td>frente · direita</td><td>parceiro</td></tr>
+        <tr><td class="mono" style="color:var(--green-2)">LATERAL</td><td class="qcell">Q1</td><td>superior‑esquerdo</td><td>time esq. · fundo</td><td>camisa clara</td></tr>
+        <tr><td class="mono" style="color:var(--green-2)">LATERAL</td><td class="qcell azul">Q2</td><td>inferior‑esquerdo</td><td>time esq. · perto</td><td><b>atleta de azul</b></td></tr>
+        <tr><td class="mono" style="color:var(--green-2)">LATERAL</td><td class="qcell">Q3</td><td>superior‑direito</td><td>time dir. · fundo</td><td>camisa preta</td></tr>
+        <tr><td class="mono" style="color:var(--green-2)">LATERAL</td><td class="qcell">Q4</td><td>inferior‑direito</td><td>time dir. · perto</td><td>preta + boné</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout green" style="margin-top:18px">
+    <span class="lbl grn">resumo</span>
+    <p>Uma escolha a mais na tela (<b>fundo ou lateral</b>) destrava os dois tipos de vídeo que o Caio tem — os <b>lateralizados antigos</b> e os <b>de fundo novos</b> — sem perder a trava no atleta certo. A câmera define o mapa; o mapa define o quadrante; o quadrante trava o atleta.</p>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="hr"></div>
+  BITVAR IA · spec quadrante × ângulo da câmera · resposta ao áudio + vídeo lateral do Caio (25 jun 2026)<br>
+  2 câmeras (fundo · lateral) · rede horizontal ⇄ vertical · mesmo canto da tela, número diferente · seletor de câmera define o mapa<br>
+  gerado por illumi · 25 jun 2026 · uso interno
+</div></footer>
+
+</body>
+</html>

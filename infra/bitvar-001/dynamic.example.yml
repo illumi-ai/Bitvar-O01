@@ -1,0 +1,18 @@
+# Roteamento por file provider (blueprint §10.2): copie para a pasta dynamic do
+# Traefik existente (a mesma observada em providers.file). Router + service + TLS
+# da app — sem labels no compose.
+http:
+  routers:
+    bitvar-001:
+      rule: "Host(`001.bitvar.illumiai.com`)"
+      entryPoints:
+        - websecure                     # use o nome do SEU entrypoint 443
+      service: bitvar-001-svc
+      tls:
+        certResolver: SEU_CERTRESOLVER  # o resolver Let's Encrypt que você já usa
+
+  services:
+    bitvar-001-svc:
+      loadBalancer:
+        servers:
+          - url: "http://bitvar-001-app:8000"   # nome do container + porta interna

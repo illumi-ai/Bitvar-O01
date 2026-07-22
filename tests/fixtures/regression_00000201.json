@@ -1,0 +1,41 @@
+{
+  "$schema_note": "Golden case de regressao BITVAR IA — gabarito do treinador Juca Russo (17/06). Um arquivo por lance. Shape estavel: case_id, sport, source, route, subject, expected, forbidden_terms, rule_gate, narrative_skeleton, notes. Adicione novos lances criando regression_<id>.json no mesmo diretorio; tests/fixtures/__init__.py:golden_cases() carrega todos.",
+  "case_id": "00000201",
+  "sport": "beach_tennis",
+  "source": "gabarito Juca Russo 17/06 (audios 00000213-217) + leitura Gemini do video-fonte 00000201",
+  "video_watermark": "filma eu",
+  "description": "Duplas masculinas, camera central atras da linha de fundo. Jogador de azul (esquerda, perto da camera) RECEPCIONA o saque e da uma DEVOLUCAO CURTA (deixadinha) de forehand, amortecendo a bola para morrer perto da rede. Base baixa, joelhos flexionados. NAO e smash.",
+  "route": {
+    "gender": "male",
+    "mode": "clip",
+    "level": "amador",
+    "camera_position": "central",
+    "duration_seconds": 22
+  },
+  "subject": {
+    "name": "Cesar",
+    "outfit": "camiseta e short azul",
+    "side": "fundo esquerdo",
+    "handedness": "destro",
+    "racket_color": "preta"
+  },
+  "expected": {
+    "action_phase": ["defense", "serve_return"],
+    "shot_identified": ["drop_shot", "return"],
+    "phase_confidence_not": ["alta"],
+    "base_is_focus": true,
+    "floating_ball_fault": true,
+    "lower_body_base_weighs_more_than_arm": true,
+    "tactical_events_includes": ["finta", "espaco_livre"],
+    "key_improvement_mentions_any": ["base", "joelho", "flex", "membros inferiores", "agache", "abaixe"],
+    "clip_quality_score_max": 7.0
+  },
+  "forbidden_terms": ["smash", "smashou", "smashada", "em suspensao agressivo", "belo smash"],
+  "rule_gate": {
+    "level": "amador",
+    "must_not_require": ["parceiro saindo do fundo", "parceiro do sacador sai do fundo", "saida do fundo"],
+    "profissional_must_mention": ["fundo"]
+  },
+  "narrative_skeleton": ["fase", "raiz/base", "contexto/regra", "correcao"],
+  "notes": "DoD do doc (WF1-WF5): reanalisando 00000201, saida deve trazer FASE=Defesa/Recepcao e GOLPE=Devolucao curta, a palavra 'smash' nao aparece, a correcao principal fala de flexao de joelhos/base baixa, e ha pelo menos 1 evento tatico (finta/espaco livre). Validacao final '98%' = Juca aprova manualmente; estes testes validam apenas os artefatos deterministicos que tornam esse resultado possivel."
+}
