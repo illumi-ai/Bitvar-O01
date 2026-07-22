@@ -47,8 +47,11 @@ núcleo é `veredito` × `risco_lesao`, e a calibragem vive no system prompt:
 - **RF-002 — as 7 categorias de erro são verificadas EXPLICITAMENTE e em ordem**
   (`CategoriaErro`): `amplitude`, `escapula_ombros`, `tronco`, `cervical`,
   `cotovelos`, `joelhos`, `ritmo` (+ `outro` como válvula honesta). Cada `ErroTecnico`
-  tem `descricao` (linguagem de treinador), `timestamp_s` e `gravidade`
-  (`leve` | `moderada` | `risco_lesao`).
+  carrega o **par obrigatório** `descricao` (**o que está errado**) → `correcao`
+  (**o que consertar** — instrução acionável específica daquele erro), mais
+  `timestamp_s` e `gravidade` (`leve` | `moderada` | `risco_lesao`). Todo erro
+  apontado vem com o seu conserto colado; a UI renderiza ❌ errado / ✅ corrigir e o
+  export `.txt` sai como "O QUE ESTÁ ERRADO → COMO CONSERTAR".
 - **RF-003 — regra dura de veredito:** valgo dinâmico severo, pés mal posicionados
   numa base de carga ou qualquer erro `gravidade="risco_lesao"` forçam
   `veredito="inadequada"` **e** `risco_lesao=True`, independente de quantos acertos

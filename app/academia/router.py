@@ -170,8 +170,11 @@ def _render_txt_report(rec: dict) -> str:
         lines += ["FOCO PRÁTICO PRINCIPAL", m["foco_pratico"], ""]
     erros = m.get("erros") or []
     if erros:
-        lines.append("ERROS TÉCNICOS")
-        lines += [f"- [{e.get('gravidade')}] {e.get('descricao')}" for e in erros]
+        lines.append("O QUE ESTÁ ERRADO → COMO CONSERTAR")
+        for e in erros:
+            lines.append(f"- [{e.get('gravidade')}] {e.get('descricao')}")
+            if e.get("correcao"):
+                lines.append(f"    corrigir: {e['correcao']}")
         lines.append("")
     acertos = m.get("acertos") or []
     if acertos:
