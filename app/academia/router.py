@@ -166,20 +166,20 @@ def _render_txt_report(rec: dict) -> str:
         bits.append("RISCO DE LESÃO")
     if bits:
         lines += [" · ".join(bits), ""]
-    if m.get("foco_pratico"):
-        lines += ["FOCO PRÁTICO PRINCIPAL", m["foco_pratico"], ""]
-    erros = m.get("erros") or []
-    if erros:
-        lines.append("O QUE ESTÁ ERRADO → COMO CONSERTAR")
-        for e in erros:
-            lines.append(f"- [{e.get('gravidade')}] {e.get('descricao')}")
-            if e.get("correcao"):
-                lines.append(f"    corrigir: {e['correcao']}")
+    if m.get("feedback_ideal"):
+        lines += ["FEEDBACK IDEAL", m["feedback_ideal"], ""]
+    fortes = m.get("pontos_fortes") or []
+    if fortes:
+        lines.append("O QUE ESTÁ BOM")
+        lines += [f"- {a}" for a in fortes]
         lines.append("")
-    acertos = m.get("acertos") or []
-    if acertos:
-        lines.append("ACERTOS")
-        lines += [f"- {a}" for a in acertos]
+    melhorar = m.get("pontos_a_melhorar") or []
+    if melhorar:
+        lines.append("O QUE MELHORAR → COMO AJUSTAR")
+        for p in melhorar:
+            lines.append(f"- [{p.get('prioridade')}] {p.get('observacao')}")
+            if p.get("ajuste"):
+                lines.append(f"    ajustar: {p['ajuste']}")
         lines.append("")
     if narrative:
         lines += ["RELATÓRIO DO PERSONAL TRAINER", narrative, ""]
