@@ -18,7 +18,7 @@ from starlette.requests import Request  # noqa: E402
 from app.academia import gemini as agem  # noqa: E402
 from app.academia import router as arouter  # noqa: E402
 from app.academia.config import academia_settings as cfg  # noqa: E402
-from app.academia.models import AcademiaAnalysis, PontoMelhoria  # noqa: E402
+from app.academia.models import AcademiaAnalysis, ErroTecnico  # noqa: E402
 from app.academia.service import AcademiaService, EmptyUpload, UploadTooLarge  # noqa: E402
 
 
@@ -26,8 +26,7 @@ from app.academia.service import AcademiaService, EmptyUpload, UploadTooLarge  #
 # fixtures de resultado da chamada 1 (AcademiaAnalysis)                        #
 # --------------------------------------------------------------------------- #
 def _clean_result() -> AcademiaAnalysis:
-    """Execução boa: veredito adequada, mas com um refinamento (RF-004/RF-008 — o
-    lado 'o que melhorar' nunca some, aqui como polimento opcional)."""
+    """Execução correta: sem erros inventados (RF-004), veredito adequada."""
     return AcademiaAnalysis(
         exercicio_identificado="puxada alta na polia",
         equipamento="polia alta",
@@ -37,21 +36,12 @@ def _clean_result() -> AcademiaAnalysis:
         repeticoes_visiveis=2,
         veredito="adequada",
         confiabilidade="alta",
-        pontos_fortes=[
+        erros=[],
+        acertos=[
             "lombar apoiada no encosto durante toda a série",
             "amplitude completa na fase concêntrica",
         ],
-        pontos_a_melhorar=[
-            PontoMelhoria(
-                categoria="escapula_ombros",
-                observacao="dá para buscar um pouco mais de depressão escapular no pico da contração",
-                ajuste="leve o ombro para baixo antes de puxar a barra, travando a escápula",
-                timestamp_s=6.0,
-                prioridade="refinamento",
-            ),
-        ],
-        feedback_ideal="execução sólida e apta a servir de referência; refine só a "
-        "depressão escapular no pico para isolar ainda melhor as costas",
+        foco_pratico="buscar mais depressão escapular no pico da contração",
         risco_lesao=False,
         musculos_esperados=["latíssimo do dorso", "bíceps", "romboides"],
         observacoes=None,
@@ -69,20 +59,19 @@ def _risco_lesao_result() -> AcademiaAnalysis:
         repeticoes_visiveis=3,
         veredito="inadequada",
         confiabilidade="alta",
-        pontos_fortes=["quadril e lombar apoiados no encosto durante toda a série"],
-        pontos_a_melhorar=[
-            PontoMelhoria(
+        erros=[
+            ErroTecnico(
                 categoria="joelhos",
-                observacao="pés mal posicionados na plataforma e joelhos caindo para dentro "
+                descricao="pés mal posicionados na plataforma e joelhos caindo para dentro "
                 "(valgo dinâmico) entre 11 e 26 segundos",
-                ajuste="plante o pé inteiro na plataforma, afastado na largura dos ombros, "
+                correcao="plante o pé inteiro na plataforma, afastado na largura dos ombros, "
                 "e faça o joelho seguir a direção da ponta do pé na descida e na subida",
                 timestamp_s=11.0,
-                prioridade="risco_lesao",
+                gravidade="risco_lesao",
             ),
         ],
-        feedback_ideal="interrompa a série e ajuste os pés na plataforma antes de continuar; "
-        "o apoio do quadril e da lombar já está correto e é para manter",
+        acertos=["quadril e lombar apoiados no encosto durante toda a série"],
+        foco_pratico="ajustar o posicionamento dos pés na plataforma antes de continuar a série",
         risco_lesao=True,
         musculos_esperados=["quadríceps", "glúteos", "isquiotibiais"],
         observacoes=None,
@@ -191,22 +180,17 @@ def test_analyze_clean_execution_three_outputs(client):
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    m = body["metrics"]
     assert body["exercicio"] == "puxada alta na polia"
-    assert m["veredito"] == "adequada"
-    assert m["risco_lesao"] is False
-    # RF-008/RF-004: o lado "o que melhorar" NUNCA some — numa execução boa vem
-    # como refinamento (não rebaixa o veredito), e o "o que está bom" está cheio.
-    assert m["pontos_fortes"]
-    assert m["pontos_a_melhorar"] and m["pontos_a_melhorar"][0]["prioridade"] == "refinamento"
-    assert m["feedback_ideal"]
+    assert body["metrics"]["veredito"] == "adequada"
+    assert body["metrics"]["erros"] == []              # RF-004: sem erro inventado
+    assert body["metrics"]["risco_lesao"] is False
     assert body["narrative"]
     assert body["audio_base64"]                        # saída 3 presente
     assert body["persisted_id"] is None                 # persistência opt-in, off por default
 
 
-def test_analyze_execution_with_errors_returns_veredicto_e_pontos(client, monkeypatch):
-    # execução com ponto moderado (não risco de lesão) => veredito não-adequado
+def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monkeypatch):
+    # execução com erro moderado (não risco de lesão) => erros preenchidos, veredito não-adequado
     erro_moderado = AcademiaAnalysis(
         exercicio_identificado="rosca bíceps na polia baixa",
         equipamento="polia baixa",
@@ -216,17 +200,17 @@ def test_analyze_execution_with_errors_returns_veredicto_e_pontos(client, monkey
         repeticoes_visiveis=4,
         veredito="parcialmente_adequada",
         confiabilidade="alta",
-        pontos_fortes=["punho mantido neutro durante toda a execução"],
-        pontos_a_melhorar=[
-            PontoMelhoria(
+        erros=[
+            ErroTecnico(
                 categoria="cotovelos",
-                observacao="cotovelo avança à frente do tronco na subida, tirando a tensão do bíceps",
-                ajuste="mantenha o cotovelo fixo ao lado do tronco durante toda a rosca",
+                descricao="cotovelo avança à frente do tronco na subida, tirando a tensão do bíceps",
+                correcao="mantenha o cotovelo fixo ao lado do tronco durante toda a rosca",
                 timestamp_s=4.2,
-                prioridade="moderada",
+                gravidade="moderada",
             ),
         ],
-        feedback_ideal="mantenha o cotovelo fixo ao lado do tronco; o resto da execução já está estável",
+        acertos=["punho mantido neutro durante toda a execução"],
+        foco_pratico="mantenha o cotovelo fixo ao lado do tronco durante toda a rosca",
         risco_lesao=False,
         musculos_esperados=["bíceps braquial"],
         observacoes=None,
@@ -245,12 +229,12 @@ def test_analyze_execution_with_errors_returns_veredicto_e_pontos(client, monkey
     assert r.status_code == 200, r.text
     m = r.json()["metrics"]
     assert m["veredito"] == "parcialmente_adequada"
-    assert len(m["pontos_a_melhorar"]) == 1
-    p = m["pontos_a_melhorar"][0]
-    assert p["categoria"] == "cotovelos"
-    assert p["prioridade"] == "moderada"
-    # par obrigatório o-que-não-está-ideal (observacao) → como-ajustar (ajuste)
-    assert p["observacao"] and p["ajuste"] and p["observacao"] != p["ajuste"]
+    assert len(m["erros"]) == 1
+    assert m["erros"][0]["categoria"] == "cotovelos"
+    # par obrigatório o-que-está-errado (descricao) → o-que-consertar (correcao)
+    assert m["erros"][0]["descricao"]
+    assert m["erros"][0]["correcao"]
+    assert m["erros"][0]["descricao"] != m["erros"][0]["correcao"]
     assert m["risco_lesao"] is False
 
 
@@ -267,8 +251,8 @@ def test_analyze_risco_lesao_forces_inadequada(client, monkeypatch):
     m = body["metrics"]
     assert m["veredito"] == "inadequada"
     assert m["risco_lesao"] is True
-    assert any(p["prioridade"] == "risco_lesao" for p in m["pontos_a_melhorar"])
-    assert any(p["categoria"] == "joelhos" for p in m["pontos_a_melhorar"])
+    assert any(e["gravidade"] == "risco_lesao" for e in m["erros"])
+    assert any(e["categoria"] == "joelhos" for e in m["erros"])
     # RN-01: o prompt REAL construído a partir dessas métricas impõe a abertura
     # de interrupção (não asserta sobre a string do mock, e sim sobre o sistema)
     from app.academia.prompts import build_narrative_prompt
@@ -341,12 +325,11 @@ def test_render_txt_report_is_readable():
         "result_json": {
             "metrics": {
                 "exercicio_identificado": "leg press 45 graus", "veredito": "inadequada",
-                "risco_lesao": True,
-                "feedback_ideal": "ajuste os pés na plataforma antes de continuar",
-                "pontos_a_melhorar": [{"categoria": "joelhos", "prioridade": "risco_lesao",
-                           "observacao": "valgo dinâmico severo",
-                           "ajuste": "plante o pé inteiro e alinhe o joelho à ponta do pé"}],
-                "pontos_fortes": ["lombar apoiada no encosto"],
+                "risco_lesao": True, "foco_pratico": "ajustar os pés na plataforma",
+                "erros": [{"categoria": "joelhos", "gravidade": "risco_lesao",
+                           "descricao": "valgo dinâmico severo",
+                           "correcao": "plante o pé inteiro e alinhe o joelho à ponta do pé"}],
+                "acertos": ["lombar apoiada no encosto"],
             },
             "narrative": "Paulinho, para tudo agora: ajuste os pés no leg press.",
         },
@@ -354,17 +337,16 @@ def test_render_txt_report_is_readable():
     txt = _render_txt_report(rec)
     assert "Análise de Academia #7" in txt
     assert "RISCO DE LESÃO" in txt
-    assert "FEEDBACK IDEAL" in txt and "ajuste os pés na plataforma" in txt
-    # o que está bom + par o-que-melhorar → como-ajustar no relatório de compartilhamento
-    assert "O QUE ESTÁ BOM" in txt and "lombar apoiada no encosto" in txt
-    assert "O QUE MELHORAR → COMO AJUSTAR" in txt
+    assert "FOCO PRÁTICO PRINCIPAL" in txt and "ajustar os pés na plataforma" in txt
+    # par erro→correção no relatório de compartilhamento
+    assert "O QUE ESTÁ ERRADO → COMO CONSERTAR" in txt
     assert "valgo dinâmico severo" in txt
-    assert "ajustar: plante o pé inteiro" in txt
+    assert "corrigir: plante o pé inteiro" in txt
     assert "RELATÓRIO DO PERSONAL TRAINER" in txt and "Paulinho" in txt
 
 
 # --------------------------------------------------------------------------- #
-# prompts — calibragem RF-002/RF-003/RF-004/RF-008/RN-01/RN-02/RN-03/RN-05     #
+# prompts — calibragem RF-002/RF-003/RF-004/RN-01/RN-02/RN-03/RN-05            #
 # --------------------------------------------------------------------------- #
 def test_analysis_system_prompt_covers_seven_categories():
     from app.academia.prompts import analysis_system_prompt
@@ -375,62 +357,38 @@ def test_analysis_system_prompt_covers_seven_categories():
     assert "marina" in sp
 
 
-def test_analysis_prompt_requires_observacao_ajuste_pairing():
-    """Cada ponto a melhorar tem de vir com o par o-que-não-está-ideal → como-ajustar."""
+def test_analysis_prompt_requires_erro_correcao_pairing():
+    """Cada erro tem de vir com o par o-que-está-errado → o-que-consertar."""
     from app.academia.prompts import analysis_system_prompt
     sp = analysis_system_prompt(None, fps=24).lower()
-    assert "observacao" in sp
-    assert "ajuste" in sp
-    assert "o que não está ideal" in sp
-    assert "como ajustar" in sp
+    assert "correcao" in sp
+    assert "o que está errado" in sp
+    assert "o que consertar" in sp
 
 
-def test_analysis_prompt_guarantees_feedback_never_disappears():
-    """RF-004/RF-008: o feedback do que melhorar não some numa execução boa —
-    o prompt exige nomear ao menos um ponto (refinamento) e proíbe inflar."""
-    from app.academia.prompts import analysis_system_prompt
-    sp = analysis_system_prompt(None, fps=24).lower()
-    assert "refinamento" in sp
-    assert "sempre nomeie ao menos um ponto a melhorar" in sp
-    assert "proibido inflar" in sp
-
-
-def test_narrative_prompt_pairs_observacao_with_ajuste():
-    """A narrativa deve exigir citar o ajuste logo após cada ponto a melhorar."""
+def test_narrative_prompt_pairs_erro_with_correcao():
+    """A narrativa deve exigir citar o conserto logo após cada erro."""
     from app.academia.prompts import build_narrative_prompt
     metrics = {
         "risco_lesao": False,
-        "pontos_a_melhorar": [{"categoria": "cotovelos", "observacao": "cotovelo à frente",
-                   "ajuste": "mantenha o cotovelo fixo", "prioridade": "moderada"}],
+        "erros": [{"categoria": "cotovelos", "descricao": "cotovelo à frente",
+                   "correcao": "mantenha o cotovelo fixo", "gravidade": "moderada"}],
     }
     prompt = build_narrative_prompt(metrics, student_name=None).lower()
-    assert "ajuste" in prompt
-    assert "o que melhorar" in prompt
-    assert "o que está bom" in prompt
+    assert "correcao" in prompt
+    assert "conserto" in prompt
 
 
 def test_narrative_prompt_rn01_error_before_praise():
     from app.academia.prompts import build_narrative_prompt
-    metrics_risco = {"risco_lesao": True,
-                     "pontos_a_melhorar": [{"categoria": "joelhos", "prioridade": "risco_lesao"}]}
+    metrics_risco = {"risco_lesao": True, "erros": [{"categoria": "joelhos"}]}
     p = build_narrative_prompt(metrics_risco, student_name="Paulinho")
     assert "INTERROMPER" in p or "interromper" in p.lower()
     assert "Paulinho" in p
 
-    metrics_limpo = {"risco_lesao": False, "pontos_a_melhorar": []}
+    metrics_limpo = {"risco_lesao": False, "erros": []}
     p2 = build_narrative_prompt(metrics_limpo, student_name=None)
     assert "não invente" in p2.lower()
-
-
-def test_narrative_prompt_refinamento_opens_positive():
-    """Execução boa (só refinamento) NÃO obriga abrir com o negativo — abre pelo
-    positivo, mas o corpo ainda traz o que refinar (RF-008)."""
-    from app.academia.prompts import build_narrative_prompt
-    metrics = {"risco_lesao": False,
-               "pontos_a_melhorar": [{"categoria": "escapula_ombros", "prioridade": "refinamento"}]}
-    p = build_narrative_prompt(metrics, student_name=None)
-    assert "Execução boa" in p           # regra de abertura pelo positivo
-    assert "vem PRIMEIRO" not in p       # NÃO caiu na abertura de erro-antes-de-elogio
 
 
 def test_academia_gemini_narrate_smoke_builds_real_prompt():

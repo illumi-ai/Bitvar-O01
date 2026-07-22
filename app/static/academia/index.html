@@ -103,23 +103,20 @@
   .stat .v{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--refletor)}
   .obs{color:var(--arquibancada);font-size:.86rem;margin-top:10px;font-style:italic}
 
-  /* pontos a melhorar */
+  /* erros */
   .erro-item{border-left:3px solid var(--linha);padding:10px 14px;margin-bottom:10px;border-radius:0 8px 8px 0;background:var(--noite-code)}
-  .erro-item.refinamento{border-left-color:var(--roxo)}
   .erro-item.leve{border-left-color:var(--info)}
   .erro-item.moderada{border-left-color:var(--ambar)}
   .erro-item.risco_lesao{border-left-color:var(--botoeira);background:var(--botoeira-dim)}
   .erro-item .top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
   .erro-item .cat{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--arquibancada)}
   .erro-item .gravidade{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--linha)}
-  .erro-item .gravidade.refinamento{color:var(--roxo);border-color:rgba(184,156,255,.4)}
   .erro-item .gravidade.leve{color:var(--info);border-color:rgba(111,177,255,.4)}
   .erro-item .gravidade.moderada{color:var(--ambar);border-color:rgba(255,180,84,.4)}
   .erro-item .gravidade.risco_lesao{color:var(--botoeira);border-color:rgba(255,68,56,.4)}
   .erro-item .ts{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--arquibancada)}
   .erro-item .desc{margin-top:8px;font-size:.94rem;color:var(--refletor)}
-  .erro-item .desc::before{content:"⚠ ";}
-  .erro-item.risco_lesao .desc::before{content:"❌ ";}
+  .erro-item .desc::before{content:"❌ ";}
   .erro-item .correcao{margin-top:6px;font-size:.94rem;color:var(--refletor)}
   .erro-item .correcao::before{content:"✅ ";}
   .erro-item .correcao .lab{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--verde);margin-right:6px}
@@ -149,7 +146,7 @@
 <header class="hero"><div class="wrap">
   <p class="eyebrow">Análise de execução na academia · <b>vídeo do exercício</b></p>
   <h1>Um vídeo, <span class="hl">um raio-x técnico.</span></h1>
-  <p>Suba o vídeo de uma execução de exercício e receba um <strong>relatório educacional em PT-BR</strong> com o que está bom, o que melhorar e o feedback ideal — narrado em áudio, se quiser.</p>
+  <p>Suba o vídeo de uma execução de exercício e receba um <strong>relatório educacional em PT-BR</strong> com erros técnicos, acertos e foco prático — narrado em áudio, se quiser.</p>
 </div></header>
 
 <section><div class="wrap">
@@ -190,11 +187,11 @@
   <div id="verdictbox"></div>
   <div id="chips" class="chips"></div>
 
-  <h3>O que está bom</h3>
-  <ul id="fortes" class="acertos"></ul>
+  <h3>Erros técnicos</h3>
+  <div id="erros"></div>
 
-  <h3>O que melhorar</h3>
-  <div id="melhorar"></div>
+  <h3>Acertos</h3>
+  <ul id="acertos" class="acertos"></ul>
 
   <div id="focowrap"></div>
 
@@ -266,7 +263,7 @@ function el(t,attrs={},...kids){const e=document.createElement(t);for(const k in
 const VEREDITO_LABEL={adequada:"Execução adequada",parcialmente_adequada:"Parcialmente adequada",inadequada:"Execução inadequada"};
 const CONFIAB_LABEL={baixa:"baixa",media:"média",alta:"alta"};
 const CATEGORIA_LABEL={amplitude:"Amplitude",escapula_ombros:"Escápula / ombros",tronco:"Tronco",cervical:"Cervical",cotovelos:"Cotovelos",joelhos:"Joelhos",ritmo:"Ritmo",outro:"Outro"};
-const PRIORIDADE_LABEL={refinamento:"refinamento",leve:"leve",moderada:"moderada",risco_lesao:"risco de lesão"};
+const GRAVIDADE_LABEL={leve:"leve",moderada:"moderada",risco_lesao:"risco de lesão"};
 const num=v=>v==null?"—":v;
 
 function render(d){
@@ -309,44 +306,44 @@ function render(d){
   if(m.repeticoes_visiveis!=null) addChip("","REPETIÇÕES VISÍVEIS",m.repeticoes_visiveis);
   if(m.partes_ocultas&&m.partes_ocultas.length) addChip("ambar","PARTES OCULTAS",m.partes_ocultas.join(", "));
 
-  // o que está bom (pontos fortes) — sempre primeiro, retorno positivo
-  const fortesHost=$("#fortes"); fortesHost.innerHTML="";
-  (m.pontos_fortes||[]).forEach(a=>fortesHost.append(el("li",{},a)));
-  if(!(m.pontos_fortes||[]).length) fortesHost.append(el("li",{style:"list-style:none;padding-left:0"},el("span",{class:"obs"},"—")));
-
-  // o que melhorar (pontos a melhorar) — par observação → ajuste, prioridade graduada
-  const melhorarHost=$("#melhorar"); melhorarHost.innerHTML="";
-  const melhorar=(m.pontos_a_melhorar||[]).slice().sort((a,b)=>{
-    const order={risco_lesao:0,moderada:1,leve:2,refinamento:3};
-    return (order[a.prioridade]??4)-(order[b.prioridade]??4);
+  // erros
+  const errosHost=$("#erros"); errosHost.innerHTML="";
+  const erros=(m.erros||[]).slice().sort((a,b)=>{
+    const order={risco_lesao:0,moderada:1,leve:2};
+    return (order[a.gravidade]??3)-(order[b.gravidade]??3);
   });
-  if(melhorar.length){
-    melhorar.forEach(p=>{
-      const item=el("div",{class:"erro-item "+(p.prioridade||"")});
+  if(erros.length){
+    erros.forEach(e=>{
+      const item=el("div",{class:"erro-item "+(e.gravidade||"")});
       const top=el("div",{class:"top"});
-      top.append(el("span",{class:"cat"},CATEGORIA_LABEL[p.categoria]||p.categoria||"—"));
-      top.append(el("span",{class:"gravidade "+(p.prioridade||"")}, PRIORIDADE_LABEL[p.prioridade]||p.prioridade||""));
-      if(p.timestamp_s!=null) top.append(el("span",{class:"ts"},`~${p.timestamp_s}s`));
+      top.append(el("span",{class:"cat"},CATEGORIA_LABEL[e.categoria]||e.categoria||"—"));
+      top.append(el("span",{class:"gravidade "+(e.gravidade||"")}, GRAVIDADE_LABEL[e.gravidade]||e.gravidade||""));
+      if(e.timestamp_s!=null) top.append(el("span",{class:"ts"},`~${e.timestamp_s}s`));
       item.append(top);
-      if(p.observacao) item.append(el("div",{class:"desc"},p.observacao));
-      if(p.ajuste){
+      if(e.descricao) item.append(el("div",{class:"desc"},e.descricao));
+      if(e.correcao){
         const fix=el("div",{class:"correcao"});
-        fix.append(el("span",{class:"lab"},"Ajustar"));
-        fix.append(document.createTextNode(p.ajuste));
+        fix.append(el("span",{class:"lab"},"Corrigir"));
+        fix.append(document.createTextNode(e.correcao));
         item.append(fix);
       }
-      melhorarHost.append(item);
+      errosHost.append(item);
     });
   } else {
-    melhorarHost.append(el("div",{class:"obs"},"Execução impecável — nada relevante a melhorar nesta série."));
+    errosHost.append(el("div",{class:"obs"},"Nenhum erro técnico identificado nesta execução."));
   }
 
-  // feedback ideal — a síntese construtiva (o que está bom + o ajuste principal)
+  // acertos
+  const acertosHost=$("#acertos"); acertosHost.innerHTML="";
+  (m.acertos||[]).forEach(a=>acertosHost.append(el("li",{},a)));
+  if(!(m.acertos||[]).length) acertosHost.append(el("li",{style:"list-style:none;padding-left:0"},el("span",{class:"obs"},"—")));
+
+  // foco prático
   const focoHost=$("#focowrap"); focoHost.innerHTML="";
-  if(m.feedback_ideal){
+  if(m.foco_pratico){
     const box=el("div",{class:"focobox"});
-    box.append(el("div",{class:"lab"},"Feedback ideal"));
-    box.append(el("div",{class:"txt"},m.feedback_ideal));
+    box.append(el("div",{class:"lab"},"Foco prático"));
+    box.append(el("div",{class:"txt"},m.foco_pratico));
     focoHost.append(box);
   }
 

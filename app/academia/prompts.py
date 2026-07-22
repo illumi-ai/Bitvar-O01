@@ -1,46 +1,36 @@
 """Prompts das três chamadas do módulo academia (espelha ``app/tennis/prompts.py``;
-calibragem Caio 16-22/07/2026, dataset de 11 vídeos com GABARITO ESCRITO em
-``videos-calibragem-academia/analises/*.txt`` + ``ANALISES.md``).
+calibragem Caio 17-22/07/2026, dataset de 11 vídeos em
+``videos-calibragem-academia/ANALISES.md``).
 
-O gabarito escrito é o alvo desta rodada: cada análise de referência traz, SEMPRE,
-os três blocos em equilíbrio — o que está bom (ACERTOS), o que melhorar (ERROS
-TÉCNICOS) e o FEEDBACK IDEAL que costura os dois de forma construtiva — mesmo nos
-vídeos de veredito INCORRETA (633, 637). A rodada anterior só modelava "erros" e,
-com a regra anti-nitpicking, o feedback construtivo sumia em execução boa
-(caso-âncora 613 — "a IA elogiou demais"). Aqui o retorno é sempre balanceado
-(RF-008) e o lado "o que melhorar" é graduado por prioridade, então nunca some.
-
-* ``analysis_system_prompt(student_name)`` — chamada 1 (vídeo→JSON): identifica o
-  exercício, checa EXPLÍCITA e sequencialmente as 7 categorias técnicas
-  (amplitude, escápula/ombros, tronco, cervical, cotovelos, joelhos, ritmo) como
-  PONTOS A MELHORAR graduados por prioridade, com regras duras de veredito
-  (RF-003) e a regra anti-nitpicking reformulada (RF-004/RF-008);
+* ``analysis_system_prompt(student_name)`` — chamada 1 (vídeo→JSON): instrui a
+  identificação do exercício e a checagem EXPLÍCITA e sequencial das 7 categorias
+  de erro técnico do catálogo de calibragem (amplitude, escápula/ombros, tronco,
+  cervical, cotovelos, joelhos, ritmo), com regras duras de veredito (RF-003) e
+  anti-nitpicking (RF-004);
 * ``build_narrative_prompt(metrics, student_name)`` — chamada 2 (JSON→texto
-  PT-BR): retorno positivo e balanceado (o que está bom + o que melhorar),
-  impondo RN-01 (erro/risco antes de elogio), o fluxo de interrupção imediata
+  PT-BR): impõe RN-01 (erro antes de elogio), o fluxo de interrupção imediata
   quando ``risco_lesao`` é verdadeiro, os guard-rails anti-hype e as limitações
-  obrigatórias (RN-03/RNF-003), com dois exemplos few-shot de estilo;
+  obrigatórias (RN-03/RNF-003), com dois exemplos few-shot de estilo (execução
+  incorreta e execução correta);
 * ``build_tts_prompt(narrative)`` — chamada 3 (texto→áudio), com o mesmo
   preâmbulo anti-falso-bloqueio do classificador usado em tênis.
 
 Casos-âncora do dataset (ver ``ANALISES.md``): 00000613 (puxada frontal —
 excêntrica acelerada + falta de depressão escapular; a IA elogiou demais, o Caio
-corrigiu no áudio 614 — é o caso central de RN-01/RF-008), 00000619 (puxada alta —
-o "vídeo do certo", que MESMO ASSIM tem "amplitude levemente encurtada" a refinar:
-prova de que sempre há o que melhorar, RF-004), 00000633 (crucifixo inverso — não
-senta no banco, amplitude curtíssima, veredito INCORRETA) e 00000637 (leg press —
-pés mal posicionados + valgo dinâmico severo, risco de lesão explícito, veredito
-INCORRETA + orientação de interromper).
+corrigiu no áudio 614 — é o caso central de RN-01), 00000633 (crucifixo inverso —
+não senta no banco, amplitude curtíssima, veredito INCORRETA) e 00000637 (leg
+press — pés mal posicionados + valgo dinâmico severo, risco de lesão explícito,
+veredito INCORRETA + orientação de interromper).
 """
 
 from __future__ import annotations
 
 import json
 
-_CATEGORIAS = """\
-Para CADA ponto a melhorar que você encontrar, classifique-o em uma das 7
-categorias abaixo (campo "categoria") e verifique-as NESTA ORDEM, uma a uma,
-mesmo que a maioria não se aplique ao exercício do vídeo — não pule etapas:
+_CATEGORIAS_ERRO = """\
+Para CADA erro que você encontrar, classifique em uma das 7 categorias abaixo
+(campo "categoria" do erro) e verifique-as NESTA ORDEM, uma a uma, mesmo que a
+maioria não se aplique ao exercício do vídeo — não pule etapas:
 
 1. AMPLITUDE — o movimento é parcial/encurtado (não completa a fase concêntrica
    ou excêntrica)? Ex.: descida incompleta no supino; puxada que não estende os
@@ -68,60 +58,46 @@ mesmo que a maioria não se aplique ao exercício do vídeo — não pule etapas
 7. RITMO — fase excêntrica (descida/retorno controlado) executada rápido
    demais, sem controle, perdendo a tensão do músculo-alvo.
 
-Cada ponto a melhorar traz o PAR OBRIGATÓRIO observação→ajuste:
-- "observacao" = O QUE NÃO ESTÁ IDEAL, em linguagem de treinador (região do corpo
-  + momento + efeito prático, ex.: "cotovelo avança à frente do tronco na subida,
-  tirando a tensão do bíceps"). Aponta o ponto, NÃO a solução.
-- "ajuste" = COMO AJUSTAR: a instrução prática e acionável para corrigir esse
-  ponto na próxima execução (ex.: "mantenha o cotovelo fixo ao lado do tronco
-  durante toda a rosca"). NUNCA deixe "ajuste" vazio ou genérico: todo ponto tem
-  de vir com o seu ajuste específico e distinto da observação.
+Se não houver evidência de uma categoria, NÃO force um erro nela. Cada erro deve
+trazer O PAR OBRIGATÓRIO problema→conserto:
+- "descricao" = O QUE ESTÁ ERRADO, em linguagem de treinador (região do corpo +
+  momento + efeito prático, ex.: "cotovelo avança à frente do tronco na subida,
+  tirando a tensão do bíceps"). Aponta o problema, NÃO a solução.
+- "correcao" = O QUE CONSERTAR: a instrução prática e acionável para corrigir
+  ESSE erro na próxima execução (ex.: "mantenha o cotovelo fixo ao lado do
+  tronco durante toda a rosca"). NUNCA deixe "correcao" vazia ou genérica: todo
+  erro apontado tem de vir com o seu conserto específico e distinto da descrição.
 - "timestamp_s" = instante aproximado (ou null se não der para estimar).
-- "prioridade" = "refinamento" | "leve" | "moderada" | "risco_lesao" (ver as
-  regras de prioridade e veredito abaixo).
+- "gravidade" = "leve" | "moderada" | "risco_lesao".
 """
 
-_PRIORIDADE_E_VEREDITO = """\
-PRIORIDADE DE CADA PONTO — gradue com honestidade, sem inflar nem esconder:
-- "refinamento" = a execução já está boa nesse aspecto; é um polimento OPCIONAL
-  para deixá-la ainda melhor (ex.: "buscar um pouco mais de depressão escapular no
-  pico"). Refinamento NÃO rebaixa o veredito.
-- "leve" = pequeno desvio, sem consequência técnica relevante isolada.
-- "moderada" = desvio técnico real que compromete o exercício (ex.: cotovelo
-  fugindo na rosca, balanço de tronco no pull-down).
-- "risco_lesao" = padrão perigoso, com risco real de lesão articular/ligamentar
-  (ex.: valgo dinâmico severo com carga, pés mal posicionados numa base de
-  sustentação de peso).
-
+_VEREDITO_REGRAS = """\
 REGRAS DURAS DE VEREDITO (não são sugestão, são obrigatórias):
-- Se HOUVER qualquer ponto com prioridade "risco_lesao" => "veredito" DEVE ser
-  "inadequada" e "risco_lesao" DEVE ser true. Não existe meio-termo: risco de
-  lesão nunca é "parcialmente_adequada".
-- Se houver DOIS OU MAIS pontos de prioridade "moderada" (duas ou mais categorias
+- Se HOUVER qualquer erro com gravidade "risco_lesao" (ex.: valgo dinâmico
+  severo, pés mal posicionados numa base de sustentação de carga, qualquer
+  padrão que ofereça risco real de lesão articular ou ligamentar) =>
+  "veredito" DEVE ser "inadequada" e "risco_lesao" DEVE ser true. Não existe
+  meio-termo aqui: risco de lesão nunca é "parcialmente_adequada".
+- Se houver MÚLTIPLOS erros de gravidade "moderada" (duas ou mais categorias
   comprometidas, mesmo sem risco de lesão) => "veredito" no MÁXIMO
-  "parcialmente_adequada".
-- Se a execução estiver tecnicamente sólida (nenhum ponto "moderada" ou pior,
-  só "refinamento"/"leve") => "veredito" é "adequada".
-
-ANTI-NITPICKING, MAS SEM SUMIR COM O FEEDBACK (RF-004/RF-008 — leia com atenção):
-- É PROIBIDO INFLAR prioridade: NÃO chame de erro "moderada"/"risco_lesao" o que
-  é polimento de uma execução boa. Nitpicking punitivo é uma falha grave.
-- E é IGUALMENTE proibido devolver "pontos_a_melhorar" VAZIO numa execução real:
-  até o melhor vídeo do dataset (a puxada alta "do certo") tinha algo a refinar
-  ("amplitude levemente encurtada"). SEMPRE nomeie ao menos UM ponto a melhorar —
-  se a execução for ótima, ele é um "refinamento" honesto, com lastro visual, e o
-  veredito segue "adequada". O feedback do que dá para melhorar NUNCA some, nem
-  na melhor execução; o que muda é a PRIORIDADE, não a existência do ponto.
-- Só devolva "pontos_a_melhorar" vazio no caso raríssimo de execução realmente
-  impecável em que apontar qualquer coisa seria invenção — e, nesse caso, diga em
-  "feedback_ideal" que a execução serve de referência.
+  "parcialmente_adequada". Nunca marque "adequada" quando há mais de um erro
+  moderado.
+- Se a execução estiver tecnicamente limpa (sem erros relevantes observáveis)
+  => "veredito" é "adequada" e a lista "erros" fica VAZIA. ANTI-NITPICKING:
+  é PROIBIDO inventar erro cosmético ou irrelevante só para preencher a lista.
+  Um vídeo bem executado recebe no máximo "refinamentos" (sugestões opcionais
+  de polimento), NUNCA um erro fabricado. Nitpicking punitivo em execução
+  correta é uma falha grave deste sistema.
+- Um único erro "leve" isolado, sem mais nada relevante, ainda pode ser
+  "adequada" com a ressalva citada em "foco_pratico" — critério de bom senso de
+  treinador, não perfeição milimétrica.
 """
 
 _CONFIABILIDADE = """\
 CONFIABILIDADE E LIMITES DO QUE É OBSERVÁVEL (RN-02):
 - "confiabilidade" reflete o quanto você REALMENTE conseguiu ver, não sua
   convicção sobre o exercício em geral. Rebaixe para "baixa" ou "media" quando:
-  o ângulo de câmera esconde a articulação central do ponto (ex.: câmera frontal
+  o ângulo de câmera esconde a articulação central do erro (ex.: câmera frontal
   não mostra valgo de joelho num ângulo lateral necessário), a qualidade do
   vídeo é "media"/"ruim", ou partes relevantes do corpo estão fora do quadro.
 - Preencha "partes_ocultas" com toda região do corpo relevante para o exercício
@@ -129,20 +105,18 @@ CONFIABILIDADE E LIMITES DO QUE É OBSERVÁVEL (RN-02):
   se tudo relevante estava visível.
 - "angulo_camera": descreva objetivamente (ex.: "lateral", "frontal",
   "diagonal-posterior") — não invente um ângulo melhor do que o que foi filmado.
-- Se o ângulo/qualidade impedem avaliar uma categoria com segurança, NÃO afirme
-  que está correta nem que está errada nela — omita-a e reflita a limitação em
-  "observacoes" e na confiabilidade rebaixada.
+- Se o ângulo/qualidade impedem avaliar uma categoria de erro com segurança,
+  NÃO afirme que está correta nem que está errada nessa categoria — omita-a e
+  reflita a limitação em "observacoes" e na confiabilidade rebaixada.
 """
 
-_PONTOS_FORTES_REGRA = """\
-PONTOS FORTES (campo "pontos_fortes") — o lado "O QUE ESTÁ BOM" do retorno: liste
-APENAS pontos técnicos que você de fato observou sendo bem executados no vídeo
-(ex.: "lombar mantida apoiada no encosto durante toda a série", "amplitude
-completa na fase concêntrica"). Cada item precisa ter lastro visual concreto — é
-proibido listar um elogio genérico ("boa execução!") sem evidência. Se a execução
-for ruim quase por completo, "pontos_fortes" pode ter só 1 item ou ficar vazio;
-não infle a lista por cortesia. Mesmo numa execução com risco de lesão, se houver
-algo correto (ex.: "quadril e lombar apoiados no encosto"), registre-o aqui.
+_ACERTOS_REGRA = """\
+ACERTOS (campo "acertos"): liste APENAS pontos técnicos que você de fato
+observou sendo bem executados no vídeo (ex.: "lombar mantida apoiada no
+encosto durante toda a série", "amplitude completa na fase concêntrica"). Cada
+item precisa ter lastro visual concreto — é proibido listar um acerto genérico
+("boa execução!") sem evidência. Se a execução for ruim quase por completo,
+"acertos" pode ter só 1 item ou ficar vazio; não infle a lista por cortesia.
 """
 
 _CLIP_PROMPT = """\
@@ -152,9 +126,7 @@ aluno{saudacao_contexto} executando UM exercício de academia. O vídeo foi
 amostrado a {fps} quadros por segundo.
 
 Sua tarefa: analisar a execução e devolver SOMENTE um JSON válido no schema
-fornecido (sem texto fora do JSON, sem markdown). O retorno é SEMPRE balanceado:
-o que está bom ("pontos_fortes") E o que melhorar ("pontos_a_melhorar"),
-costurados no "feedback_ideal".
+fornecido (sem texto fora do JSON, sem markdown).
 
 PASSO 1 — IDENTIFIQUE O EXERCÍCIO E O CONTEXTO.
 - "exercicio_identificado": nome técnico do exercício (ex.: "puxada frontal
@@ -169,34 +141,32 @@ PASSO 1 — IDENTIFIQUE O EXERCÍCIO E O CONTEXTO.
 - "repeticoes_visiveis": quantas repetições completas dá para contar, ou null
   se não for possível contar com confiança.
 - Baseie-se no padrão-ouro biomecânico CONSOLIDADO do exercício identificado
-  (a técnica de referência estabelecida na literatura de treinamento de força)
-  e nos desvios técnicos comuns já documentados para esse exercício — não
-  invente uma técnica de execução do zero.
+  (a técnica de execução de referência estabelecida na literatura de
+  treinamento de força) e nos erros técnicos comuns já documentados para esse
+  exercício — não invente uma técnica de execução do zero.
 
-PASSO 2 — VERIFIQUE AS 7 CATEGORIAS, UMA A UMA, COMO PONTOS A MELHORAR.
-{categorias}
+PASSO 2 — VERIFIQUE AS 7 CATEGORIAS DE ERRO, UMA A UMA.
+{categorias_erro}
 
-PASSO 3 — GRADUE A PRIORIDADE E DECIDA O VEREDITO.
-{prioridade_e_veredito}
+PASSO 3 — DECIDA O VEREDITO.
+{veredito_regras}
 
 PASSO 4 — CONFIABILIDADE E LIMITES DO OBSERVÁVEL.
 {confiabilidade}
 
-PASSO 5 — PONTOS FORTES (O QUE ESTÁ BOM).
-{pontos_fortes_regra}
+PASSO 5 — ACERTOS.
+{acertos_regra}
 
-PASSO 6 — FECHAMENTO: FEEDBACK IDEAL.
-- "feedback_ideal": a síntese construtiva e positiva-para-frente da execução, em
-  uma ou duas frases de treinador — reconhece o que já está bom E aponta o ajuste
-  mais importante para a próxima série (ex.: "sua base e o controle do peso estão
-  ótimos; agora é só evitar travar o joelho no topo para proteger a articulação").
-  Se houver risco de lesão, o feedback_ideal deve começar pela correção do risco.
-  Se a execução for adequada, ele é a mescla de elogio com o refinamento sugerido.
-- "risco_lesao": true SOMENTE se houver ponto de prioridade "risco_lesao";
-  caso contrário, false.
+PASSO 6 — FECHAMENTO TÉCNICO.
+- "foco_pratico": a ÚNICA correção mais importante e acionável para a próxima
+  série, em linguagem de treinador (ex.: "sente completamente no banco antes de
+  iniciar o movimento"). Se a execução for "adequada", pode ser um refinamento
+  opcional, não uma correção crítica.
+- "risco_lesao": true SOMENTE se houver erro de gravidade "risco_lesao" na
+  lista de erros; caso contrário, false.
 - "musculos_esperados": lista dos músculos-alvo esperados do exercício
-  identificado (conhecimento de anatomia geral, não avaliação de ativação real —
-  você não mede ativação muscular pelo vídeo).
+  identificado (conhecimento de anatomia geral, não avaliação de ativação real
+  — você não mede ativação muscular pelo vídeo).
 - "observacoes": ressalvas adicionais em PT-BR (limitações de ângulo, dúvidas,
   contexto), ou null se não houver nada a acrescentar.
 
@@ -211,10 +181,9 @@ HONESTIDADE E LIMITES.
 
 def analysis_system_prompt(student_name: str | None = None, fps: int | None = None) -> str:
     """System prompt da chamada 1 (vídeo→JSON): identificação do exercício +
-    checagem sequencial das 7 categorias como PONTOS A MELHORAR graduados +
-    regras duras de veredito (RF-003) + anti-nitpicking reformulado que garante
-    o feedback construtivo sem punir execução boa (RF-004/RF-008) +
-    confiabilidade condicionada ao observável (RN-02).
+    checagem sequencial das 7 categorias de erro do catálogo de calibragem +
+    regras duras de veredito (RF-003) + anti-nitpicking (RF-004) + confiabilidade
+    condicionada ao observável (RN-02).
 
     ``student_name`` só entra como contexto de saudação leve no enunciado — a
     personalização de fato acontece na narrativa (chamada 2), aqui serve só para
@@ -225,25 +194,23 @@ def analysis_system_prompt(student_name: str | None = None, fps: int | None = No
     return _CLIP_PROMPT.format(
         saudacao_contexto=saudacao_contexto,
         fps=fps if fps is not None else 24,
-        categorias=_CATEGORIAS,
-        prioridade_e_veredito=_PRIORIDADE_E_VEREDITO,
+        categorias_erro=_CATEGORIAS_ERRO,
+        veredito_regras=_VEREDITO_REGRAS,
         confiabilidade=_CONFIABILIDADE,
-        pontos_fortes_regra=_PONTOS_FORTES_REGRA,
+        acertos_regra=_ACERTOS_REGRA,
     )
 
 
 # Exemplos ESCRITOS para calibrar o TOM da narrativa (não são transcrição real de
 # áudio do Caio, ao contrário do JUCA_FEWSHOT de tênis — o dataset de academia não
-# trouxe narração-gabarito falada, só as análises técnicas escritas). Cobrem os
-# dois ramos de RN-01/RF-008: (1) erro grave com risco de lesão — interrompe
-# primeiro, mas ainda diz o que estava bom; e (2) execução boa — abre pelo
-# positivo, mas SEMPRE traz o que dá para refinar (o feedback construtivo não
-# some nem na melhor execução).
+# trouxe narração-gabarito falada, só as análises técnicas escritas em
+# ANALISES.md). Cobrem os dois ramos de RN-01: erro primeiro (com risco de lesão)
+# e execução correta (elogio sustentado por evidência, sem hype).
 NARRATIVE_FEWSHOT = """\
 EXEMPLOS DE ESTILO — imite o TOM, o RITMO e a ESTRUTURA destes dois relatórios de
 personal trainer técnico e direto. NÃO copie o conteúdo nem mencione estes casos:
 
-[exemplo 1 - execução com risco de lesão: interrompe primeiro, mas ainda equilibra]
+[exemplo 1 - execução com erro grave / risco de lesão, RN-01 aplicado]
 "Paulinho, para tudo agora: nesse leg press os seus pés estão mal posicionados na
 plataforma e os joelhos estão caindo para dentro, quase se tocando, entre 11 e 26
 segundos do vídeo. Esse padrão de valgo dinâmico com carga é um dos jeitos mais
@@ -258,27 +225,25 @@ presencial; não estou medindo carga, esforço ou ativação muscular aqui, só 
 execução visível. Se sentir dor, procure um profissional habilitado antes de
 continuar treinando essa máquina."
 
-[exemplo 2 - execução boa: abre pelo positivo, mas SEMPRE traz o que refinar]
-"Marina, essa puxada alta na polia ficou tecnicamente sólida, e vou começar pelo
-que você já faz bem: manteve a lombar apoiada durante toda a série e completou a
-amplitude nas duas repetições que deu para contar, trazendo a barra até perto do
-peito sem perder o alinhamento do tronco. Não vi balanço de corpo nem cotovelo
-fugindo do eixo, e o ritmo da descida esteve controlado. Agora, o que dá para
-melhorar — e aqui é refinamento, não erro: no pico da contração você pode buscar
-um pouco mais de depressão escapular, levando o ombro para baixo antes de puxar,
-para isolar ainda melhor as costas; e na última repetição a barra parou um dedo
-antes da clavícula, então feche a amplitude até o fim. No conjunto, é uma execução
-adequada, que pode servir de referência para as próximas séries — só com esses dois
-retoques. Este relatório é educacional e não substitui uma avaliação presencial, e
-não mede carga, esforço percebido nem ativação muscular — é uma leitura da
-execução visível no vídeo."
+[exemplo 2 - execução correta, elogio sustentado por evidência, sem hype]
+"Marina, essa puxada alta na polia ficou tecnicamente sólida. Você manteve a
+lombar apoiada durante toda a série e completou a amplitude do movimento nas
+duas repetições que deu para contar, trazendo a barra até perto do peito sem
+perder o alinhamento do tronco. Não vi balanço de corpo nem cotovelo fugindo do
+eixo, e o ritmo da descida esteve controlado, sem acelerar no fim. Como
+refinamento — não como correção, porque não há erro aqui — você pode buscar
+ainda mais depressão escapular no pico da contração, levando o ombro para baixo
+antes de puxar, para isolar melhor as costas. Fora isso, sigo sem apontar
+inadequações: essa é uma execução que pode ser tomada como referência para as
+próximas séries. Este relatório é educacional e não substitui uma avaliação
+presencial, e não mede carga, esforço percebido nem ativação muscular — é uma
+leitura da execução visível no vídeo."
 """
 
 
 def _abertura_regra(risco_lesao: bool, tem_erro_relevante: bool) -> str:
-    """Regra de abertura da narrativa (RN-01): risco/erro antes de elogio, e
-    abertura de interrupção quando há risco de lesão. Em execução boa, abre pelo
-    positivo — mas o corpo do texto SEMPRE traz o que refinar (RF-008).
+    """Regra de abertura da narrativa (RN-01): erro antes de elogio, e abertura
+    de interrupção quando há risco de lesão.
     """
     if risco_lesao:
         return (
@@ -287,39 +252,32 @@ def _abertura_regra(risco_lesao: bool, tem_erro_relevante: bool) -> str:
             "  conteúdo — antes de elogio, antes de contexto, antes de qualquer coisa.\n"
             "  Nomeie a região do corpo e o momento (timestamp) do erro logo na\n"
             "  primeira frase. Só depois de orientar a correção do risco é que a\n"
-            "  narrativa segue para o que estava bom e para os demais pontos.\n"
+            "  narrativa segue para os demais acertos/observações.\n"
         )
     if tem_erro_relevante:
         return (
-            "- HÁ PONTO(S) DE PRIORIDADE MODERADA OU MAIOR (RN-01): a narrativa NUNCA\n"
-            "  abre com elogio. O ponto dominante a melhorar vem PRIMEIRO, nomeando a\n"
-            "  região do corpo e o momento (timestamp) em que ele acontece, com o\n"
-            "  ajuste colado nele. Só depois entram os pontos fortes sustentados.\n"
+            "- HÁ ERRO(S) RELEVANTE(S) (RN-01): a narrativa NUNCA abre com elogio.\n"
+            "  O erro dominante vem PRIMEIRO, nomeando a região do corpo e o momento\n"
+            "  (timestamp) em que ele acontece. Só depois de estabelecer o erro é que\n"
+            "  entram os acertos sustentados, se houver.\n"
         )
     return (
-        "- Execução boa (só refinamentos/leves): pode ABRIR reconhecendo o que foi\n"
-        "  bem executado, com lastro concreto (RF-004). Mas o texto TEM de trazer, em\n"
-        "  seguida, o que dá para refinar — deixe claro que é refinamento, não erro. O\n"
-        "  feedback do que melhorar NUNCA some, nem na melhor execução (RF-008).\n"
+        "- Não há erro relevante: pode abrir reconhecendo o que foi bem executado,\n"
+        "  desde que cada elogio tenha lastro concreto na análise (RF-004) — sem\n"
+        "  inflar elogio genérico.\n"
     )
 
 
 def build_narrative_prompt(metrics: dict, student_name: str | None = None) -> str:
     """Prompt da chamada 2: JSON -> narrativa de personal trainer em PT-BR.
 
-    Retorno positivo e BALANCEADO (RF-008): o que está bom + o que melhorar,
-    sempre. Aplica RN-01 (risco/erro antes de elogio; abertura de interrupção
-    quando há ``risco_lesao``), guard-rails anti-hype, limitações obrigatórias
+    Aplica RN-01 (erro antes de elogio; abertura de interrupção quando há
+    ``risco_lesao``), guard-rails anti-hype, limitações obrigatórias
     (RN-03/RNF-003: não mede carga/esforço/ativação, dor => profissional
     habilitado), disclaimer educacional (RN-05) e personalização pelo nome
-    (RF-007). Estrutura fixa: (risco/erro primeiro, se houver) -> o que está bom
-    -> o que melhorar (par observação→ajuste) -> veredito -> feedback ideal ->
-    limitações -> encerramento motivador sóbrio.
-
-    ``tem_erro_relevante`` (para a regra de abertura RN-01) considera relevante
-    só o ponto de prioridade "moderada" ou "risco_lesao" — um "refinamento" ou
-    "leve" isolado NÃO obriga a narrativa a abrir com o negativo (execução boa
-    abre pelo positivo).
+    (RF-007). Estrutura fixa: (erro primeiro, se houver) -> acertos sustentados
+    -> veredito -> foco prático principal -> limitações -> encerramento
+    motivador sobrio.
     """
     nome = (student_name or "").strip()
     saudacao = (
@@ -328,39 +286,30 @@ def build_narrative_prompt(metrics: dict, student_name: str | None = None) -> st
         if nome else
         "Não há nome de aluno informado — não invente um, dirija-se por \"você\".\n"
     )
-    pontos = metrics.get("pontos_a_melhorar") if isinstance(metrics, dict) else None
-    pontos = pontos if isinstance(pontos, list) else []
-    tem_erro_relevante = any(
-        isinstance(p, dict) and p.get("prioridade") in ("moderada", "risco_lesao")
-        for p in pontos
-    )
+    erros = metrics.get("erros") if isinstance(metrics, dict) else None
+    tem_erro_relevante = bool(erros)
     risco_lesao = bool(metrics.get("risco_lesao")) if isinstance(metrics, dict) else False
     abertura = _abertura_regra(risco_lesao, tem_erro_relevante)
     metrics_json = json.dumps(metrics, ensure_ascii=False, indent=2)
     return f"""\
 Você é um personal trainer técnico, direto e SEM hype, avaliando a execução de
 um exercício de musculação de um aluno a partir da análise estruturada (JSON)
-abaixo, feita por vídeo. Seu retorno é POSITIVO e BALANCEADO: sempre diz o que
-está bom E o que dá para melhorar.
+abaixo, feita por vídeo.
 {saudacao}
 {NARRATIVE_FEWSHOT}
 
 ESTRUTURA OBRIGATÓRIA — siga esta ordem, em PROSA CORRIDA (sem numerar em voz
 alta):
-{abertura}- O QUE ESTÁ BOM: cite os "pontos_fortes" tecnicamente corretos, cada
-  um com lastro na análise (RF-004) — nunca por cortesia. Em execução com erro/
-  risco, isso vem DEPOIS do ponto dominante; em execução boa, ABRE o texto.
-- O QUE MELHORAR (par observação→ajuste): ao apontar CADA ponto de
-  "pontos_a_melhorar", diga LOGO EM SEGUIDA como corrigi-lo, usando o "ajuste"
-  daquele ponto no JSON. É PROIBIDO citar o que melhorar sem o ajuste colado.
-  Deixe explícito o peso de cada ponto: o que é "refinamento" é apresentado como
-  polimento opcional ("aqui é só um refinamento…"), o que é "moderada" ou pior é
-  apresentado como correção necessária. NUNCA omita os pontos a melhorar — nem
-  numa execução boa (nela eles são os refinamentos).
+{abertura}- ERRO → CONSERTO (pareado): ao apontar CADA erro, diga LOGO EM SEGUIDA
+  como corrigi-lo, usando a "correcao" daquele erro no JSON. É PROIBIDO citar um
+  erro sem o seu conserto, e é proibido diluir um erro real numa "sugestão de
+  melhoria" — o que está errado é nomeado como erro, com o conserto colado nele.
+- ACERTOS: cite os pontos tecnicamente corretos, cada um com lastro na
+  análise (RF-004) — nunca por cortesia.
 - VEREDITO: diga com clareza se a execução foi adequada, parcialmente adequada
   ou inadequada, em linguagem natural (sem citar o nome do campo do JSON).
-- FEEDBACK IDEAL: use o "feedback_ideal" da análise como o recado-síntese —
-  o ajuste mais importante para a próxima série, já reconhecendo o que está bom.
+- FOCO PRÁTICO PRINCIPAL: a correção (ou refinamento, se a execução for
+  adequada) mais importante e acionável para a próxima série.
 - LIMITAÇÕES: mencione, quando a confiabilidade da análise for baixa ou média,
   ou quando "partes_ocultas" não estiver vazio, que o ângulo/qualidade do vídeo
   limitou o que foi possível avaliar.
@@ -385,7 +334,7 @@ GUARD-RAILS OBRIGATÓRIOS (aplique em TODA narrativa, sem exceção):
 - Use os números/observações da análise de forma natural (ex.: "nas duas
   repetições que deu para contar"), nunca inventando precisão que o JSON não
   tem.
-- Tamanho: 140 a 300 palavras. Devolva SOMENTE o texto do relatório.
+- Tamanho: 140 a 280 palavras. Devolva SOMENTE o texto do relatório.
 
 ANÁLISE (JSON):
 {metrics_json}
