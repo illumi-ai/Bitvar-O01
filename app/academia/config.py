@@ -22,7 +22,7 @@ class AcademiaSettings(BaseSettings):
 
     # ----- credenciais / modelos -----
     gemini_api_key: str | None = None  # compartilhada com o tênis (mesma env var, sem prefixo)
-    academia_analysis_model: str = "gemini-3.1-pro-preview"  # chamada 1 (vídeo→JSON) e 2 (JSON→texto)
+    academia_analysis_model: str = "gemini-3.6-flash"  # chamada 1 (vídeo→JSON) e 2 (JSON→texto) — flash rende melhor que o pro aqui
     academia_tts_model: str = "gemini-3.1-flash-tts-preview"  # chamada 3 (texto→áudio)
     academia_tts_voice: str = "Vindemiatrix"  # voz PT-BR (Gentle), mesmo padrão do tênis
 

@@ -15,9 +15,14 @@ generations of functionality** that share one FastAPI process:
    video → Gemini turns it into structured metrics, a PT-BR coach narrative, and TTS
    audio. This is where almost all the complexity lives. Implements
    `docs/bitvar-ia-tenis-blueprint.html`; see `docs/TENNIS.md` for the deep dive.
+3. **Gym video analysis** (`app/academia/`) — the same 3-call Gemini pipeline applied
+   to weight-training form: upload an exercise video → structured technical evaluation
+   + PT-BR personal-trainer narrative + TTS. Structurally mirrors `app/tennis/` (reuses
+   its audio/Files-API helpers by import). Calibrated against a written ground-truth
+   dataset in `docs/videos-calibragem-academia/`.
 
-A third concern, **events** (`app/events/`), is an audit + observability layer that
-spans both.
+A fourth concern, **events** (`app/events/`), is an audit + observability layer that
+spans all of them.
 
 ## Architecture
 
@@ -57,6 +62,31 @@ narrative, audio_base64, warnings, persisted_id}`. Key structural facts:
   threadpool via `run_in_threadpool`; `service.py` re-sets the event correlation context
   inside the worker thread so Gemini events stay correlated to the request.
 - The temp upload file **and** the remote Files-API file are deleted after analysis.
+
+### Gym pipeline (`app/academia/`) — the second video feature
+
+Same 3-call Gemini flow as tennis (`service.py:AcademiaService.analyze_upload`: video →
+structured JSON → PT-BR narrative → WAV), but **no gender/mode/duration routing** — every
+clip uses one schema (`AcademiaAnalysis`) and the fixed `fps`/`media_resolution` from
+`config.py`. It reuses tennis's audio/Files-API helpers by import (`gemini.py`) instead of
+duplicating them.
+
+- **Model: `gemini-3.6-flash`** for calls 1 & 2 (`academia_analysis_model` in `config.py`) —
+  flash empirically beats the pro model here; TTS is `gemini-3.1-flash-tts-preview`. The key
+  is the shared `GEMINI_API_KEY` (tennis + academia); academia config is separate so the key
+  stays optional (endpoints `503` until it exists) and persistence is opt-in (`ACADEMIA_PERSIST`).
+- **The schema is the calibration.** `models.py:AcademiaAnalysis` returns a **balanced,
+  always-present** verdict: `pontos_fortes` (what's good) + `pontos_a_melhorar` (what to
+  improve, each an `observacao`→`ajuste` pair graded by `prioridade`) + `feedback_ideal`
+  (the synthesis). `prioridade` runs `refinamento → leve → moderada → risco_lesao`: the
+  `refinamento` tier is what guarantees constructive feedback **never disappears on a good
+  execution** (it doesn't lower the verdict), while `risco_lesao` forces `veredito="inadequada"`
+  + `risco_lesao=True`. This deliberately replaced an earlier `erros[]`-only schema whose
+  anti-nitpicking rule made the negative feedback vanish (anchor case 613, "a IA elogiou demais").
+- Calibrated against `docs/videos-calibragem-academia/` — a written ground-truth dataset
+  (11 videos + `analises/*.txt`) whose 7-part structure the schema mirrors 1:1. **Recalibrating
+  = editing `prompts.py`** (the 7 error categories + verdict rules) and the `WEIGHT`-free schema.
+- The video is **gitignored** (~40MB); only the `.txt` analyses + `ANALISES.md` are tracked.
 
 ### Events system (`app/events/`) — audit + observability
 
