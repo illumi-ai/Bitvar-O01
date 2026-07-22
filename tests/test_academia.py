@@ -17,8 +17,14 @@ from starlette.requests import Request  # noqa: E402
 
 from app.academia import gemini as agem  # noqa: E402
 from app.academia import router as arouter  # noqa: E402
+from app.academia import scoring  # noqa: E402
 from app.academia.config import academia_settings as cfg  # noqa: E402
-from app.academia.models import AcademiaAnalysis, ErroTecnico  # noqa: E402
+from app.academia.models import (  # noqa: E402
+    AcademiaAnalysis,
+    CriterioChecklist,
+    ErroTecnico,
+    RepeticaoSegmentada,
+)
 from app.academia.service import AcademiaService, EmptyUpload, UploadTooLarge  # noqa: E402
 
 
@@ -45,6 +51,34 @@ def _clean_result() -> AcademiaAnalysis:
         risco_lesao=False,
         musculos_esperados=["latíssimo do dorso", "bíceps", "romboides"],
         observacoes=None,
+        checklist=[
+            CriterioChecklist(categoria="amplitude", status="adequado", nota_0a10=9.0,
+                              observacao="amplitude completa nas duas repetições"),
+            CriterioChecklist(categoria="escapula_ombros", status="ajuste_leve", nota_0a10=8.0,
+                              observacao="cabe mais depressão escapular no pico"),
+            CriterioChecklist(categoria="tronco", status="adequado", nota_0a10=9.5,
+                              observacao="sem balanço de tronco"),
+            CriterioChecklist(categoria="cervical", status="adequado", nota_0a10=9.0,
+                              observacao="pescoço neutro"),
+            CriterioChecklist(categoria="cotovelos", status="nao_observavel", nota_0a10=None,
+                              observacao="cotovelo direito sai do quadro"),
+            CriterioChecklist(categoria="joelhos", status="nao_observavel", nota_0a10=None,
+                              observacao="não se aplica claramente ao exercício sentado"),
+            CriterioChecklist(categoria="ritmo", status="adequado", nota_0a10=9.0,
+                              observacao="excêntrica controlada"),
+        ],
+        repeticoes=[
+            RepeticaoSegmentada(indice=1, completa=True, inicio_s=1.0, transicao_s=2.5, fim_s=4.0),
+            RepeticaoSegmentada(indice=2, completa=True, inicio_s=5.0, transicao_s=6.5, fim_s=8.0,
+                                observacao="ritmo idêntico à primeira"),
+        ],
+        consistencia_amplitude="consistente",
+        consistencia_ritmo="consistente",
+        observacao_movimento="padrão cíclico estável nas duas repetições",
+        corpo_inteiro_visivel=True,
+        camera_estavel=True,
+        iluminacao_adequada=True,
+        recomendacoes_gravacao=[],
     )
 
 
@@ -75,10 +109,42 @@ def _risco_lesao_result() -> AcademiaAnalysis:
         risco_lesao=True,
         musculos_esperados=["quadríceps", "glúteos", "isquiotibiais"],
         observacoes=None,
+        checklist=[
+            CriterioChecklist(categoria="amplitude", status="adequado", nota_0a10=8.0,
+                              observacao="amplitude razoável nas repetições visíveis"),
+            CriterioChecklist(categoria="escapula_ombros", status="nao_observavel", nota_0a10=None,
+                              observacao="não relevante/visível neste ângulo"),
+            CriterioChecklist(categoria="tronco", status="adequado", nota_0a10=9.0,
+                              observacao="quadril e lombar apoiados no encosto"),
+            CriterioChecklist(categoria="cervical", status="nao_observavel", nota_0a10=None,
+                              observacao="cabeça parcialmente fora do quadro"),
+            CriterioChecklist(categoria="cotovelos", status="nao_observavel", nota_0a10=None,
+                              observacao="não se aplica ao leg press"),
+            CriterioChecklist(categoria="joelhos", status="a_corrigir", nota_0a10=2.0,
+                              observacao="valgo dinâmico severo com pés mal posicionados"),
+            CriterioChecklist(categoria="ritmo", status="adequado", nota_0a10=8.0,
+                              observacao="descida controlada apesar do valgo"),
+        ],
+        repeticoes=[
+            RepeticaoSegmentada(indice=1, completa=True, inicio_s=2.0, fim_s=9.0),
+            RepeticaoSegmentada(indice=2, completa=True, inicio_s=11.0, fim_s=18.0,
+                                observacao="valgo mais acentuado"),
+            RepeticaoSegmentada(indice=3, completa=True, inicio_s=19.0, fim_s=26.0),
+        ],
+        consistencia_amplitude="consistente",
+        consistencia_ritmo="consistente",
+        observacao_movimento="valgo piora ao longo da série",
+        corpo_inteiro_visivel=True,
+        camera_estavel=True,
+        iluminacao_adequada=True,
+        recomendacoes_gravacao=[],
     )
 
 
 class _FakeGemini:
+    def __init__(self):
+        self.narrate_payloads = []          # captura o dict passado à chamada 2
+
     def upload_video(self, path, mime_type=None):
         return SimpleNamespace(name="files/x", uri="https://files/x",
                                mime_type="video/mp4", state=SimpleNamespace(name="ACTIVE"))
@@ -90,6 +156,7 @@ class _FakeGemini:
         return _clean_result()
 
     def narrate(self, metrics, *, student_name=None):
+        self.narrate_payloads.append(metrics)
         if metrics.get("risco_lesao"):
             return (
                 f"{student_name or 'Você'}, para tudo agora: os joelhos estão caindo para "
@@ -187,6 +254,21 @@ def test_analyze_clean_execution_three_outputs(client):
     assert body["narrative"]
     assert body["audio_base64"]                        # saída 3 presente
     assert body["persisted_id"] is None                 # persistência opt-in, off por default
+    # parâmetros reintroduzidos: checklist completo + nota determinística válida
+    assert len(body["metrics"]["checklist"]) == 7
+    nota = body["nota_execucao"]
+    assert nota["valida"] is True and nota["nota"] is not None
+    assert nota["criterios_presentes"] == 5             # 2 categorias nao_observavel saem
+    # sem teto: veredito adequada e sem risco
+    assert nota.get("teto_aplicado") is None
+    # as contribuições somam a nota (renormalização sobre o observável)
+    soma = sum(c["contribuicao_pontos"] for c in nota["componentes"])
+    assert abs(soma - nota["nota"]) < 0.5
+    assert len(body["metrics"]["repeticoes"]) == 2
+    assert body["metrics"]["consistencia_ritmo"] == "consistente"
+    # a chamada 2 (narrativa) recebe a nota junto das métricas (guard-rail no prompt)
+    payload = arouter.service.gemini.narrate_payloads[0]
+    assert payload["nota_execucao"]["nota"] == nota["nota"]
 
 
 def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monkeypatch):
@@ -227,7 +309,8 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
         data={"with_audio": "false"},
     )
     assert r.status_code == 200, r.text
-    m = r.json()["metrics"]
+    body = r.json()
+    m = body["metrics"]
     assert m["veredito"] == "parcialmente_adequada"
     assert len(m["erros"]) == 1
     assert m["erros"][0]["categoria"] == "cotovelos"
@@ -236,6 +319,13 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
     assert m["erros"][0]["correcao"]
     assert m["erros"][0]["descricao"] != m["erros"][0]["correcao"]
     assert m["risco_lesao"] is False
+    # caminho legado (VLM sem checklist): harmonização completa as 7 categorias,
+    # a categoria com erro vira a_corrigir e a nota é bloqueada (pouca cobertura)
+    assert len(m["checklist"]) == 7
+    por_cat = {c["categoria"]: c for c in m["checklist"]}
+    assert por_cat["cotovelos"]["status"] == "a_corrigir"
+    assert body["nota_execucao"]["valida"] is False
+    assert body["nota_execucao"]["nota"] is None
 
 
 def test_analyze_risco_lesao_forces_inadequada(client, monkeypatch):
@@ -253,6 +343,11 @@ def test_analyze_risco_lesao_forces_inadequada(client, monkeypatch):
     assert m["risco_lesao"] is True
     assert any(e["gravidade"] == "risco_lesao" for e in m["erros"])
     assert any(e["categoria"] == "joelhos" for e in m["erros"])
+    # nota coerente com o risco: joelhos zerado no cálculo + teto de 39
+    nota = body["nota_execucao"]
+    joelhos = next(c for c in nota["componentes"] if c["categoria"] == "joelhos")
+    assert joelhos["normalizado"] == 0.0
+    assert nota["teto_aplicado"] == 39.0 and nota["nota"] == 39.0
     # RN-01: o prompt REAL construído a partir dessas métricas impõe a abertura
     # de interrupção (não asserta sobre a string do mock, e sim sobre o sistema)
     from app.academia.prompts import build_narrative_prompt
@@ -426,3 +521,217 @@ def test_narrative_prompt_has_disclaimer_guardrails():
     assert "educacional" in low and "avaliação presencial" in low
     assert "carga" in low and "ativação muscular" in low
     assert "profissional" in low
+
+
+def test_analysis_prompt_covers_reintroduced_parameters():
+    """Chamada 1 instrui checklist das 7 categorias, repetições e captura extra."""
+    from app.academia.prompts import analysis_system_prompt
+    sp = analysis_system_prompt(None, fps=24)
+    low = sp.lower()
+    assert "checklist" in low and "nao_observavel" in low and "ajuste_leve" in low
+    assert "nota_0a10" in low                     # rubrica 0..10 por categoria
+    assert "repeticoes" in low and "transicao_s" in low
+    assert "consistencia_amplitude" in low and "consistencia_ritmo" in low
+    assert "recomendacoes_gravacao" in low and "camera_estavel" in low
+    # o VLM nunca agrega a nota — aritmética fica em Python
+    assert "calculada fora, em código" in low
+
+
+def test_narrative_prompt_mentions_nota_guardrail():
+    from app.academia.prompts import build_narrative_prompt
+    p = build_narrative_prompt({"erros": [], "risco_lesao": False}, student_name=None)
+    assert "nota_execucao" in p
+    assert "NÃO invente um número" in p or "não invente um número" in p.lower()
+
+
+# --------------------------------------------------------------------------- #
+# scoring — nota determinística (Python, nunca o VLM)                          #
+# --------------------------------------------------------------------------- #
+def _analysis(**over) -> AcademiaAnalysis:
+    base = dict(
+        exercicio_identificado="exercício x", angulo_camera="lateral",
+        qualidade_video="boa", veredito="adequada", confiabilidade="alta",
+        foco_pratico="foco", risco_lesao=False,
+    )
+    base.update(over)
+    return AcademiaAnalysis(**base)
+
+
+def _checklist_full(status="adequado", nota=10.0):
+    return [CriterioChecklist(categoria=c, status=status, nota_0a10=nota, observacao="ok")
+            for c in scoring.CATEGORIAS]
+
+
+def test_score_all_perfect_is_100():
+    a = _analysis(checklist=_checklist_full())
+    n = scoring.compute_nota_execucao(a)
+    assert n.valida is True and n.nota == 100.0
+    assert n.criterios_presentes == 7 and n.cobertura == 1.0
+    assert abs(sum(c.contribuicao_pontos for c in n.componentes) - 100.0) < 0.01
+
+
+def test_score_renormalizes_over_observable():
+    """nao_observavel sai do cálculo (nunca vira zero) e os pesos renormalizam."""
+    chk = _checklist_full()
+    for item in chk[:3]:
+        item.status, item.nota_0a10 = "nao_observavel", None
+    n = scoring.compute_nota_execucao(_analysis(checklist=chk))
+    assert n.valida is True and n.nota == 100.0     # os observáveis são todos 10/10
+    assert n.criterios_presentes == 4
+    assert "renormalizada" in n.observacao
+
+
+def test_score_blocked_with_few_criteria():
+    chk = _checklist_full()
+    for item in chk[:5]:
+        item.status, item.nota_0a10 = "nao_observavel", None
+    n = scoring.compute_nota_execucao(_analysis(checklist=chk))
+    assert n.valida is False and n.nota is None
+    assert "bloqueada" in n.observacao
+
+
+def test_score_blocked_on_bad_video_quality():
+    n = scoring.compute_nota_execucao(_analysis(qualidade_video="ruim", checklist=_checklist_full()))
+    assert n.valida is False and n.nota is None
+
+
+def test_score_fallback_when_nota_missing():
+    """Status sem nota usa o fallback do módulo original (adequado=0.85)."""
+    chk = _checklist_full()
+    chk[0].nota_0a10 = None
+    n = scoring.compute_nota_execucao(_analysis(checklist=chk))
+    comp = next(c for c in n.componentes if c.categoria == chk[0].categoria)
+    assert comp.normalizado == 0.85
+
+
+def test_score_caps_by_veredito():
+    """Coerência: nota nunca contradiz o veredito (parcialmente_adequada ≤ 79)."""
+    a = _analysis(veredito="parcialmente_adequada", checklist=_checklist_full())
+    n = scoring.compute_nota_execucao(a)
+    assert n.nota == 79.0 and n.teto_aplicado == 79.0
+
+
+# --------------------------------------------------------------------------- #
+# harmonização — regras de calibragem em código                                #
+# --------------------------------------------------------------------------- #
+def test_harmonize_fills_missing_checklist_without_warning():
+    """Caminho legado (sem checklist): completa as 7 em silêncio."""
+    fixed, avisos = scoring.harmonize_analysis(_analysis())
+    assert len(fixed.checklist) == 7
+    assert all(c.status == "nao_observavel" for c in fixed.checklist)
+    assert avisos == []
+
+
+def test_harmonize_enforces_rf003_in_code():
+    """RF-003 vira código: erro risco_lesao força inadequada + risco_lesao=True."""
+    a = _analysis(
+        veredito="adequada", risco_lesao=False,
+        erros=[ErroTecnico(categoria="joelhos", descricao="valgo severo",
+                           correcao="alinhe o joelho à ponta do pé", gravidade="risco_lesao")],
+    )
+    fixed, avisos = scoring.harmonize_analysis(a)
+    assert fixed.veredito == "inadequada" and fixed.risco_lesao is True
+    assert len(avisos) >= 2 and all("consistência" in w for w in avisos)
+
+
+def test_harmonize_category_with_error_becomes_a_corrigir():
+    chk = _checklist_full()                          # tudo adequado 10/10
+    a = _analysis(
+        checklist=chk,
+        erros=[ErroTecnico(categoria="cotovelos", descricao="cotovelo à frente",
+                           correcao="cotovelo fixo ao tronco", gravidade="moderada")],
+    )
+    fixed, avisos = scoring.harmonize_analysis(a)
+    item = next(c for c in fixed.checklist if c.categoria == "cotovelos")
+    assert item.status == "a_corrigir"
+    assert item.nota_0a10 == 6.0                      # teto por gravidade moderada
+    assert any("a_corrigir" in w for w in avisos)
+
+
+def test_harmonize_risco_flag_without_risco_error_forces_inadequada():
+    """Direção inversa de RF-003: flag de risco sem erro grave — conservador,
+    o veredito acompanha a flag (não apagamos sinal de segurança do modelo)."""
+    fixed, avisos = scoring.harmonize_analysis(_analysis(veredito="adequada", risco_lesao=True))
+    assert fixed.veredito == "inadequada" and fixed.risco_lesao is True
+    assert any("risco_lesao=true sem erro" in w for w in avisos)
+
+
+def test_harmonize_a_corrigir_without_error_downgraded():
+    """Invariante a_corrigir ⟺ erro na categoria (RF-004): sem erro registrado,
+    o item rebaixa para ajuste_leve com nota limitada à banda leve."""
+    chk = _checklist_full()
+    chk[5].status = "a_corrigir"            # joelhos: a_corrigir com nota 10 e erros=[]
+    fixed, avisos = scoring.harmonize_analysis(_analysis(checklist=chk))
+    item = next(c for c in fixed.checklist if c.categoria == "joelhos")
+    assert item.status == "ajuste_leve"
+    assert item.nota_0a10 == 8.0
+    assert any("rebaixado para 'ajuste_leve'" in w for w in avisos)
+
+
+def test_harmonize_two_moderate_errors_never_adequada():
+    a = _analysis(
+        veredito="adequada",
+        erros=[
+            ErroTecnico(categoria="cotovelos", descricao="d1", correcao="c1", gravidade="moderada"),
+            ErroTecnico(categoria="ritmo", descricao="d2", correcao="c2", gravidade="moderada"),
+        ],
+    )
+    fixed, _ = scoring.harmonize_analysis(a)
+    assert fixed.veredito == "parcialmente_adequada"
+
+
+def test_persist_roundtrip_nota_key_reaches_txt_export(client, monkeypatch):
+    """Trava os DOIS lados do contrato persistido: o dict que _maybe_persist grava
+    (chaves metrics/nota_execucao/narrative) é o mesmo que _render_txt_report lê."""
+    from app.academia import store
+
+    captured = {}
+
+    def fake_save(student_name, result_json, audio_wav=None):
+        captured["result_json"] = result_json
+        return 42
+
+    monkeypatch.setattr(store, "save", fake_save)
+    r = client.post(
+        "/academia/analyze",
+        files={"file": ("puxada.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"with_audio": "false", "persist": "true"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["persisted_id"] == "42"
+    rj = captured["result_json"]
+    assert set(rj) >= {"metrics", "nota_execucao", "narrative"}
+    txt = arouter._render_txt_report(
+        {"id": 42, "student_name": None, "created_at": "2026-07-22", "result_json": rj}
+    )
+    assert "NOTA DE EXECUÇÃO" in txt and "CHECKLIST DAS 7 CATEGORIAS" in txt
+
+
+def test_render_txt_report_covers_reintroduced_parameters():
+    from app.academia.router import _render_txt_report
+    rec = {
+        "id": 9, "student_name": "Marina", "created_at": "2026-07-22T00:00:00Z",
+        "result_json": {
+            "metrics": {
+                "exercicio_identificado": "puxada alta na polia", "veredito": "adequada",
+                "risco_lesao": False, "foco_pratico": "mais depressão escapular",
+                "erros": [], "acertos": ["lombar apoiada"],
+                "checklist": [{"categoria": "amplitude", "status": "adequado",
+                               "nota_0a10": 9.0, "observacao": "amplitude completa"}],
+                "repeticoes": [{"indice": 1, "completa": True, "inicio_s": 1.0, "fim_s": 4.0}],
+                "angulo_camera": "lateral", "qualidade_video": "boa",
+                "corpo_inteiro_visivel": True, "camera_estavel": True,
+                "recomendacoes_gravacao": ["filme de lado com os pés no quadro"],
+                "confiabilidade": "alta",
+            },
+            "nota_execucao": {"nota": 91.4, "valida": True, "criterios_presentes": 5,
+                              "criterios_totais": 7, "observacao": "nota parcial"},
+            "narrative": "Marina, execução sólida.",
+        },
+    }
+    txt = _render_txt_report(rec)
+    assert "NOTA DE EXECUÇÃO: 91.4/100" in txt
+    assert "CHECKLIST DAS 7 CATEGORIAS" in txt and "amplitude: adequado · 9.0/10" in txt
+    assert "REPETIÇÕES SEGMENTADAS" in txt and "rep 1: completa (1s→4s)" in txt
+    assert "CAPTURA" in txt and "corpo inteiro: sim" in txt
+    assert "para filmar melhor: filme de lado" in txt

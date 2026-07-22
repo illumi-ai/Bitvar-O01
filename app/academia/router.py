@@ -53,6 +53,8 @@ def health():
         "tts_voice": cfg.academia_tts_voice,
         "max_upload_mb": cfg.academia_max_upload_mb,
         "clip_max_seconds": cfg.academia_clip_max_seconds,
+        "analysis_fps": cfg.academia_fps,
+        "media_resolution": cfg.academia_media_resolution,
     }
 
 
@@ -153,9 +155,14 @@ def export_analysis(
 
 
 def _render_txt_report(rec: dict) -> str:
-    """Relatório legível (PT-BR) a partir do registro salvo — pronto p/ WhatsApp."""
+    """Relatório legível (PT-BR) a partir do registro salvo — pronto p/ WhatsApp.
+
+    Cobre também os parâmetros reintroduzidos (nota, checklist, repetições,
+    captura); registros antigos sem esses campos continuam renderizando igual.
+    """
     result = rec.get("result_json") or {}
     m = result.get("metrics") or {}
+    nota = result.get("nota_execucao") or {}
     narrative = result.get("narrative") or ""
     lines = [
         f"BITVAR IA — Análise de Academia #{rec.get('id')}",
@@ -172,6 +179,12 @@ def _render_txt_report(rec: dict) -> str:
         bits.append("RISCO DE LESÃO")
     if bits:
         lines += [" · ".join(bits), ""]
+    if nota.get("nota") is not None:
+        lines += [f"NOTA DE EXECUÇÃO: {nota['nota']}/100 "
+                  f"({nota.get('criterios_presentes', '?')}/{nota.get('criterios_totais', 7)} categorias observáveis)"]
+        if nota.get("observacao"):
+            lines.append(f"  {nota['observacao']}")
+        lines.append("")
     if m.get("foco_pratico"):
         lines += ["FOCO PRÁTICO PRINCIPAL", m["foco_pratico"], ""]
     erros = m.get("erros") or []
@@ -186,6 +199,43 @@ def _render_txt_report(rec: dict) -> str:
     if acertos:
         lines.append("ACERTOS")
         lines += [f"- {a}" for a in acertos]
+        lines.append("")
+    checklist = m.get("checklist") or []
+    if checklist:
+        lines.append("CHECKLIST DAS 7 CATEGORIAS")
+        for c in checklist:
+            nota10 = f" · {c['nota_0a10']}/10" if c.get("nota_0a10") is not None else ""
+            lines.append(f"- {c.get('categoria')}: {c.get('status')}{nota10} — {c.get('observacao')}")
+        lines.append("")
+    reps = m.get("repeticoes") or []
+    if reps:
+        lines.append("REPETIÇÕES SEGMENTADAS")
+        for r in reps:
+            marco = ""
+            if r.get("inicio_s") is not None and r.get("fim_s") is not None:
+                marco = f" ({r['inicio_s']:.0f}s→{r['fim_s']:.0f}s)"
+            estado = "completa" if r.get("completa") else "parcial"
+            obs = f" — {r['observacao']}" if r.get("observacao") else ""
+            lines.append(f"- rep {r.get('indice')}: {estado}{marco}{obs}")
+        lines.append("")
+    captura = []
+    if m.get("angulo_camera"):
+        captura.append(f"ângulo {m['angulo_camera']}")
+    if m.get("qualidade_video"):
+        captura.append(f"qualidade {m['qualidade_video']}")
+    for campo, rotulo in (("corpo_inteiro_visivel", "corpo inteiro"),
+                          ("camera_estavel", "câmera estável"),
+                          ("iluminacao_adequada", "iluminação")):
+        if m.get(campo) is not None:
+            captura.append(f"{rotulo}: {'sim' if m[campo] else 'não'}")
+    if m.get("confiabilidade"):
+        captura.append(f"confiabilidade {m['confiabilidade']}")
+    if captura:
+        lines += ["CAPTURA", "- " + " · ".join(captura)]
+        if m.get("partes_ocultas"):
+            lines.append("- partes ocultas: " + ", ".join(m["partes_ocultas"]))
+        for rec_grav in m.get("recomendacoes_gravacao") or []:
+            lines.append(f"- para filmar melhor: {rec_grav}")
         lines.append("")
     if narrative:
         lines += ["RELATÓRIO DO PERSONAL TRAINER", narrative, ""]

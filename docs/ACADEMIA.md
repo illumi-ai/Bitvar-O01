@@ -24,9 +24,10 @@ fixos de `config.py`. O único gate é o teto de duração (`academia_clip_max_s
 upload (multipart, em chunks p/ disco)               app/academia/service.py:_save_upload
   → teto de duração (probe via ffprobe/parser mp4)   app.tennis.routing.probe_duration_seconds (reuso)
   → chamada 1: vídeo → JSON estruturado              app/academia/gemini.py:analyze
-       gemini-3.1-pro-preview · thinking high · fps 24 · MEDIA_RESOLUTION_MEDIUM
-  → chamada 2: JSON → narrativa PT-BR                 app/academia/gemini.py:narrate
-       gemini-3.1-pro-preview · thinking high
+       gemini-3.6-flash · thinking high · fps 24 · MEDIA_RESOLUTION_MEDIUM
+  → harmonização + nota 0..100 (determinístico)       app/academia/scoring.py (Python, sem VLM)
+  → chamada 2: JSON (+nota) → narrativa PT-BR         app/academia/gemini.py:narrate
+       gemini-3.6-flash · thinking high
   → chamada 3: narrativa → áudio WAV                  app/academia/gemini.py:synthesize
        gemini-3.1-flash-tts-preview · voz Vindemiatrix · retry · PCM→WAV 24kHz mono
 ```
@@ -69,10 +70,42 @@ núcleo é `veredito` × `risco_lesao`, e a calibragem vive no system prompt:
   deve ganhar) campos de carga/esforço/ativação muscular ou hipertrofia/força/
   emagrecimento. `musculos_esperados` é informativo, não medição de ativação.
 
-Não há score numérico calculado em Python (ao contrário do `weights.py` do tênis): o
-evento `academia.weighted_score.computed` existe no catálogo mas fica **reservado/não
-usado** neste MVP. O exercício, o equipamento e a variação são **identificados
-automaticamente** pela chamada 1, sem seleção manual.
+### Parâmetros reintroduzidos (do snapshot original a368d14)
+
+Além do núcleo acima, a chamada 1 devolve os parâmetros que existiam no módulo
+original da VPS e haviam sido descartados na versão calibrada:
+
+- **`checklist`** — a varredura de RF-002 vira parâmetro visível: exatamente UMA
+  entrada por categoria (sempre as 7), cada uma com `status`
+  (`adequado` | `ajuste_leve` | `a_corrigir` | `nao_observavel`), `nota_0a10`
+  (rubrica no prompt; `null` quando não observável) e `observacao` (evidência).
+  `ajuste_leve` é refinamento, NÃO erro (RF-004); categoria com erro em `erros`
+  fica obrigatoriamente `a_corrigir`.
+- **`repeticoes`** — repetições segmentadas (`indice`, `completa`,
+  `inicio_s`/`transicao_s`/`fim_s` aproximados ou `null`, `observacao`), mais
+  `consistencia_amplitude`/`consistencia_ritmo` e `observacao_movimento`.
+- **Condições de captura** — `corpo_inteiro_visivel`, `camera_estavel`,
+  `iluminacao_adequada` (tri-state) e `recomendacoes_gravacao` (como filmar
+  melhor da próxima vez; vazia quando a captura está boa).
+
+### Nota de execução determinística (`scoring.py`)
+
+Agora **há** score em Python (o evento `academia.weighted_score.computed` deixou de
+ser reservado). `scoring.harmonize_analysis` primeiro impõe em código as regras que
+antes só existiam no prompt (RF-003; checklist↔erros; 2+ erros moderados nunca são
+"adequada") — cada ajuste vira um `warning` visível. Depois
+`scoring.compute_nota_execucao` agrega o checklist em `nota_execucao` (0–100):
+notas 0..10 normalizadas, categorias `nao_observavel` fora do cálculo com pesos
+renormalizados (contribuições somam a nota), fallback por status quando a nota
+falta (`adequado`=0.85 · `ajuste_leve`=0.65 · `a_corrigir`=0.40), erro na categoria
+limita o valor (risco_lesao **zera**), e gates/tetos: qualidade "ruim" ou <3
+categorias observáveis **bloqueiam** a nota (`nota=null, valida=false`); risco de
+lesão ⇒ ≤39; `inadequada` ⇒ ≤49; `parcialmente_adequada` ⇒ ≤79 — a nota nunca
+contradiz o veredito. **Recalibrar a nota = editar `PESOS`** em `scoring.py`.
+É um indicador observacional de POC (pesos não calibrados contra gabarito).
+
+O exercício, o equipamento e a variação são **identificados automaticamente** pela
+chamada 1, sem seleção manual.
 
 ## Endpoints (`router.py`, prefixo `/academia`)
 
@@ -83,7 +116,7 @@ automaticamente** pela chamada 1, sem seleção manual.
     `duration_seconds` (opcional), `with_audio` (bool, default `true`),
     `persist` (opcional; default = config).
   - Resposta `AcademiaAnalysisResponse`:
-    `{ exercicio, metrics, narrative, audio_base64, warnings, persisted_id }`.
+    `{ exercicio, metrics, nota_execucao, narrative, audio_base64, warnings, persisted_id }`.
 - `GET  /academia/analyses` — histórico paginado (vazio se persistência off / DB fora).
 - `GET  /academia/analyses/{id}` — análise completa (métricas + narrativa); 404 se ausente.
 - `GET  /academia/analyses/{id}/audio` — WAV da narrativa salva.
@@ -112,7 +145,7 @@ equivalentes de tênis:
 
 | Env                              | Default                       | O quê |
 |----------------------------------|-------------------------------|-------|
-| `ACADEMIA_ANALYSIS_MODEL`        | `gemini-3.1-pro-preview`      | chamadas 1 e 2 |
+| `ACADEMIA_ANALYSIS_MODEL`        | `gemini-3.6-flash`            | chamadas 1 e 2 |
 | `ACADEMIA_TTS_MODEL` / `_VOICE`  | `gemini-3.1-flash-tts-preview` / `Vindemiatrix` | chamada 3 |
 | `ACADEMIA_ANALYSIS_THINKING_LEVEL` / `_NARRATIVE_THINKING_LEVEL` | `high` / `high` | raciocínio |
 | `ACADEMIA_CLIP_MAX_SECONDS`      | `180`                         | teto de duração |
@@ -132,10 +165,10 @@ sem pool, escrita/leitura viram no-op (`None` / lista vazia). O WAV fica em colu
 ## Eventos (`app/events/catalog.py`, categoria `academia`)
 
 `academia.analyze.received` · `upload.saved` · `upload.rejected` · `route.decided` ·
+`weighted_score.computed` (nota 0..100 + cobertura + ajustes de consistência) ·
 `analyze.completed` · `analyze.failed` · `persisted` · `analysis.retrieved` ·
 `analysis.exported` · `warning`. As três chamadas ao Gemini reusam os eventos
-`gemini.*` compartilhados. `academia.weighted_score.computed` está reservado (não
-emitido no MVP).
+`gemini.*` compartilhados.
 
 ## Diferenças em relação ao tênis
 
@@ -143,10 +176,10 @@ emitido no MVP).
 |---|-------|----------|
 | Roteamento | gênero × modo × duração | **nenhum** (pipeline único) |
 | Schemas | 4 (2 formatos × 2 gêneros) | **1** (`AcademiaAnalysis`) |
-| Score em Python | `weights.py` (0–100) | **não há** (evento reservado) |
+| Score em Python | `weights.py` (0–100) | **`scoring.py`** (0–100, gates + tetos de coerência) |
 | fps / resolução | 4/1 · high/medium | **24 · medium** (fixos) |
 | Persistência | opt-out (`TENNIS_PERSIST`) | **opt-in** (`ACADEMIA_PERSIST`) |
-| Saída-núcleo | score + benchmarks | **veredito + risco_lesao + 7 categorias de erro** |
+| Saída-núcleo | score + benchmarks | **veredito + risco_lesao + 7 categorias (erros + checklist + nota)** |
 
 ## Ressalvas
 
@@ -162,8 +195,11 @@ emitido no MVP).
 `tests/test_academia.py` cobre a guarda de 413 (header e streaming), o saneamento do
 nome de arquivo, os três ramos de veredito (execução limpa → 3 saídas; com erros →
 `erros`+veredito; `risco_lesao` → força `inadequada`), o 503 sem chave, `/health`, o
-frontend, o histórico/exportação com DB ausente e as regras de prompt (7 categorias,
-RN-01 erro-antes-de-elogio, disclaimers RN-03/RN-05). Rodam sem rede (Gemini mockado):
+frontend, o histórico/exportação com DB ausente, as regras de prompt (7 categorias,
+checklist/repetições/captura, RN-01 erro-antes-de-elogio, disclaimers RN-03/RN-05),
+a nota determinística (renormalização, fallback, gates, tetos de coerência) e a
+harmonização (RF-003 em código, checklist↔erros, caminho legado sem checklist).
+Rodam sem rede (Gemini mockado):
 
 ```bash
 DATABASE_URL="postgresql://x:x@localhost:5432/x" GEMINI_API_KEY="test-key" \

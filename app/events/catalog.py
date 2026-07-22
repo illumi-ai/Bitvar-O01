@@ -126,7 +126,7 @@ CATALOG: dict[str, tuple[str, str]] = {
     ACADEMIA_UPLOAD_SAVED: (Category.ACADEMIA, "Vídeo salvo em disco temporário (tamanho validado)."),
     ACADEMIA_UPLOAD_REJECTED: (Category.ACADEMIA, "Upload rejeitado (vazio ou acima do limite)."),
     ACADEMIA_ROUTE_DECIDED: (Category.ACADEMIA, "Roteamento decidido (fps, media_resolution, duração)."),
-    ACADEMIA_WEIGHTED_SCORE: (Category.ACADEMIA, "Score ponderado calculado (não usado no MVP; reservado)."),
+    ACADEMIA_WEIGHTED_SCORE: (Category.ACADEMIA, "Nota de execução 0..100 calculada em Python (scoring.py) a partir do checklist."),
     ACADEMIA_ANALYZE_COMPLETED: (Category.ACADEMIA, "Análise de academia concluída (3 saídas)."),
     ACADEMIA_ANALYZE_FAILED: (Category.ACADEMIA, "Análise de academia falhou."),
     ACADEMIA_PERSISTED: (Category.ACADEMIA, "Análise de academia persistida no Postgres."),
