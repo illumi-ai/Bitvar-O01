@@ -85,4 +85,20 @@ services:
       - "traefik.http.routers.api.entrypoints=websecure"
       - "traefik.http.routers.api.tls.certresolver=le"
       - "traefik.http.routers.api.middlewares=sec-headers@file,api-ratelimit@file"
+      # Uploads de vídeo usam um router único e mais específico. Assim o teto
+      # global de requisições em voo é compartilhado por Academia e Tênis.
+      - "traefik.http.routers.api-video-upload.rule=Host(`${DOMAIN}`) && (Path(`/academia/analyze`) || Path(`/tennis/analyze`)) && Method(`POST`)"
+      - "traefik.http.routers.api-video-upload.priority=100"
+      - "traefik.http.routers.api-video-upload.entrypoints=websecure"
+      - "traefik.http.routers.api-video-upload.tls.certresolver=le"
+      - "traefik.http.routers.api-video-upload.middlewares=sec-headers@file,video-upload-private@file,video-upload-ratelimit@file,video-upload-inflight@file,video-upload-body-limit@file"
+      - "traefik.http.routers.api-video-upload.service=api"
+      # A descrição por voz tem um router menor e limites próprios: o áudio é
+      # curto, temporário e cada requisição aciona uma transcrição no Gemini.
+      - "traefik.http.routers.api-voice-upload.rule=Host(`${DOMAIN}`) && Path(`/academia/transcribe-target`) && Method(`POST`)"
+      - "traefik.http.routers.api-voice-upload.priority=110"
+      - "traefik.http.routers.api-voice-upload.entrypoints=websecure"
+      - "traefik.http.routers.api-voice-upload.tls.certresolver=le"
+      - "traefik.http.routers.api-voice-upload.middlewares=sec-headers@file,video-upload-private@file,voice-upload-ratelimit@file,voice-upload-inflight@file,voice-upload-body-limit@file"
+      - "traefik.http.routers.api-voice-upload.service=api"
       - "traefik.http.services.api.loadbalancer.server.port=8000"

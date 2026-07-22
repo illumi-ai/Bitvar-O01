@@ -27,3 +27,57 @@ http:
       rateLimit:
         average: 50               # req/s médio por IP
         burst: 100
+
+    # Respostas de upload (inclusive 413/429 gerados no proxy) nunca são cacheadas.
+    video-upload-private:
+      headers:
+        customResponseHeaders:
+          Cache-Control: "private, no-store"
+          Pragma: "no-cache"
+
+    # Teto global por host: excedentes recebem 429 antes de alcançar os workers.
+    video-upload-inflight:
+      inFlightReq:
+        amount: 2
+        sourceCriterion:
+          requestHost: true
+
+    # Dois inícios imediatos por IP; um token é reposto a cada cinco minutos.
+    video-upload-ratelimit:
+      rateLimit:
+        average: 2
+        period: 10m
+        burst: 2
+        sourceCriterion:
+          ipStrategy:
+            ipv6Subnet: 64
+
+    # O inFlightReq vem antes deste middleware e limita a dois buffers globais.
+    # Content-Length excessivo é recusado no proxy; chunked continua protegido
+    # pelo teto do buffer e, novamente, pelo guard ASGI.
+    video-upload-body-limit:
+      buffering:
+        maxRequestBodyBytes: 671088640  # 640 MiB incluindo o multipart
+        memRequestBodyBytes: 1048576    # acima de 1 MiB, usa disco temporário
+
+    # A transcrição é uma chamada paga e recebe somente um clipe curto. Ela não
+    # deve herdar o teto de 640 MiB nem o rate limit genérico da API.
+    voice-upload-inflight:
+      inFlightReq:
+        amount: 4
+        sourceCriterion:
+          requestHost: true
+
+    voice-upload-ratelimit:
+      rateLimit:
+        average: 6
+        period: 1m
+        burst: 3
+        sourceCriterion:
+          ipStrategy:
+            ipv6Subnet: 64
+
+    voice-upload-body-limit:
+      buffering:
+        maxRequestBodyBytes: 9437184   # 8 MiB de áudio + 1 MiB de multipart
+        memRequestBodyBytes: 1048576

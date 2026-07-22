@@ -26,9 +26,9 @@ entryPoints:
     # conexão por minutos. Sem timeouts altos, a requisição é cortada no meio.
     transport:
       respondingTimeouts:
-        readTimeout: "0s"       # 0 = SEM LIMITE (teste); restaurar p/ produção
-        writeTimeout: "0s"      # resposta longa (Gemini pro + thinking high + fps alto)
-        idleTimeout: "0s"
+        readTimeout: "600s"     # inclui o upload do vídeo
+        writeTimeout: "600s"    # análise síncrona + entrega da resposta
+        idleTimeout: "600s"
 
 providers:
   docker:

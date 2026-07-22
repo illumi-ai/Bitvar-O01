@@ -61,26 +61,44 @@ class TennisGemini:
             emit(catalog.GEMINI_UPLOAD_FAILED, level="error", status="error", error=e)
             raise GeminiError(f"falha no upload do vídeo: {e}") from e
 
-        deadline = time.monotonic() + self.cfg.files_active_timeout_s
-        while _state(file) == "PROCESSING":
-            if time.monotonic() > deadline:
-                emit(catalog.GEMINI_UPLOAD_FAILED, level="error", status="error", data={"reason": "timeout"})
-                raise GeminiError("tempo esgotado processando o vídeo na Files API.")
-            time.sleep(self.cfg.files_poll_interval_s)
-            file = self.client.files.get(name=file.name)
-        if _state(file) == "FAILED":
-            emit(catalog.GEMINI_UPLOAD_FAILED, level="error", status="error", data={"reason": "files_api_failed"})
-            raise GeminiError("a Files API falhou ao processar o vídeo.")
-        emit(catalog.GEMINI_UPLOAD_ACTIVE, duration_ms=round((time.monotonic() - t0) * 1000, 1),
-             data={"file": getattr(file, "name", None)})
-        return file
+        try:
+            deadline = time.monotonic() + self.cfg.files_active_timeout_s
+            while _state(file) == "PROCESSING":
+                if time.monotonic() > deadline:
+                    emit(catalog.GEMINI_UPLOAD_FAILED, level="error", status="error", data={"reason": "timeout"})
+                    raise GeminiError("tempo esgotado processando o vídeo na Files API.")
+                time.sleep(self.cfg.files_poll_interval_s)
+                file = self.client.files.get(name=file.name)
+            if _state(file) == "FAILED":
+                emit(catalog.GEMINI_UPLOAD_FAILED, level="error", status="error", data={"reason": "files_api_failed"})
+                raise GeminiError("a Files API falhou ao processar o vídeo.")
+            emit(catalog.GEMINI_UPLOAD_ACTIVE, duration_ms=round((time.monotonic() - t0) * 1000, 1),
+                 data={"file": getattr(file, "name", None)})
+            return file
+        except Exception as exc:
+            # Se o upload já criou um arquivo, qualquer falha posterior no polling
+            # deve tentar removê-lo imediatamente; expiração do provedor é só fallback.
+            self.delete_file(file)
+            if isinstance(exc, GeminiError):
+                raise
+            emit(catalog.GEMINI_UPLOAD_FAILED, level="error", status="error",
+                 data={"reason": "poll_failed", "error_type": type(exc).__name__})
+            raise GeminiError("falha consultando o processamento do vídeo na Files API.") from exc
 
     def delete_file(self, file) -> None:
         try:
             self.client.files.delete(name=file.name)
             emit(catalog.GEMINI_FILE_DELETED, level="debug", data={"file": getattr(file, "name", None)})
-        except Exception:
-            pass  # melhor-esforço; arquivos expiram sozinhos
+        except Exception as exc:
+            emit(
+                catalog.GEMINI_FILE_DELETE_FAILED,
+                level="warning",
+                status="error",
+                data={
+                    "file": getattr(file, "name", None),
+                    "error_type": type(exc).__name__,
+                },
+            )
 
     # ----- chamada 1: vídeo → JSON estruturado -----
     def analyze(self, file, *, schema_model: type[BaseModel], system_prompt: str,
@@ -127,9 +145,12 @@ class TennisGemini:
             try:
                 result = schema_model.model_validate_json(text)
             except Exception as e:
-                emit(catalog.GEMINI_CALL_FAILED, level="error", status="error", error=e,
-                     data={"call": "analyze", "reason": "invalid_json"})
-                raise GeminiError(f"JSON da análise inválido para o schema: {e}") from e
+                # Erros Pydantic podem carregar input_value com observações e nomes;
+                # eventos guardam somente metadados não sensíveis da falha.
+                emit(catalog.GEMINI_CALL_FAILED, level="error", status="error",
+                     data={"call": "analyze", "reason": "invalid_json",
+                           "error_type": type(e).__name__})
+                raise GeminiError("JSON da análise inválido para o schema.") from e
         emit(catalog.GEMINI_ANALYZE_COMPLETED, duration_ms=round((time.monotonic() - t0) * 1000, 1),
              data={"schema": schema_model.__name__})
         return result
