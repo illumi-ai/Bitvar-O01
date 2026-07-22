@@ -42,7 +42,7 @@
 
   section{padding:34px 0;border-bottom:1px solid var(--linha)}
   h2{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.35rem;margin-bottom:14px}
-  h3{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.05rem;margin:20px 0 10px}
+  h3{font-family:'Archivo',sans-serif;font-weight:700;font-size:1.05rem;margin:24px 0 10px}
   .kicker{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--arquibancada);margin-bottom:8px}
   .kicker .n{color:var(--verde)}
 
@@ -64,6 +64,10 @@
   .field input[type=text]{width:100%;background:var(--noite-code);color:var(--refletor);border:1px solid var(--linha);border-radius:7px;padding:9px 11px;font-family:'Source Sans 3',sans-serif;font-size:.92rem}
   .field input[type=text]:focus{outline:none;border-color:var(--info)}
   .field input::placeholder{color:#5d7693}
+  details.guia{margin-top:14px;border:1px solid var(--linha);border-radius:var(--radius);background:var(--noite-code)}
+  details.guia summary{cursor:pointer;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--arquibancada)}
+  details.guia[open] summary{border-bottom:1px solid var(--linha);color:var(--refletor)}
+  details.guia ul{padding:12px 16px 14px 34px;color:var(--arquibancada);font-size:.9rem;display:grid;gap:6px}
 
   .hidden{display:none!important}
   .loading{display:flex;align-items:center;gap:14px;color:var(--arquibancada)}
@@ -73,7 +77,7 @@
   .warns{border-left:3px solid var(--ambar);background:var(--ambar-dim);padding:12px 16px;border-radius:0 var(--radius) var(--radius) 0;margin-bottom:18px;font-size:.9rem;color:#ffe6c4}
 
   /* route chips */
-  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
   .chip{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--linha);color:var(--arquibancada)}
   .chip b{color:var(--refletor)}
   .chip.green{color:var(--verde);border-color:rgba(52,214,123,.35)}
@@ -81,8 +85,8 @@
   .chip.ambar{color:var(--ambar);border-color:rgba(255,180,84,.35)}
   .chip.vermelho{color:var(--botoeira);border-color:rgba(255,68,56,.35)}
 
-  /* verdict badge */
-  .verdict{display:inline-flex;align-items:center;gap:10px;padding:14px 20px;border-radius:var(--radius);font-family:'Archivo',sans-serif;font-weight:700;font-size:1.15rem;margin-bottom:14px}
+  /* verdict + nota */
+  .verdict{display:inline-flex;align-items:center;gap:10px;padding:12px 18px;border-radius:var(--radius);font-family:'Archivo',sans-serif;font-weight:700;font-size:1.12rem}
   .verdict.adequada{background:var(--verde-dim);border:1px solid rgba(52,214,123,.4);color:var(--verde)}
   .verdict.parcialmente_adequada{background:var(--ambar-dim);border:1px solid rgba(255,180,84,.4);color:var(--ambar)}
   .verdict.inadequada{background:var(--botoeira-dim);border:1px solid rgba(255,68,56,.4);color:var(--botoeira)}
@@ -91,17 +95,53 @@
   .risco-alert .txt{font-family:'Archivo',sans-serif;font-weight:700;color:#ffd9d6}
   .risco-alert .sub{font-family:'Source Sans 3',sans-serif;font-weight:400;color:#ffb9b3;font-size:.9rem;margin-top:4px}
 
+  .scoregrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;margin-bottom:6px}
+  @media(max-width:760px){.scoregrid{grid-template-columns:1fr}}
+  .dialbox{display:flex;align-items:center;gap:16px}
+  .dial{width:118px;height:118px;flex:none}
+  .dial .bg{fill:none;stroke:var(--noite-3);stroke-width:10}
+  .dial .fg{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s ease}
+  .dial text{fill:var(--refletor);font-family:'Archivo Black',sans-serif;font-size:30px;text-anchor:middle}
+  .dial .max{fill:var(--arquibancada);font-family:'JetBrains Mono',monospace;font-size:11px;text-anchor:middle}
+  .dial-meta{font-size:.84rem;color:var(--arquibancada)}
+  .dial-meta b{color:var(--refletor)}
+  .vstack{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+
   /* grid + cards */
   .grid{display:grid;gap:14px}
   .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
   @media(max-width:760px){.g2,.g3{grid-template-columns:1fr}}
   .card{background:var(--noite-2);border:1px solid var(--linha);border-radius:var(--radius);padding:16px}
   .card .ct{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--info);margin-bottom:10px}
-  .stat{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--linha)}
+  .stat{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:6px 0;border-bottom:1px solid var(--linha)}
   .stat:last-child{border-bottom:none}
   .stat .k{color:var(--arquibancada);font-size:.9rem}
-  .stat .v{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--refletor)}
+  .stat .v{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--refletor);text-align:right}
+  .stat .v.sim{color:var(--verde)} .stat .v.nao{color:var(--botoeira)}
   .obs{color:var(--arquibancada);font-size:.86rem;margin-top:10px;font-style:italic}
+
+  /* checklist das 7 categorias */
+  .check-item{border-left:3px solid var(--linha);padding:10px 14px;margin-bottom:10px;border-radius:0 8px 8px 0;background:var(--noite-code)}
+  .check-item.adequado{border-left-color:var(--verde)}
+  .check-item.ajuste_leve{border-left-color:var(--info)}
+  .check-item.a_corrigir{border-left-color:var(--ambar)}
+  .check-item.a_corrigir.grave{border-left-color:var(--botoeira)}
+  .check-item.nao_observavel{border-left-color:var(--linha);opacity:.75}
+  .check-item .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .check-item .cat{font-family:'Archivo',sans-serif;font-weight:700;font-size:.95rem}
+  .check-item .st{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--linha);text-transform:uppercase;letter-spacing:.05em}
+  .check-item .st.adequado{color:var(--verde);border-color:rgba(52,214,123,.4)}
+  .check-item .st.ajuste_leve{color:var(--info);border-color:rgba(111,177,255,.4)}
+  .check-item .st.a_corrigir{color:var(--ambar);border-color:rgba(255,180,84,.4)}
+  .check-item .st.a_corrigir.grave{color:var(--botoeira);border-color:rgba(255,68,56,.4)}
+  .check-item .st.nao_observavel{color:var(--arquibancada)}
+  .check-item .nota10{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.86rem;color:var(--refletor)}
+  .check-item .nota10 small{color:var(--arquibancada)}
+  .ch-bar{height:5px;background:var(--noite-3);border-radius:3px;margin-top:9px;overflow:hidden}
+  .ch-bar div{height:100%;border-radius:3px;background:var(--verde)}
+  .ch-bar.dim div{background:var(--ambar)}
+  .ch-meta{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--arquibancada);margin-top:5px}
+  .check-item .desc{margin-top:7px;font-size:.92rem;color:var(--refletor)}
 
   /* erros */
   .erro-item{border-left:3px solid var(--linha);padding:10px 14px;margin-bottom:10px;border-radius:0 8px 8px 0;background:var(--noite-code)}
@@ -129,8 +169,23 @@
   .focobox .lab{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--info);margin-bottom:8px}
   .focobox .txt{font-family:'Archivo',sans-serif;font-weight:600;font-size:1.05rem}
 
+  /* repetições */
+  .reptable{width:100%;border-collapse:collapse;font-size:.9rem}
+  .reptable th{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--arquibancada);text-align:left;padding:6px 10px;border-bottom:1px solid var(--linha)}
+  .reptable td{padding:7px 10px;border-bottom:1px solid var(--linha);color:var(--refletor);vertical-align:top}
+  .reptable tr:last-child td{border-bottom:none}
+  .reptable .mono{font-size:.84rem}
+  .repbadge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--linha)}
+  .repbadge.completa{color:var(--verde);border-color:rgba(52,214,123,.4)}
+  .repbadge.parcial{color:var(--arquibancada)}
+  .tablewrap{overflow-x:auto}
+
+  .recgrav{border-left:3px solid var(--ambar);background:var(--ambar-dim);padding:12px 16px;border-radius:0 var(--radius) var(--radius) 0;margin-top:12px;font-size:.9rem;color:#ffe6c4}
+  .recgrav ul{margin-top:6px;padding-left:20px;display:grid;gap:4px}
+
   .narr{white-space:pre-wrap;color:#E4EDF7;font-size:1.04rem;line-height:1.7}
   audio{width:100%;margin-top:12px}
+  .dlrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
   .disclaimer{font-size:.82rem;color:var(--arquibancada);border-top:1px dashed var(--linha);padding-top:12px;margin-top:18px}
   footer{padding:28px 0 60px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--arquibancada)}
   @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -146,7 +201,7 @@
 <header class="hero"><div class="wrap">
   <p class="eyebrow">Análise de execução na academia · <b>vídeo do exercício</b></p>
   <h1>Um vídeo, <span class="hl">um raio-x técnico.</span></h1>
-  <p>Suba o vídeo de uma execução de exercício e receba um <strong>relatório educacional em PT-BR</strong> com erros técnicos, acertos e foco prático — narrado em áudio, se quiser.</p>
+  <p>Suba o vídeo de uma execução de exercício e receba um <strong>relatório educacional em PT-BR</strong> completo: nota de execução, checklist das 7 categorias técnicas, erros com correção, acertos, repetições segmentadas e leitura da captura — narrado em áudio, se quiser.</p>
 </div></header>
 
 <section><div class="wrap">
@@ -171,6 +226,17 @@
       </div>
     </div>
 
+    <details class="guia">
+      <summary>Como filmar para uma análise melhor</summary>
+      <ul>
+        <li>Grave <strong>uma série curta</strong> (3–6 repetições), não o treino inteiro.</li>
+        <li>Corpo inteiro no quadro — inclusive <strong>pés e mãos</strong> — durante todo o movimento.</li>
+        <li>Câmera <strong>parada</strong> (apoiada), na altura do quadril, com boa iluminação.</li>
+        <li>Ângulo <strong>lateral ou diagonal</strong> mostra amplitude e tronco; frontal mostra joelhos e simetria.</li>
+        <li>Uma pessoa em destaque: quem executa deve ser fácil de distinguir no vídeo.</li>
+      </ul>
+    </details>
+
     <div class="actions">
       <button id="go" class="btn" disabled>Analisar vídeo</button>
       <div id="loading" class="loading hidden"><span class="spin"></span><span id="loadmsg">Analisando… isto pode levar alguns minutos.</span></div>
@@ -184,8 +250,18 @@
   <h2 id="results-title">Resultado da análise</h2>
   <div id="warns" class="warns hidden"></div>
   <div id="risco" class="hidden"></div>
-  <div id="verdictbox"></div>
-  <div id="chips" class="chips"></div>
+
+  <div class="scoregrid">
+    <div class="card">
+      <div class="ct">Veredito</div>
+      <div id="verdictbox" class="vstack"></div>
+      <div id="chips" class="chips"></div>
+    </div>
+    <div class="card">
+      <div class="ct">Nota da execução <span style="color:var(--arquibancada)">· indicador POC</span></div>
+      <div id="notabox" class="dialbox"></div>
+    </div>
+  </div>
 
   <h3>Erros técnicos</h3>
   <div id="erros"></div>
@@ -195,6 +271,22 @@
 
   <div id="focowrap"></div>
 
+  <h3>Checklist das 7 categorias</h3>
+  <p class="obs" style="margin:0 0 10px">A varredura técnica completa — inclusive o que está adequado e o que o vídeo não deixou avaliar. A barra mostra quanto cada categoria contribui para a nota.</p>
+  <div id="checklist"></div>
+
+  <h3>Leitura do movimento</h3>
+  <div class="grid g2">
+    <div class="card"><div class="ct">Padrão do movimento</div><div id="movimento"></div></div>
+    <div class="card"><div class="ct">Captura e confiabilidade</div><div id="captura"></div></div>
+  </div>
+  <div id="reps-wrap" class="card hidden" style="margin-top:14px">
+    <div class="ct">Repetições segmentadas</div>
+    <div class="tablewrap"><table class="reptable" id="reps"></table></div>
+  </div>
+  <div id="recgrav" class="hidden"></div>
+  <div id="contexto"></div>
+
   <div id="narrative-wrap" class="hidden">
     <h3>Relatório do treinador (PT-BR)</h3>
     <div id="narrative" class="card narr"></div>
@@ -203,14 +295,22 @@
     <h3>Áudio da narrativa</h3>
     <audio id="audio-player" controls></audio>
   </div>
-  <p class="disclaimer">Relatório educacional gerado por IA — não substitui avaliação presencial de um profissional habilitado. Não medimos carga, esforço ou ativação muscular, e não prometemos hipertrofia, força ou emagrecimento. Em caso de dor, procure um profissional habilitado.</p>
+
+  <h3>Baixar e compartilhar</h3>
+  <div class="dlrow">
+    <button id="dl-txt" class="btn ghost">Baixar relatório .txt</button>
+    <button id="dl-json" class="btn ghost">Baixar dados .json</button>
+    <button id="dl-wav" class="btn ghost hidden">Baixar áudio .wav</button>
+  </div>
+
+  <p class="disclaimer">Relatório educacional gerado por IA — não substitui avaliação presencial de um profissional habilitado. A nota de execução é um indicador observacional de POC (pesos não calibrados): não mede risco de lesão, carga, esforço ou ativação muscular, e não prometemos hipertrofia, força ou emagrecimento. Em caso de dor, procure um profissional habilitado.</p>
 </div></section>
 
 <footer><div class="wrap">BITVAR ÔMEGA · academia · análise de execução por vídeo</div></footer>
 
 <script>
 const $ = s => document.querySelector(s);
-const state = { file:null };
+const state = { file:null, last:null };
 
 // ---- file pick / drag-drop ----
 const drop=$("#drop"), fileInput=$("#file");
@@ -264,11 +364,23 @@ const VEREDITO_LABEL={adequada:"Execução adequada",parcialmente_adequada:"Parc
 const CONFIAB_LABEL={baixa:"baixa",media:"média",alta:"alta"};
 const CATEGORIA_LABEL={amplitude:"Amplitude",escapula_ombros:"Escápula / ombros",tronco:"Tronco",cervical:"Cervical",cotovelos:"Cotovelos",joelhos:"Joelhos",ritmo:"Ritmo",outro:"Outro"};
 const GRAVIDADE_LABEL={leve:"leve",moderada:"moderada",risco_lesao:"risco de lesão"};
-const num=v=>v==null?"—":v;
+const STATUS_LABEL={adequado:"adequado",ajuste_leve:"ajuste leve",a_corrigir:"a corrigir",nao_observavel:"não observável"};
+const CONSIST_LABEL={consistente:"consistente",variavel:"variável",inconclusivo:"inconclusivo"};
+const simNao=v=>v===true?["sim","sim"]:v===false?["não","nao"]:["—",""];
+const fmtS=v=>v==null?"—":(Math.round(v*10)/10)+"s";
+
+function stat(host,k,v,cls){
+  const s=el("div",{class:"stat"});
+  s.append(el("span",{class:"k"},k));
+  s.append(el("span",{class:"v"+(cls?" "+cls:"")},String(v)));
+  host.append(s);
+}
 
 function render(d){
+  state.last=d;
   $("#results").classList.remove("hidden");
   const m=d.metrics||{};
+  const nota=d.nota_execucao||null;
   $("#results-title").textContent = "Análise técnica: " + (m.exercicio_identificado || d.exercicio || "exercício");
 
   // warnings
@@ -291,12 +403,11 @@ function render(d){
     riscoBox.classList.remove("hidden");
   } else riscoBox.classList.add("hidden");
 
-  // veredito badge
+  // veredito badge + confiabilidade
   const vb=$("#verdictbox"); vb.innerHTML="";
   if(m.veredito){
     vb.append(el("div",{class:"verdict "+m.veredito}, VEREDITO_LABEL[m.veredito]||m.veredito));
   }
-
   // chips
   $("#chips").innerHTML="";
   if(m.equipamento) addChip("info","EQUIPAMENTO",m.equipamento);
@@ -306,7 +417,111 @@ function render(d){
   if(m.repeticoes_visiveis!=null) addChip("","REPETIÇÕES VISÍVEIS",m.repeticoes_visiveis);
   if(m.partes_ocultas&&m.partes_ocultas.length) addChip("ambar","PARTES OCULTAS",m.partes_ocultas.join(", "));
 
-  // erros
+  renderNota(nota);
+  renderChecklist(m,nota);
+  renderErros(m);
+  renderAcertos(m);
+  renderFoco(m);
+  renderMovimento(m);
+  renderCaptura(m);
+  renderReps(m);
+  renderRecomendacoes(m);
+  renderContexto(m);
+
+  // narrative
+  if(d.narrative){$("#narrative").textContent=d.narrative;$("#narrative-wrap").classList.remove("hidden");}
+  else $("#narrative-wrap").classList.add("hidden");
+
+  // audio
+  if(d.audio_base64){
+    $("#audio-player").src=`data:audio/wav;base64,${d.audio_base64}`;
+    $("#audio-wrap").classList.remove("hidden");
+    $("#dl-wav").classList.remove("hidden");
+  } else {$("#audio-wrap").classList.add("hidden");$("#dl-wav").classList.add("hidden");}
+
+  $("#results").scrollIntoView({behavior:"smooth"});
+}
+
+// ---- nota da execução (dial SVG) ----
+function renderNota(nota){
+  const host=$("#notabox"); host.innerHTML="";
+  const C=2*Math.PI*52;
+  const svgNS="http://www.w3.org/2000/svg";
+  const svg=document.createElementNS(svgNS,"svg");
+  svg.setAttribute("viewBox","0 0 120 120"); svg.setAttribute("class","dial");
+  svg.setAttribute("role","img");
+  const bg=document.createElementNS(svgNS,"circle");
+  bg.setAttribute("cx","60");bg.setAttribute("cy","60");bg.setAttribute("r","52");bg.setAttribute("class","bg");
+  svg.append(bg);
+  const meta=el("div",{class:"dial-meta"});
+  const valid=nota&&nota.nota!=null;
+  if(valid){
+    const v=nota.nota;
+    const cor=v>=80?"var(--verde)":v>=50?"var(--ambar)":"var(--botoeira)";
+    const fg=document.createElementNS(svgNS,"circle");
+    fg.setAttribute("cx","60");fg.setAttribute("cy","60");fg.setAttribute("r","52");fg.setAttribute("class","fg");
+    fg.setAttribute("stroke",cor);
+    fg.setAttribute("stroke-dasharray",C.toFixed(1));
+    fg.setAttribute("stroke-dashoffset",(C*(1-v/100)).toFixed(1));
+    fg.setAttribute("transform","rotate(-90 60 60)");
+    svg.append(fg);
+    const t=document.createElementNS(svgNS,"text");
+    t.setAttribute("x","60");t.setAttribute("y","64");t.textContent=String(Math.round(v));
+    svg.append(t);
+    const mx=document.createElementNS(svgNS,"text");
+    mx.setAttribute("x","60");mx.setAttribute("y","82");mx.setAttribute("class","max");mx.textContent="/ 100";
+    svg.append(mx);
+    svg.setAttribute("aria-label",`Nota da execução: ${v} de 100`);
+    meta.append(el("div",{},el("b",{},`${nota.criterios_presentes}/${nota.criterios_totais}`)," categorias observáveis"));
+    if(nota.teto_aplicado!=null) meta.append(el("div",{},`teto de coerência: ${nota.teto_aplicado}`));
+  }else{
+    const t=document.createElementNS(svgNS,"text");
+    t.setAttribute("x","60");t.setAttribute("y","64");t.textContent="—";
+    svg.append(t);
+    svg.setAttribute("aria-label","Nota da execução indisponível");
+    meta.append(el("div",{},el("b",{},"nota não publicada")));
+  }
+  if(nota&&nota.observacao) meta.append(el("div",{style:"margin-top:6px;font-style:italic"},nota.observacao));
+  host.append(svg); host.append(meta);
+}
+
+// ---- checklist das 7 categorias (com contribuição da nota) ----
+function renderChecklist(m,nota){
+  const host=$("#checklist"); host.innerHTML="";
+  const itens=m.checklist||[];
+  if(!itens.length){
+    host.append(el("div",{class:"obs"},"Checklist indisponível nesta análise (registro antigo)."));
+    return;
+  }
+  const comp={}; (nota&&nota.componentes||[]).forEach(c=>comp[c.categoria]=c);
+  itens.forEach(c=>{
+    const grave=(m.erros||[]).some(e=>e.categoria===c.categoria&&e.gravidade==="risco_lesao");
+    const item=el("div",{class:"check-item "+(c.status||"")+(grave?" grave":"")});
+    const top=el("div",{class:"top"});
+    top.append(el("span",{class:"cat"},CATEGORIA_LABEL[c.categoria]||c.categoria));
+    top.append(el("span",{class:"st "+(c.status||"")+(grave?" grave":"")},STATUS_LABEL[c.status]||c.status||"—"));
+    const n=el("span",{class:"nota10"});
+    if(c.nota_0a10!=null){n.append(String(c.nota_0a10));n.append(el("small",{}," /10"));}
+    else n.append(el("small",{},"sem nota"));
+    top.append(n);
+    item.append(top);
+    const k=comp[c.categoria];
+    if(k&&k.presente){
+      const bar=el("div",{class:"ch-bar"+((k.normalizado??1)<0.7?" dim":"")});
+      bar.append(el("div",{style:`width:${Math.max(2,Math.min(100,(k.contribuicao_pontos||0)))}%`}));
+      item.append(bar);
+      item.append(el("div",{class:"ch-meta"},
+        `contribui ${k.contribuicao_pontos.toFixed(1)} pts · peso ${(k.peso*100).toFixed(1).replace(/\.0$/,"")}%`));
+    } else if(c.status==="nao_observavel"){
+      item.append(el("div",{class:"ch-meta"},"fora do cálculo da nota (não observável)"));
+    }
+    if(c.observacao) item.append(el("div",{class:"desc"},c.observacao));
+    host.append(item);
+  });
+}
+
+// ---- erros técnicos ----
+function renderErros(m){
   const errosHost=$("#erros"); errosHost.innerHTML="";
   const erros=(m.erros||[]).slice().sort((a,b)=>{
     const order={risco_lesao:0,moderada:1,leve:2};
@@ -332,13 +547,17 @@ function render(d){
   } else {
     errosHost.append(el("div",{class:"obs"},"Nenhum erro técnico identificado nesta execução."));
   }
+}
 
-  // acertos
+// ---- acertos ----
+function renderAcertos(m){
   const acertosHost=$("#acertos"); acertosHost.innerHTML="";
   (m.acertos||[]).forEach(a=>acertosHost.append(el("li",{},a)));
   if(!(m.acertos||[]).length) acertosHost.append(el("li",{style:"list-style:none;padding-left:0"},el("span",{class:"obs"},"—")));
+}
 
-  // foco prático
+// ---- foco prático ----
+function renderFoco(m){
   const focoHost=$("#focowrap"); focoHost.innerHTML="";
   if(m.foco_pratico){
     const box=el("div",{class:"focobox"});
@@ -346,34 +565,153 @@ function render(d){
     box.append(el("div",{class:"txt"},m.foco_pratico));
     focoHost.append(box);
   }
+}
 
-  // músculos esperados + observações
+// ---- leitura do movimento ----
+function renderMovimento(m){
+  const host=$("#movimento"); host.innerHTML="";
+  const reps=m.repeticoes||[];
+  const completas=reps.filter(r=>r.completa).length;
+  if(m.repeticoes_visiveis!=null) stat(host,"Repetições visíveis",m.repeticoes_visiveis);
+  if(reps.length){stat(host,"Segmentadas",`${reps.length} (${completas} completas)`);}
+  if(m.consistencia_amplitude) stat(host,"Consistência da amplitude",CONSIST_LABEL[m.consistencia_amplitude]||m.consistencia_amplitude,
+    m.consistencia_amplitude==="consistente"?"sim":m.consistencia_amplitude==="variavel"?"nao":"");
+  if(m.consistencia_ritmo) stat(host,"Consistência do ritmo",CONSIST_LABEL[m.consistencia_ritmo]||m.consistencia_ritmo,
+    m.consistencia_ritmo==="consistente"?"sim":m.consistencia_ritmo==="variavel"?"nao":"");
+  if(!host.children.length) host.append(el("div",{class:"obs"},"—"));
+  if(m.observacao_movimento) host.append(el("div",{class:"obs"},m.observacao_movimento));
+}
+
+// ---- captura e confiabilidade ----
+function renderCaptura(m){
+  const host=$("#captura"); host.innerHTML="";
+  if(m.angulo_camera) stat(host,"Ângulo da câmera",m.angulo_camera);
+  if(m.qualidade_video) stat(host,"Qualidade do vídeo",m.qualidade_video,
+    m.qualidade_video==="boa"?"sim":m.qualidade_video==="ruim"?"nao":"");
+  [["corpo_inteiro_visivel","Corpo inteiro visível"],["camera_estavel","Câmera estável"],["iluminacao_adequada","Iluminação adequada"]].forEach(([k,lab])=>{
+    if(m[k]!=null){const [txt,cls]=simNao(m[k]);stat(host,lab,txt,cls);}
+  });
+  if(m.partes_ocultas&&m.partes_ocultas.length) stat(host,"Partes ocultas",m.partes_ocultas.join(", "),"nao");
+  if(m.confiabilidade) stat(host,"Confiabilidade da análise",CONFIAB_LABEL[m.confiabilidade]||m.confiabilidade,
+    m.confiabilidade==="alta"?"sim":m.confiabilidade==="baixa"?"nao":"");
+  if(!host.children.length) host.append(el("div",{class:"obs"},"—"));
+}
+
+// ---- repetições segmentadas ----
+function renderReps(m){
+  const wrap=$("#reps-wrap"), table=$("#reps");
+  const reps=m.repeticoes||[];
+  if(!reps.length){wrap.classList.add("hidden");return;}
+  wrap.classList.remove("hidden");
+  table.innerHTML="";
+  const head=el("tr",{});
+  ["#","Ciclo","Início","Transição","Fim","Duração","Observação"].forEach(h=>head.append(el("th",{},h)));
+  table.append(head);
+  reps.forEach(r=>{
+    const tr=el("tr",{});
+    tr.append(el("td",{class:"mono"},String(r.indice??"—")));
+    tr.append(el("td",{},el("span",{class:"repbadge "+(r.completa?"completa":"parcial")},r.completa?"completa":"parcial")));
+    tr.append(el("td",{class:"mono"},fmtS(r.inicio_s)));
+    tr.append(el("td",{class:"mono"},fmtS(r.transicao_s)));
+    tr.append(el("td",{class:"mono"},fmtS(r.fim_s)));
+    const dur=(r.inicio_s!=null&&r.fim_s!=null&&r.fim_s>=r.inicio_s)?fmtS(r.fim_s-r.inicio_s):"—";
+    tr.append(el("td",{class:"mono"},dur));
+    tr.append(el("td",{},r.observacao||"—"));
+    table.append(tr);
+  });
+}
+
+// ---- recomendações de gravação ----
+function renderRecomendacoes(m){
+  const host=$("#recgrav");
+  const recs=m.recomendacoes_gravacao||[];
+  if(!recs.length){host.classList.add("hidden");return;}
+  host.innerHTML="";
+  host.append(el("b",{},"Para filmar melhor da próxima vez:"));
+  const ul=el("ul",{});
+  recs.forEach(r=>ul.append(el("li",{},r)));
+  host.append(ul);
+  host.className="recgrav";
+}
+
+// ---- contexto (músculos esperados + observações) ----
+function renderContexto(m){
+  const host=$("#contexto"); host.innerHTML="";
   if((m.musculos_esperados&&m.musculos_esperados.length)||m.observacoes){
     const c=el("div",{class:"card",style:"margin-top:14px"});
     c.append(el("div",{class:"ct"},"Contexto do exercício"));
     if(m.musculos_esperados&&m.musculos_esperados.length){
-      const s=el("div",{class:"stat"});
-      s.append(el("span",{class:"k"},"Músculos esperados"));
-      s.append(el("span",{class:"v"},m.musculos_esperados.join(", ")));
-      c.append(s);
+      stat(c,"Músculos esperados",m.musculos_esperados.join(", "));
     }
     if(m.observacoes) c.append(el("div",{class:"obs"},m.observacoes));
-    focoHost.append(c);
+    host.append(c);
   }
-
-  // narrative
-  if(d.narrative){$("#narrative").textContent=d.narrative;$("#narrative-wrap").classList.remove("hidden");}
-  else $("#narrative-wrap").classList.add("hidden");
-
-  // audio
-  if(d.audio_base64){
-    $("#audio-player").src=`data:audio/wav;base64,${d.audio_base64}`;
-    $("#audio-wrap").classList.remove("hidden");
-  } else $("#audio-wrap").classList.add("hidden");
-
-  $("#results").scrollIntoView({behavior:"smooth"});
 }
+
 function addChip(cls,k,v){const s=el("span",{class:"chip "+cls});s.append(document.createTextNode(k+" "));const b=el("b");b.textContent=v;s.append(b);$("#chips").append(s);}
+
+// ---- downloads (client-side, a partir da última resposta) ----
+function download(name,blob){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+function slugExercicio(){
+  const d=state.last||{}; const m=d.metrics||{};
+  return (m.exercicio_identificado||d.exercicio||"analise").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+}
+$("#dl-json").addEventListener("click",()=>{
+  if(!state.last) return;
+  download(`bitvar-academia-${slugExercicio()}.json`,
+    new Blob([JSON.stringify(state.last,null,2)],{type:"application/json"}));
+});
+$("#dl-wav").addEventListener("click",()=>{
+  const d=state.last; if(!d||!d.audio_base64) return;
+  const bin=atob(d.audio_base64); const buf=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+  download(`bitvar-academia-${slugExercicio()}.wav`,new Blob([buf],{type:"audio/wav"}));
+});
+$("#dl-txt").addEventListener("click",()=>{
+  const d=state.last; if(!d) return;
+  const m=d.metrics||{}, nota=d.nota_execucao||{};
+  const L=[];
+  L.push("BITVAR IA — Análise de Academia");
+  L.push(`Exercício: ${m.exercicio_identificado||d.exercicio||"—"}`);
+  if(m.veredito) L.push(`Veredito: ${VEREDITO_LABEL[m.veredito]||m.veredito}${m.risco_lesao?" · RISCO DE LESÃO":""}`);
+  if(nota.nota!=null) L.push(`Nota de execução: ${nota.nota}/100 (${nota.criterios_presentes}/${nota.criterios_totais} categorias observáveis)`);
+  L.push("");
+  if(m.foco_pratico){L.push("FOCO PRÁTICO PRINCIPAL");L.push(m.foco_pratico);L.push("");}
+  if((m.erros||[]).length){
+    L.push("O QUE ESTÁ ERRADO → COMO CONSERTAR");
+    m.erros.forEach(e=>{
+      L.push(`- [${GRAVIDADE_LABEL[e.gravidade]||e.gravidade}] ${e.descricao||""}`);
+      if(e.correcao) L.push(`    corrigir: ${e.correcao}`);
+    });
+    L.push("");
+  }
+  if((m.acertos||[]).length){L.push("ACERTOS");m.acertos.forEach(a=>L.push(`- ${a}`));L.push("");}
+  if((m.checklist||[]).length){
+    L.push("CHECKLIST DAS 7 CATEGORIAS");
+    m.checklist.forEach(c=>{
+      const n10=c.nota_0a10!=null?` · ${c.nota_0a10}/10`:"";
+      L.push(`- ${CATEGORIA_LABEL[c.categoria]||c.categoria}: ${STATUS_LABEL[c.status]||c.status}${n10} — ${c.observacao||""}`);
+    });
+    L.push("");
+  }
+  if((m.repeticoes||[]).length){
+    L.push("REPETIÇÕES SEGMENTADAS");
+    m.repeticoes.forEach(r=>{
+      const marco=(r.inicio_s!=null&&r.fim_s!=null)?` (${fmtS(r.inicio_s)}→${fmtS(r.fim_s)})`:"";
+      L.push(`- rep ${r.indice}: ${r.completa?"completa":"parcial"}${marco}${r.observacao?" — "+r.observacao:""}`);
+    });
+    L.push("");
+  }
+  if(d.narrative){L.push("RELATÓRIO DO PERSONAL TRAINER");L.push(d.narrative);L.push("");}
+  L.push("— gerado por BITVAR IA (relatório educacional; não substitui avaliação presencial)");
+  download(`bitvar-academia-${slugExercicio()}.txt`,new Blob([L.join("\n")],{type:"text/plain;charset=utf-8"}));
+});
 </script>
 </body>
 </html>

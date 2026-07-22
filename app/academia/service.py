@@ -32,6 +32,7 @@ from .config import academia_settings as default_cfg
 from .gemini import AcademiaGemini, GeminiError
 from .models import AcademiaAnalysis, AcademiaAnalysisResponse
 from .prompts import analysis_system_prompt
+from .scoring import compute_nota_execucao, harmonize_analysis
 
 log = logging.getLogger("bitvar.academia")
 
@@ -136,13 +137,30 @@ class AcademiaService:
         finally:
             self.gemini.delete_file(file)
 
+        # harmonização determinística: RF-003 e consistência checklist↔erros em
+        # CÓDIGO (cada ajuste vira um warning visível), e então a nota 0..100 —
+        # aritmética 100% Python, o VLM só forneceu as notas 0..10 por categoria.
+        analysis, ajustes = harmonize_analysis(analysis)
+        warnings.extend(ajustes)
+        nota = compute_nota_execucao(analysis)
+        emit(catalog.ACADEMIA_WEIGHTED_SCORE, data={
+            "nota": nota.nota, "valida": nota.valida, "modelo_pesos": nota.modelo_pesos,
+            "criterios_presentes": nota.criterios_presentes, "cobertura": nota.cobertura,
+            "teto_aplicado": nota.teto_aplicado, "ajustes_consistencia": len(ajustes),
+        })
+
         metrics = analysis.model_dump(by_alias=True, exclude_none=True)
 
         narrative: str | None = None
         audio_b64: str | None = None
         audio_wav: bytes | None = None
         try:
-            narrative = self.gemini.narrate(metrics, student_name=student_name)
+            # a narrativa recebe também a nota (pode citá-la uma vez, guard-rail
+            # no prompt); o schema da chamada 1 continua sem esse campo.
+            narrative = self.gemini.narrate(
+                {**metrics, "nota_execucao": nota.model_dump(exclude_none=True)},
+                student_name=student_name,
+            )
         except GeminiError as e:
             warnings.append(f"narrativa indisponível: {e}")
             emit(catalog.ACADEMIA_WARNING, level="warning", error=e, data={"stage": "narrative"})
@@ -155,17 +173,20 @@ class AcademiaService:
                 warnings.append(f"áudio indisponível: {e}")
                 emit(catalog.ACADEMIA_WARNING, level="warning", error=e, data={"stage": "audio"})
 
-        persisted_id = self._maybe_persist(student_name, metrics, narrative, persist, warnings, audio_wav)
+        persisted_id = self._maybe_persist(student_name, metrics, narrative, persist, warnings,
+                                           audio_wav, nota_execucao=nota.model_dump())
 
         emit(catalog.ACADEMIA_ANALYZE_COMPLETED,
              duration_ms=round((time.monotonic() - t0) * 1000, 1) if t0 else None,
              data={"exercicio": metrics.get("exercicio_identificado"),
                    "veredito": metrics.get("veredito"), "risco_lesao": metrics.get("risco_lesao"),
+                   "nota_execucao": nota.nota,
                    "has_narrative": narrative is not None, "has_audio": audio_b64 is not None,
                    "warnings": len(warnings), "persisted_id": persisted_id})
         return AcademiaAnalysisResponse(
             exercicio=analysis.exercicio_identificado,
             metrics=analysis,
+            nota_execucao=nota,
             narrative=narrative or "",
             audio_base64=audio_b64,
             warnings=warnings,
@@ -173,7 +194,7 @@ class AcademiaService:
         )
 
     def _maybe_persist(self, student_name, metrics, narrative, persist, warnings,
-                       audio_wav: bytes | None = None) -> int | None:
+                       audio_wav: bytes | None = None, nota_execucao: dict | None = None) -> int | None:
         if persist is None:
             persist = self.cfg.academia_persist
         if not persist:
@@ -181,7 +202,11 @@ class AcademiaService:
         try:
             from . import store
 
-            pid = store.save(student_name, {"metrics": metrics, "narrative": narrative}, audio_wav)
+            pid = store.save(
+                student_name,
+                {"metrics": metrics, "nota_execucao": nota_execucao, "narrative": narrative},
+                audio_wav,
+            )
             if pid is not None:
                 emit(catalog.ACADEMIA_PERSISTED, data={
                     "id": pid, "student_name": student_name, "has_audio": audio_wav is not None,

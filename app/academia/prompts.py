@@ -6,7 +6,10 @@ calibragem Caio 17-22/07/2026, dataset de 11 vídeos em
   identificação do exercício e a checagem EXPLÍCITA e sequencial das 7 categorias
   de erro técnico do catálogo de calibragem (amplitude, escápula/ombros, tronco,
   cervical, cotovelos, joelhos, ritmo), com regras duras de veredito (RF-003) e
-  anti-nitpicking (RF-004);
+  anti-nitpicking (RF-004). A varredura das 7 categorias agora também vira
+  parâmetro visível: checklist por categoria (status + nota 0..10 + evidência),
+  repetições segmentadas, leitura do movimento e condições de captura —
+  parâmetros reintroduzidos do módulo original (a368d14);
 * ``build_narrative_prompt(metrics, student_name)`` — chamada 2 (JSON→texto
   PT-BR): impõe RN-01 (erro antes de elogio), o fluxo de interrupção imediata
   quando ``risco_lesao`` é verdadeiro, os guard-rails anti-hype e as limitações
@@ -59,7 +62,7 @@ maioria não se aplique ao exercício do vídeo — não pule etapas:
    demais, sem controle, perdendo a tensão do músculo-alvo.
 
 Se não houver evidência de uma categoria, NÃO force um erro nela. Cada erro deve
-trazer O PAR OBRIGATÓRIO problema→conserto:
+trazer O PAR OBRIGATÓRIO problema→conserto (campo "erros"):
 - "descricao" = O QUE ESTÁ ERRADO, em linguagem de treinador (região do corpo +
   momento + efeito prático, ex.: "cotovelo avança à frente do tronco na subida,
   tirando a tensão do bíceps"). Aponta o problema, NÃO a solução.
@@ -69,6 +72,62 @@ trazer O PAR OBRIGATÓRIO problema→conserto:
   erro apontado tem de vir com o seu conserto específico e distinto da descrição.
 - "timestamp_s" = instante aproximado (ou null se não der para estimar).
 - "gravidade" = "leve" | "moderada" | "risco_lesao".
+"""
+
+_CHECKLIST_REGRA = """\
+Além dos erros, preencha o CHECKLIST (campo "checklist"): EXATAMENTE UMA entrada
+por categoria, SEMPRE AS 7 (mesmo as que não têm nada a apontar), cada uma com:
+- "categoria": amplitude | escapula_ombros | tronco | cervical | cotovelos |
+  joelhos | ritmo (nunca "outro" no checklist).
+- "status":
+  * "adequado" — categoria tecnicamente limpa nesta execução;
+  * "ajuste_leve" — só um refinamento OPCIONAL de polimento; NÃO é erro e NÃO
+    entra na lista "erros" (anti-nitpicking, RF-004);
+  * "a_corrigir" — há erro real nesta categoria; nesse caso a lista "erros"
+    DEVE conter um erro com esta mesma categoria (consistência obrigatória);
+  * "nao_observavel" — o ângulo/qualidade do vídeo não permitem avaliar esta
+    categoria com segurança; nunca vira erro do aluno.
+- "nota_0a10": nota observacional da categoria, seguindo a RUBRICA (alinhada à
+  gravidade dos erros): 9-10 = execução limpa na categoria; 7-8.9 = erro LEVE
+  presente OU refinamento opcional; 4-6.9 = erro moderado presente;
+  0-3.9 = erro grave/risco de lesão.
+  Use null QUANDO E SOMENTE QUANDO o status for "nao_observavel". Você NÃO
+  calcula nenhuma nota agregada — a nota 0..100 é calculada fora, em código.
+- "observacao": 1 frase com a evidência concreta que sustenta o status (ou por
+  que a categoria não foi observável).
+COERÊNCIA: status e nota andam juntos ("adequado" não recebe 4.0; "a_corrigir"
+não recebe 9.0; erro leve ≤ 8, moderado ≤ 6, risco de lesão ≤ 3), e toda
+categoria com erro em "erros" fica "a_corrigir" no checklist — sem exceção.
+"""
+
+_MOVIMENTO_REGRA = """\
+SEGMENTE AS REPETIÇÕES (campo "repeticoes"): uma entrada por repetição
+observável, na ordem do vídeo, cada uma com:
+- "indice" (1..n), "completa" (true se fecha o ciclo; parcial = false);
+- "inicio_s", "transicao_s" (momento da mudança de direção — fundo/pico) e
+  "fim_s": timestamps APROXIMADOS em segundos; use null para qualquer marco que
+  você não consiga situar com segurança — NÃO invente precisão;
+- "observacao": algo específico desta repetição (ou null).
+Se a segmentação não for possível (vídeo confuso, cortes), deixe a lista vazia
+e explique em "observacoes". "repeticoes_visiveis" continua sendo a contagem de
+repetições COMPLETAS que você afirma com confiança (ou null).
+
+LEIA O PADRÃO DO MOVIMENTO:
+- "consistencia_amplitude" e "consistencia_ritmo": "consistente" (mantém entre
+  as repetições), "variavel" (muda visivelmente) ou "inconclusivo" (não dá para
+  afirmar). Ritmo lento ou rápido NÃO é erro por si só — erro de ritmo é só a
+  excêntrica sem controle (categoria 7).
+- "observacao_movimento": 1-2 frases sobre o padrão cíclico geral (ou null).
+"""
+
+_CAPTURA_EXTRA = """\
+- "corpo_inteiro_visivel": true se as regiões relevantes ao exercício ficam no
+  quadro o tempo todo; false se saem; null se incerto.
+- "camera_estavel" e "iluminacao_adequada": true/false; null se incerto.
+- "recomendacoes_gravacao": SOMENTE quando o ângulo/qualidade/enquadramento
+  limitaram a análise, liste até 6 instruções práticas de como filmar melhor da
+  próxima vez (ex.: "filme de lado, com o corpo inteiro e os pés no quadro").
+  Se a captura está boa, deixe a lista VAZIA — não invente recomendação.
 """
 
 _VEREDITO_REGRAS = """\
@@ -106,8 +165,9 @@ CONFIABILIDADE E LIMITES DO QUE É OBSERVÁVEL (RN-02):
 - "angulo_camera": descreva objetivamente (ex.: "lateral", "frontal",
   "diagonal-posterior") — não invente um ângulo melhor do que o que foi filmado.
 - Se o ângulo/qualidade impedem avaliar uma categoria de erro com segurança,
-  NÃO afirme que está correta nem que está errada nessa categoria — omita-a e
-  reflita a limitação em "observacoes" e na confiabilidade rebaixada.
+  NÃO afirme que está correta nem que está errada nessa categoria — marque-a
+  como "nao_observavel" no checklist (nota null) e reflita a limitação em
+  "observacoes" e na confiabilidade rebaixada.
 """
 
 _ACERTOS_REGRA = """\
@@ -138,26 +198,30 @@ PASSO 1 — IDENTIFIQUE O EXERCÍCIO E O CONTEXTO.
 - "angulo_camera" e "qualidade_video": ver seção de confiabilidade abaixo.
 - "partes_ocultas": regiões do corpo relevantes ao exercício que não estavam
   visíveis no quadro.
-- "repeticoes_visiveis": quantas repetições completas dá para contar, ou null
-  se não for possível contar com confiança.
+- Condições de captura:
+{captura_extra}
 - Baseie-se no padrão-ouro biomecânico CONSOLIDADO do exercício identificado
   (a técnica de execução de referência estabelecida na literatura de
   treinamento de força) e nos erros técnicos comuns já documentados para esse
   exercício — não invente uma técnica de execução do zero.
 
-PASSO 2 — VERIFIQUE AS 7 CATEGORIAS DE ERRO, UMA A UMA.
-{categorias_erro}
+PASSO 2 — SEGMENTE AS REPETIÇÕES E LEIA O MOVIMENTO.
+{movimento_regra}
 
-PASSO 3 — DECIDA O VEREDITO.
+PASSO 3 — VERIFIQUE AS 7 CATEGORIAS DE ERRO, UMA A UMA, E PREENCHA O CHECKLIST.
+{categorias_erro}
+{checklist_regra}
+
+PASSO 4 — DECIDA O VEREDITO.
 {veredito_regras}
 
-PASSO 4 — CONFIABILIDADE E LIMITES DO OBSERVÁVEL.
+PASSO 5 — CONFIABILIDADE E LIMITES DO OBSERVÁVEL.
 {confiabilidade}
 
-PASSO 5 — ACERTOS.
+PASSO 6 — ACERTOS.
 {acertos_regra}
 
-PASSO 6 — FECHAMENTO TÉCNICO.
+PASSO 7 — FECHAMENTO TÉCNICO.
 - "foco_pratico": a ÚNICA correção mais importante e acionável para a próxima
   série, em linguagem de treinador (ex.: "sente completamente no banco antes de
   iniciar o movimento"). Se a execução for "adequada", pode ser um refinamento
@@ -194,7 +258,10 @@ def analysis_system_prompt(student_name: str | None = None, fps: int | None = No
     return _CLIP_PROMPT.format(
         saudacao_contexto=saudacao_contexto,
         fps=fps if fps is not None else 24,
+        captura_extra=_CAPTURA_EXTRA,
+        movimento_regra=_MOVIMENTO_REGRA,
         categorias_erro=_CATEGORIAS_ERRO,
+        checklist_regra=_CHECKLIST_REGRA,
         veredito_regras=_VEREDITO_REGRAS,
         confiabilidade=_CONFIABILIDADE,
         acertos_regra=_ACERTOS_REGRA,
@@ -334,6 +401,11 @@ GUARD-RAILS OBRIGATÓRIOS (aplique em TODA narrativa, sem exceção):
 - Use os números/observações da análise de forma natural (ex.: "nas duas
   repetições que deu para contar"), nunca inventando precisão que o JSON não
   tem.
+- NOTA DE EXECUÇÃO: se o JSON trouxer "nota_execucao" com "nota" preenchida,
+  você PODE citá-la UMA única vez, de forma natural ("a execução ficou em torno
+  de {{nota}} de 100 no nosso indicador de execução") — sem transformá-la no
+  centro do relatório e sem prometer nada a partir dela. Se "nota" for null ou
+  o campo não existir, NÃO mencione nota nenhuma e NÃO invente um número.
 - Tamanho: 140 a 280 palavras. Devolva SOMENTE o texto do relatório.
 
 ANÁLISE (JSON):

@@ -87,6 +87,18 @@ duplicating them.
   UI (`static/academia/index.html`) renders these as three sections: **Erros técnicos**,
   **Acertos**, **Foco prático** — this is the standard layout; a session that reworked it into
   "o que está bom / o que melhorar / feedback ideal" was reverted at the user's request.
+- **Reintroduced parameters (from the original a368d14 VPS snapshot, adapted to the
+  calibrated core):** per-category `checklist` (all 7 RF-002 categories, each with
+  `status`/`nota_0a10`/`observacao`), `repeticoes` (segmented reps with approximate
+  timestamps), movement consistency + capture-condition fields, and a **deterministic
+  0–100 `nota_execucao`** computed in Python (`scoring.py`, mirrors `tennis/weights.py`:
+  normalize 0–10 notes, renormalize weights over observable categories, gate on bad
+  video/low coverage, coherence caps: risk⇒≤39, inadequada⇒≤49, parcial⇒≤79). The VLM
+  never does the arithmetic. `scoring.harmonize_analysis` also enforces RF-003 and
+  checklist↔erros consistency **in code** (each fix becomes a user-visible warning).
+  **Recalibrating the score = editing `PESOS`** in `scoring.py`. The UI renders ALL of
+  these (score dial, checklist with contribution bars, reps table, capture card,
+  client-side .txt/.json/.wav downloads) — the "dry parameters" complaint of 22jul.
 - Calibrated against `docs/videos-calibragem-academia/` — a written ground-truth dataset
   (11 videos + `analises/*.txt`) whose 7-part structure the schema mirrors. **Recalibrating
   = editing `prompts.py`** (the 7 error categories + verdict rules).

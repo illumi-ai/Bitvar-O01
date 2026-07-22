@@ -9,7 +9,11 @@ São usados em dois papéis, mesmo padrão do :mod:`app.tennis.models`:
 Contrato de schema fixo (nomes de campo travados, não renomear):
 
 * :class:`ErroTecnico` — um erro técnico pontual detectado no exercício.
+* :class:`CriterioChecklist` — avaliação explícita de UMA das 7 categorias (RF-002 visível).
+* :class:`RepeticaoSegmentada` — uma repetição segmentada com marcos temporais aproximados.
 * :class:`AcademiaAnalysis` — saída bruta da chamada 1 (vídeo → JSON).
+* :class:`NotaExecucao` / :class:`ComponenteNota` — nota 0..100 determinística (Python,
+  ``scoring.py``; nunca preenchida pelo VLM).
 * :class:`AcademiaAnalysisResponse` — payload final devolvido pela API.
 
 Regras de calibragem que o schema precisa refletir (ver ``prompts.py`` para o
@@ -69,6 +73,32 @@ Veredito = Literal["adequada", "parcialmente_adequada", "inadequada"]
 # (ângulo de câmera, qualidade, partes ocultas) — não é uma nota de execução.
 Confiabilidade = Literal["baixa", "media", "alta"]
 
+# --------------------------------------------------------------------------- #
+# parâmetros reintroduzidos do módulo original (snapshot a368d14)              #
+# --------------------------------------------------------------------------- #
+# O módulo original expunha checklist por critério, repetições segmentadas,
+# leitura do movimento e qualidade de captura detalhada; a versão calibrada os
+# descartou e a saída ficou "seca". Estes tipos os trazem de volta ADAPTADOS ao
+# núcleo calibrado: o checklist cobre exatamente as 7 categorias de RF-002 (uma
+# entrada por categoria, sempre as 7), em vez dos critérios por-exercício do
+# perfil original.
+
+# As 7 categorias nomeadas do checklist — "outro" fica de fora de propósito: o
+# checklist é a varredura fixa de RF-002; um erro fora das 7 ainda pode ser
+# reportado em ``erros`` com categoria "outro", mas não ganha linha de checklist.
+CategoriaChecklist = Literal[
+    "amplitude", "escapula_ombros", "tronco", "cervical", "cotovelos", "joelhos", "ritmo",
+]
+
+# Espelha o ``ApproximateCriterionState`` do módulo original. "ajuste_leve" é um
+# refinamento opcional, NÃO um erro (RF-004: não fabrica erro em execução boa);
+# "a_corrigir" implica um erro correspondente em ``erros`` (consistência
+# garantida deterministicamente em ``scoring.harmonize_analysis``).
+StatusCriterio = Literal["adequado", "ajuste_leve", "a_corrigir", "nao_observavel"]
+
+# Espelha o ``MovementConsistency`` original (resumo do padrão cíclico).
+ConsistenciaMovimento = Literal["consistente", "variavel", "inconclusivo"]
+
 
 # --------------------------------------------------------------------------- #
 # bloco de erro técnico                                                       #
@@ -109,6 +139,58 @@ class ErroTecnico(BaseModel):
     )
     gravidade: GravidadeErro = Field(
         description="Severidade do erro: leve, moderada ou risco_lesao (aciona veredito inadequada)."
+    )
+
+
+# --------------------------------------------------------------------------- #
+# checklist das 7 categorias + repetições segmentadas (chamada 1)              #
+# --------------------------------------------------------------------------- #
+class CriterioChecklist(BaseModel):
+    """Avaliação explícita de UMA das 7 categorias de RF-002.
+
+    O prompt já obriga a varredura sequencial das 7 categorias; este item torna
+    o resultado da varredura um parâmetro visível (como o ``CriterionAssessment``
+    do módulo original), em vez de só materializar as categorias com erro.
+    A nota 0..10 segue a rubrica do prompt e alimenta a ``NotaExecucao``
+    determinística — o VLM nunca faz a agregação (aritmética é Python).
+    """
+
+    categoria: CategoriaChecklist = Field(
+        description="Qual das 7 categorias de RF-002 este item avalia (uma entrada por categoria)."
+    )
+    status: StatusCriterio = Field(
+        description="adequado (limpo) · ajuste_leve (refinamento opcional, NÃO é erro) · "
+        "a_corrigir (há erro registrado em 'erros' nesta categoria) · nao_observavel "
+        "(ângulo/qualidade não permitem avaliar — nunca vira erro do aluno)."
+    )
+    nota_0a10: float | None = Field(
+        default=None, ge=0, le=10,
+        description="Nota observacional 0..10 da categoria (rubrica no prompt); null quando "
+        "nao_observavel. A agregação em nota 0..100 é feita em Python, nunca pelo modelo.",
+    )
+    observacao: str = Field(
+        description="Evidência concreta em 1 frase PT-BR do que sustenta o status (ou por que "
+        "não foi observável)."
+    )
+
+
+class RepeticaoSegmentada(BaseModel):
+    """Segmentação lógica de uma repetição (espelha o ``RepetitionSegment`` original).
+
+    Marcos temporais aproximados — ``None`` quando o marco não é observável;
+    o modelo é instruído a não inventar precisão que o vídeo não sustenta.
+    """
+
+    indice: int = Field(ge=1, description="Número da repetição na ordem do vídeo (1..n).")
+    completa: bool = Field(description="True se a repetição fecha o ciclo completo (parcial = False).")
+    inicio_s: float | None = Field(default=None, ge=0, description="Início aproximado (s), ou null.")
+    transicao_s: float | None = Field(
+        default=None, ge=0,
+        description="Momento aproximado da mudança de direção (fundo/pico do movimento), ou null.",
+    )
+    fim_s: float | None = Field(default=None, ge=0, description="Fim aproximado (s), ou null.")
+    observacao: str | None = Field(
+        default=None, description="Observação específica desta repetição (ou null)."
     )
 
 
@@ -173,6 +255,115 @@ class AcademiaAnalysis(BaseModel):
         default=None, description="Observações adicionais relevantes não cobertas pelos demais campos."
     )
 
+    # ----- parâmetros reintroduzidos do módulo original (a368d14) -----
+    checklist: list[CriterioChecklist] = Field(
+        default_factory=list,
+        description="Resultado da varredura das 7 categorias de RF-002 — exatamente uma entrada "
+        "por categoria, TODAS as 7 sempre presentes (nao_observavel quando não der para avaliar). "
+        "Consistência com 'erros' é obrigatória: categoria com erro → status a_corrigir.",
+    )
+    repeticoes: list[RepeticaoSegmentada] = Field(
+        default_factory=list,
+        description="Repetições segmentadas na ordem do vídeo, com marcos temporais aproximados "
+        "(lista vazia se a segmentação não for possível).",
+    )
+    consistencia_amplitude: ConsistenciaMovimento | None = Field(
+        default=None,
+        description="A amplitude se mantém entre as repetições? (consistente/variavel/inconclusivo)",
+    )
+    consistencia_ritmo: ConsistenciaMovimento | None = Field(
+        default=None,
+        description="O ritmo se mantém entre as repetições? (consistente/variavel/inconclusivo)",
+    )
+    observacao_movimento: str | None = Field(
+        default=None,
+        description="Leitura geral do padrão cíclico do movimento em 1-2 frases PT-BR (ou null).",
+    )
+    corpo_inteiro_visivel: bool | None = Field(
+        default=None,
+        description="As regiões do corpo relevantes ao exercício permanecem no quadro? (null se incerto)",
+    )
+    camera_estavel: bool | None = Field(
+        default=None, description="A câmera permanece estável durante a execução? (null se incerto)"
+    )
+    iluminacao_adequada: bool | None = Field(
+        default=None, description="A iluminação permite ver contornos e articulações? (null se incerto)"
+    )
+    recomendacoes_gravacao: list[str] = Field(
+        default_factory=list,
+        description="Até 6 instruções práticas de como filmar melhor da próxima vez (ângulo, "
+        "distância, enquadramento) — SOMENTE quando a captura limitou a análise; vazia se a "
+        "captura está boa.",
+    )
+
+
+# --------------------------------------------------------------------------- #
+# nota de execução determinística (Python, nunca o VLM)                        #
+# --------------------------------------------------------------------------- #
+class ComponenteNota(BaseModel):
+    """Contribuição de uma categoria do checklist para a nota 0..100.
+
+    Espelha o ``ExecutionScoreComponent`` do módulo original: peso original,
+    peso efetivo (renormalizado sobre as categorias observáveis) e contribuição
+    em pontos — as contribuições somam a nota (ou o valor pré-teto, quando
+    ``NotaExecucao.teto_aplicado`` cortou a nota globalmente).
+    """
+
+    categoria: str = Field(description="Categoria do checklist (uma das 7 de RF-002).")
+    label: str = Field(description="Rótulo PT-BR da categoria para exibição.")
+    peso: float = Field(ge=0, le=1, description="Peso original da categoria no modelo de pesos.")
+    peso_efetivo: float = Field(
+        ge=0, le=1, description="Peso renormalizado sobre as categorias observáveis (0 se ausente)."
+    )
+    normalizado: float | None = Field(
+        default=None, ge=0, le=1,
+        description="Valor 0..1 da categoria (nota/10, com teto por gravidade de erro); null se não observável.",
+    )
+    contribuicao_pontos: float = Field(
+        ge=0, le=100, description="Pontos que esta categoria soma à nota (peso_efetivo × normalizado × 100)."
+    )
+    presente: bool = Field(description="True se a categoria foi observável e entrou no cálculo.")
+
+
+class NotaExecucao(BaseModel):
+    """Nota 0..100 da execução, calculada DETERMINISTICAMENTE em Python.
+
+    Reintroduz o ``weighted_execution_score`` do módulo original, adaptado às 7
+    categorias calibradas (``scoring.py``). O VLM só fornece as notas 0..10 por
+    categoria; agregação, pesos, gates e tetos são todos código:
+
+    * categorias ``nao_observavel`` saem do cálculo (peso renormalizado — nunca
+      viram zero);
+    * qualidade de vídeo "ruim" ou menos de 3 categorias observáveis bloqueiam a
+      nota (``nota=None, valida=False``) em vez de publicar um número frágil;
+    * teto de coerência: risco de lesão e veredito ruim limitam a nota máxima
+      (impossível "inadequada com 85/100").
+
+    É um indicador observacional de POC, não validado clinicamente — não mede
+    risco de lesão, carga, esforço nem ativação muscular.
+    """
+
+    nota: float | None = Field(
+        default=None, ge=0, le=100,
+        description="Nota 0..100 (1 casa decimal), ou null quando bloqueada pelos gates.",
+    )
+    valida: bool = Field(description="False quando os gates bloquearam a publicação da nota.")
+    modelo_pesos: str = Field(description="Identificador do modelo de pesos usado (rastreável).")
+    criterios_presentes: int = Field(ge=0, description="Categorias observáveis que entraram no cálculo.")
+    criterios_totais: int = Field(ge=1, description="Total de categorias do modelo (7).")
+    cobertura: float = Field(ge=0, le=1, description="criterios_presentes / criterios_totais.")
+    componentes: list[ComponenteNota] = Field(
+        default_factory=list, description="Breakdown por categoria — as contribuições somam a nota."
+    )
+    teto_aplicado: float | None = Field(
+        default=None,
+        description="Teto de coerência aplicado (por risco de lesão/veredito), ou null se nenhum.",
+    )
+    observacao: str = Field(
+        description="Explicação do cálculo em PT-BR: bloqueios, renormalização parcial, tetos e o "
+        "aviso fixo de indicador POC não validado."
+    )
+
 
 # --------------------------------------------------------------------------- #
 # modelo de saída da API                                                      #
@@ -188,6 +379,11 @@ class AcademiaAnalysisResponse(BaseModel):
 
     exercicio: str = Field(description="Nome do exercício identificado (espelha metrics.exercicio_identificado).")
     metrics: AcademiaAnalysis = Field(description="JSON estruturado da chamada 1.")
+    nota_execucao: NotaExecucao | None = Field(
+        default=None,
+        description="Nota 0..100 determinística calculada em Python a partir do checklist "
+        "(scoring.py) — nunca preenchida pelo VLM; null só em registros antigos sem checklist.",
+    )
     narrative: str = Field(
         description="Narrativa PT-BR de treinador (chamada 2): erros primeiro se houver (RN-01), "
         "depois acertos, veredito, foco prático, limitações e encerramento motivador sóbrio (RF-007). "
