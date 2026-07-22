@@ -34,7 +34,13 @@ _FRONTEND = Path(__file__).resolve().parent.parent / "static" / "academia" / "in
 def frontend():
     if not _FRONTEND.exists():
         raise HTTPException(404, "frontend não encontrado")
-    return FileResponse(_FRONTEND, media_type="text/html")
+    # no-cache: o HTML muda a cada deploy e é servido sem hash no nome; sem isto o
+    # navegador cacheia por heurística e mostra a versão antiga depois de publicar
+    # (o "não vejo as alterações"). "no-cache" mantém o cache, mas força revalidação
+    # via ETag a cada visita → 304 barato se nada mudou, 200 com o novo HTML após deploy.
+    return FileResponse(
+        _FRONTEND, media_type="text/html", headers={"Cache-Control": "no-cache"}
+    )
 
 
 @router.get("/health")
