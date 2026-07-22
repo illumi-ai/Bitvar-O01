@@ -1,11 +1,16 @@
-"""BitVar IA — vertical de musculação com identificação automática por vídeo.
+"""BitVar IA — módulo de análise técnica de exercícios de academia por vídeo.
 
-O primeiro passe identifica exercício, variação, equipamento/máquina e a
-pessoa-alvo. Somente exercícios com perfil técnico local seguem para checklist,
-score, relatório PT-BR e áudio opcional; nesta POC, o único perfil disponível é
-``squat_poc_v1``. Os demais são reportados sem reutilizar critérios de
-agachamento. Modelos, prompts, persistência e rotas permanecem isolados do
-produto de tênis.
+Espelha o pipeline do módulo de tênis (``app/tennis/``):
+
+    upload de vídeo
+      → Gemini (vídeo → JSON estruturado, padrão-ouro do exercício no prompt)         [chamada 1]
+      → Gemini (JSON → narrativa PT-BR calibrada — erro primeiro quando houver)        [chamada 2]
+      → Gemini TTS (narrativa → áudio)                                                 [chamada 3]
+      → três saídas: métricas, texto, áudio
+
+Relatório educacional (RN-05): não substitui avaliação presencial, não mede
+carga/esforço/ativação muscular e não promete hipertrofia/força/emagrecimento
+(RN-03). Persistência em Postgres é opcional e opt-in (``app/academia/store.py``).
 """
 
 from .config import academia_settings

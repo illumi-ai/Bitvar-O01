@@ -1,145 +1,77 @@
-"""Configuração independente da vertical Academia.
+"""Configuração do módulo de academia, lida do ambiente (.env).
 
-As credenciais/modelos Gemini usam os mesmos nomes de ambiente do restante da
-aplicação. Limites e comportamento próprios da vertical têm prefixo
-``ACADEMIA_``, evitando que uma calibração do agachamento altere o tênis.
+Independente do ``app/settings.py`` (que exige ``DATABASE_URL``): aqui tudo tem
+default sensato e ``GEMINI_API_KEY`` é **opcional** — a app sobe sem a chave e
+os endpoints de academia respondem 503 com mensagem clara até a chave existir.
+
+A chave do Gemini é **compartilhada** com ``app/tennis/config.py`` (mesma env
+var ``GEMINI_API_KEY``, ``env_prefix=""``) — é a mesma credencial de API, não
+faz sentido duplicar. Os demais parâmetros calibráveis deste módulo usam
+prefixo ``academia_`` no NOME DO CAMPO (não no env_prefix, que fica vazio como
+no tennis) para não colidir com os equivalentes de tênis quando ambos
+convivem no mesmo ambiente (ex.: ``ACADEMIA_PERSIST`` vs ``TENNIS_PERSIST``).
 """
 
 from __future__ import annotations
 
-from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AcademiaSettings(BaseSettings):
-    # Credencial e modelos compartilháveis.
-    gemini_api_key: str | None = None
-    analysis_model: str = Field(
-        default="gemini-3.1-pro-preview",
-        validation_alias=AliasChoices("ACADEMIA_ANALYSIS_MODEL", "ANALYSIS_MODEL"),
-    )
-    transcription_model: str = Field(
-        default="gemini-3.5-flash",
-        validation_alias=AliasChoices(
-            "ACADEMIA_TRANSCRIPTION_MODEL",
-            "TRANSCRIPTION_MODEL",
-        ),
-    )
-    tts_model: str = Field(
-        default="gemini-3.1-flash-tts-preview",
-        validation_alias=AliasChoices("ACADEMIA_TTS_MODEL", "TTS_MODEL"),
-    )
-    tts_voice: str = Field(
-        default="Vindemiatrix",
-        validation_alias=AliasChoices("ACADEMIA_TTS_VOICE", "TTS_VOICE"),
-    )
-    analysis_thinking_level: str = Field(
-        default="high",
-        validation_alias=AliasChoices(
-            "ACADEMIA_ANALYSIS_THINKING_LEVEL", "ANALYSIS_THINKING_LEVEL"
-        ),
-    )
-    narrative_thinking_level: str = Field(
-        default="high",
-        validation_alias=AliasChoices(
-            "ACADEMIA_NARRATIVE_THINKING_LEVEL", "NARRATIVE_THINKING_LEVEL"
-        ),
-    )
+    """Parâmetros do pipeline de academia (análise técnica de exercício por vídeo)."""
 
-    # A identificação genérica usa uma amostragem econômica; somente depois do
-    # roteamento o perfil técnico recebe 8 fps para distinguir fases rápidas.
-    academia_identification_fps: int = Field(default=2, ge=1, le=4)
-    academia_identification_media_resolution: str = "MEDIA_RESOLUTION_LOW"
-    academia_fps: int = Field(default=8, ge=1, le=24)
-    academia_media_resolution: str = "MEDIA_RESOLUTION_HIGH"
-    academia_video_max_seconds: float = Field(default=180.0, gt=0, le=600)
-    academia_max_concurrent_analyses: int = Field(default=2, ge=1, le=16)
+    # ----- credenciais / modelos -----
+    gemini_api_key: str | None = None  # compartilhada com o tênis (mesma env var, sem prefixo)
+    academia_analysis_model: str = "gemini-3.1-pro-preview"  # chamada 1 (vídeo→JSON) e 2 (JSON→texto)
+    academia_tts_model: str = "gemini-3.1-flash-tts-preview"  # chamada 3 (texto→áudio)
+    academia_tts_voice: str = "Vindemiatrix"  # voz PT-BR (Gentle), mesmo padrão do tênis
 
-    # Descrição por voz da pessoa-alvo. O clipe é temporário, normalizado para
-    # WAV e enviado inline ao Gemini; nunca participa da persistência.
-    academia_voice_max_seconds: float = Field(default=30.0, gt=0, le=60)
-    academia_voice_max_upload_mb: int = Field(default=8, ge=1, le=20)
-    academia_max_concurrent_transcriptions: int = Field(default=4, ge=1, le=32)
-    academia_voice_transcode_timeout_seconds: float = Field(
-        default=20.0,
-        gt=0,
-        le=120,
-    )
-    academia_voice_request_overhead_mb: int = Field(default=1, ge=1, le=8)
+    # ----- raciocínio (thinking_level, não thinking_budget numérico) -----
+    academia_analysis_thinking_level: str = "high"    # verificação técnica das 7 categorias de erro
+    academia_narrative_thinking_level: str = "high"   # narrativa calibrada (erro primeiro quando houver)
 
-    # Upload em chunks; ``MAX_UPLOAD_MB`` permanece compatível com /tennis.
-    max_upload_mb: int = Field(
-        default=600,
-        ge=1,
-        le=2048,
-        validation_alias=AliasChoices("ACADEMIA_MAX_UPLOAD_MB", "MAX_UPLOAD_MB"),
-    )
-    upload_chunk_bytes: int = Field(default=1024 * 1024, ge=64 * 1024)
-    # Folga apenas para os campos/headers multipart. O arquivo continua sujeito
-    # a ``max_upload_mb`` e é recontado durante a cópia em chunks.
-    academia_request_body_overhead_mb: int = Field(default=40, ge=1, le=256)
+    # ----- vídeo / roteamento -----
+    academia_clip_max_seconds: float = 180.0  # duração MÁXIMA do clipe de exercício; acima disso rejeita
+    academia_fps: int = 24                    # eixo temporal — captura fases do movimento (excêntrica/concêntrica)
+    academia_media_resolution: str = "MEDIA_RESOLUTION_MEDIUM"  # equilíbrio custo × detalhe articular
+    academia_filesize_clip_max_mb: float = 60.0  # heurística quando a duração é desconhecida
 
-    # Files API.
-    files_active_timeout_s: float = 3600.0
-    files_poll_interval_s: float = 2.0
+    # ----- upload -----
+    academia_max_upload_mb: int = 600           # validado na app, rejeita antes de subir
+    academia_upload_chunk_bytes: int = 1024 * 1024  # grava em disco em chunks (não em RAM)
 
-    # TTS.
-    tts_max_retries: int = 3
-    tts_retry_backoff_s: float = 2.0
-    tts_chunk_chars: int = 1800
-    tts_sample_rate: int = 24000
-    tts_channels: int = 1
-    tts_sample_width: int = 2
+    # ----- Files API (espera o vídeo ficar ACTIVE antes de analisar) -----
+    academia_files_active_timeout_s: float = 3600.0
+    academia_files_poll_interval_s: float = 2.0
 
-    # Persistência best-effort; nunca armazena o vídeo bruto.
+    # ----- TTS (contexto ~32k, sem streaming, erro 500 ocasional) -----
+    academia_tts_max_retries: int = 3
+    academia_tts_retry_backoff_s: float = 2.0
+    academia_tts_chunk_chars: int = 1800   # quebra narrativas longas e concatena
+    academia_tts_sample_rate: int = 24000  # PCM → WAV 24kHz mono 16-bit
+    academia_tts_channels: int = 1
+    academia_tts_sample_width: int = 2
+
+    # ----- persistência -----
+    # default False (opt-in): diferente do tênis (opt-out), o módulo de academia
+    # nasce com persistência desligada por padrão — só grava no Postgres se o
+    # operador habilitar explicitamente via ACADEMIA_PERSIST=true. Falhas de
+    # persistência viram warnings, nunca erros — com DB ausente, simplesmente
+    # não salva (store.save retorna None) e o fluxo segue normalmente.
     academia_persist: bool = False
-    academia_history_token: SecretStr | None = Field(
-        default=None,
-        description=(
-            "Bearer token administrativo para histórico/exportação. A persistência "
-            "só fica disponível quando este token e ACADEMIA_PERSIST estão configurados."
-        ),
-    )
 
     model_config = SettingsConfigDict(
-        env_prefix="", case_sensitive=False, extra="ignore", populate_by_name=True
+        env_prefix="", case_sensitive=False, extra="ignore"
     )
 
     @property
     def configured(self) -> bool:
+        """True se há chave do Gemini para operar o pipeline."""
         return bool(self.gemini_api_key)
 
     @property
     def max_upload_bytes(self) -> int:
-        return self.max_upload_mb * 1024 * 1024
-
-    @property
-    def max_request_body_bytes(self) -> int:
-        return (
-            self.max_upload_mb + self.academia_request_body_overhead_mb
-        ) * 1024 * 1024
-
-    @property
-    def voice_max_upload_bytes(self) -> int:
-        return self.academia_voice_max_upload_mb * 1024 * 1024
-
-    @property
-    def voice_max_request_body_bytes(self) -> int:
-        return (
-            self.academia_voice_max_upload_mb
-            + self.academia_voice_request_overhead_mb
-        ) * 1024 * 1024
-
-    @property
-    def history_configured(self) -> bool:
-        return bool(
-            self.academia_history_token
-            and self.academia_history_token.get_secret_value()
-        )
-
-    @property
-    def persistence_available(self) -> bool:
-        return self.academia_persist and self.history_configured
+        return self.academia_max_upload_mb * 1024 * 1024
 
 
 academia_settings = AcademiaSettings()
