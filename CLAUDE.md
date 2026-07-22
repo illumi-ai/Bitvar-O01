@@ -178,6 +178,32 @@ Non-obvious deploy gotchas (already baked into the committed config — keep the
   browser keeps distrusting the staging cert.
 - The API serves `/tennis/` from the **same container** as the rest of `app.main`.
 
+### Publishing a code change to the live site (redeploy)
+
+**There is NO CI/CD on this host** — no GitHub Actions, no watchtower. Merging a PR to
+`main` (or `git pull`) updates the files on disk but does **NOT** touch the running
+container, so **the live site keeps serving the old code until you rebuild by hand.** This
+is the usual "I merged but the web didn't change" trap. To actually publish:
+
+```bash
+# from the repo root, on the commit you want live (e.g. after merging to main + git pull):
+docker compose up -d --build        # rebuilds bitvar-api:0.1.0 and RECREATES only the api container
+                                    # db + traefik keep running; the api is down for a few seconds
+```
+
+Verify it went live (don't trust the browser — it caches; hard-refresh, or check from inside):
+
+```bash
+docker inspect -f '{{.State.Health.Status}}' bitvar-api-1     # → healthy
+docker exec bitvar-api-1 python3 -c \
+  "import urllib.request,json; print(json.load(urllib.request.urlopen('http://localhost:8000/academia/health')))"
+# confirm the field you changed, e.g. analysis_model == the model you deployed
+```
+
+Only `app/` and `bitvar/` are `COPY`'d late in the Dockerfile, so a code-only change
+rebuilds in seconds (deps layer is cached). This IS the live production site — a redeploy
+is outward-facing, so confirm with the user before running it unless they've said to ship.
+
 ## Dev environment notes (this VPS sandbox)
 
 - **This working copy is the live production host.** It is deployed at
