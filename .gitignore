@@ -10,3 +10,5 @@ build/
 !.env.example
 /acme/
 acme.json
+# dataset de calibragem da academia (vídeos ~40MB + gabarito) — fica só no working copy
+/docs/videos-calibragem-academia/
