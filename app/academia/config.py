@@ -22,10 +22,13 @@ class AcademiaSettings(BaseSettings):
 
     # ----- credenciais / modelos -----
     gemini_api_key: str | None = None  # compartilhada com o tênis (mesma env var, sem prefixo)
-    # chamada 1 (vídeo→JSON) e 2 (JSON→texto). Escolha do usuário; porém no clipe 637
-    # (leg press com risco de lesão) o flash devolveu "adequada/sem risco" — se regressões
-    # de detecção de risco voltarem, reverter para "gemini-3.1-pro-preview".
-    academia_analysis_model: str = "gemini-3.6-flash"
+    # chamada 1 (vídeo→JSON) e 2 (JSON→texto). Decisão do usuário em 23/07/2026, com
+    # A/B no clipe 637 (leg press com risco de lesão, gabarito INCORRETA):
+    # gemini-3.6-flash errou 3/4 rodadas ("adequada, sem risco, 100/100"), mesmo com a
+    # triagem de risco no prompt; o pro acertou 2/2 — e foi o modelo que gerou o
+    # gabarito de calibragem. O flash segue disponível via env ACADEMIA_ANALYSIS_MODEL
+    # (mais barato/rápido), mas perde detecção de risco de lesão.
+    academia_analysis_model: str = "gemini-3.1-pro-preview"
     academia_tts_model: str = "gemini-3.1-flash-tts-preview"  # chamada 3 (texto→áudio)
     academia_tts_voice: str = "Vindemiatrix"  # voz PT-BR (Gentle), mesmo padrão do tênis
 
