@@ -24,7 +24,8 @@ texto do system prompt que instrui o modelo a respeitá-las):
 * RF-002 — o modelo verifica EXPLICITAMENTE as 7 categorias de erro cobertas
   por ``ErroTecnico.categoria``.
 * RF-003 — valgo dinâmico severo / pés mal posicionados / erro com risco de
-  lesão implicam ``veredito="inadequada"`` + ``risco_lesao=True``.
+  lesão implicam ``risco_lesao=True`` + veredito "muito_inadequada" (gate de
+  risco em ``scoring``).
 * RF-004 — execução correta não recebe erros inventados: ``erros`` pode (e
   deve) vir vazio quando não há nada de relevante a apontar.
 * RN-02 — o veredito é restrito ao observável: ``qualidade_video`` e
@@ -63,15 +64,17 @@ GravidadeErro = Literal["leve", "moderada", "risco_lesao"]
 
 QualidadeVideo = Literal["boa", "media", "ruim"]
 
-# Veredito BINÁRIO (decisão do usuário, 23jul2026): ou a execução está correta
-# ("adequada") ou está errada ("inadequada") — não existe "parcialmente".
-# Qualquer erro registrado em `erros` implica "inadequada" (imposto em código
-# por scoring.harmonize_analysis); a gravidade modula a nota, não o veredito.
-# RF-003: valgo dinâmico severo, pés mal posicionados em leg press ou qualquer
-# erro com risco de lesão real levam obrigatoriamente a "inadequada".
-# RF-004: execução correta não ganha erros inventados — "adequada" fica livre
-# de nitpicking punitivo.
-Veredito = Literal["adequada", "inadequada"]
+# Veredito em 4 NÍVEIS (decisão do usuário, 23jul2026 — substitui o binário do
+# mesmo dia, que engessava a nota em 49/39): muito_inadequada, pouco_inadequada,
+# pouco_adequada, muito_adequada. O valor emitido pelo VLM é só sinal de
+# triagem/consistência — o veredito FINAL é derivado deterministicamente da
+# banda da nota 0-100 (scoring.derive_veredito): ≤25 · ≤50 · ≤75 · >75.
+# RF-003: qualquer erro com risco de lesão real (valgo dinâmico severo, pés mal
+# posicionados em leg press…) força "muito_inadequada" via gate de risco em
+# código (compressão da nota para a banda 0-25 — o hard-zero do FMS).
+# RF-004: execução correta não ganha erros inventados — "muito_adequada" exige
+# erros=[] ou no máximo 1 erro leve pontual, e fica livre de nitpicking punitivo.
+Veredito = Literal["muito_inadequada", "pouco_inadequada", "pouco_adequada", "muito_adequada"]
 
 # RN-02: confiabilidade do veredito é limitada pelo que é observável no vídeo
 # (ângulo de câmera, qualidade, partes ocultas) — não é uma nota de execução.
@@ -118,9 +121,9 @@ class ErroTecnico(BaseModel):
 
     ``gravidade="risco_lesao"`` é o gatilho que, junto com padrões como valgo
     dinâmico severo ou pés mal posicionados (RF-003), força
-    ``AcademiaAnalysis.veredito == "inadequada"`` e
-    ``AcademiaAnalysis.risco_lesao = True`` — e faz a narrativa (RN-01) abrir
-    com esse erro antes de qualquer elogio.
+    ``AcademiaAnalysis.risco_lesao = True`` e o veredito "muito_inadequada"
+    (gate de risco em ``scoring``) — e faz a narrativa (RN-01) abrir com esse
+    erro antes de qualquer elogio.
     """
 
     categoria: CategoriaErro = Field(
@@ -142,7 +145,13 @@ class ErroTecnico(BaseModel):
         description="Instante aproximado (em segundos) em que o erro ocorre no vídeo.",
     )
     gravidade: GravidadeErro = Field(
-        description="Severidade do erro: leve, moderada ou risco_lesao (aciona veredito inadequada)."
+        description="Severidade do erro: leve, moderada ou risco_lesao (aciona o gate de risco — "
+        "veredito muito_inadequada)."
+    )
+    recorrente: bool = Field(
+        default=False,
+        description="True se o MESMO desvio aparece em 2 ou mais repetições do vídeo (observação, "
+        "não julgamento) — um erro recorrente pesa mais na nota determinística.",
     )
 
 
@@ -204,10 +213,13 @@ class RepeticaoSegmentada(BaseModel):
 class AcademiaAnalysis(BaseModel):
     """Schema estrito (``response_schema``) da chamada 1 — análise técnica do exercício.
 
-    ``veredito`` e ``risco_lesao`` são o núcleo da calibragem: um erro grave o
-    suficiente (RF-003) força ``veredito="inadequada"`` e ``risco_lesao=True``,
-    independente de quantos acertos existam. Execução correta (RF-004) deve
-    resultar em ``erros=[]`` — nunca inventar erro para preencher a lista.
+    ``erros`` e ``risco_lesao`` são o núcleo da calibragem: um erro grave o
+    suficiente (RF-003) força ``risco_lesao=True`` e leva ao veredito
+    "muito_inadequada" (gate de risco em código), independente de quantos
+    acertos existam. Execução correta (RF-004) deve resultar em ``erros=[]`` —
+    nunca inventar erro para preencher a lista. O ``veredito`` emitido aqui é
+    sinal de triagem: o veredito FINAL é sempre derivado da nota determinística
+    (``scoring.derive_veredito``) e substituído pelo service.
     """
 
     exercicio_identificado: str = Field(
@@ -230,9 +242,11 @@ class AcademiaAnalysis(BaseModel):
         default=None, ge=0, description="Número de repetições completas visíveis no vídeo, se contável."
     )
     veredito: Veredito = Field(
-        description="Veredito BINÁRIO da execução, restrito ao observável (RN-02): "
-        "'adequada' (execução correta, erros vazio) ou 'inadequada' (há erro registrado). "
-        "'inadequada' é obrigatório quando há qualquer erro, sobretudo com risco de lesão (RF-003)."
+        description="Veredito da execução em 4 níveis, restrito ao observável (RN-02): "
+        "'muito_inadequada' (risco de lesão ou execução globalmente errada), 'pouco_inadequada' "
+        "(erros moderados que comprometem o exercício), 'pouco_adequada' (executa com desvios "
+        "corrigíveis) ou 'muito_adequada' (limpa, no máximo um refinamento pontual). "
+        "Qualquer erro com risco de lesão (RF-003) ⇒ 'muito_inadequada'."
     )
     confiabilidade: Confiabilidade = Field(
         description="Confiança no veredito, dada a qualidade do vídeo/ângulo/partes ocultas."
@@ -330,19 +344,42 @@ class ComponenteNota(BaseModel):
     presente: bool = Field(description="True se a categoria foi observável e entrou no cálculo.")
 
 
+class DeducaoNota(BaseModel):
+    """Uma dedução subtrativa aplicada à nota por UM erro técnico (auditável).
+
+    Modelo "Code of Points": a base ponderada do checklist perde pontos por
+    erro, com fator de recorrência e desconto marginal decrescente para
+    múltiplos erros da mesma gravidade — tudo em Python (``scoring.py``).
+    Erros ``risco_lesao`` NÃO deduzem: punem via categoria capada na base +
+    compressão da nota para a banda 0-25 (gate de risco).
+    """
+
+    indice_erro: int = Field(ge=0, description="Índice do erro em metrics.erros.")
+    categoria: str = Field(description="Categoria do erro (facilita a UI).")
+    gravidade: str = Field(description="Gravidade do erro (leve/moderada).")
+    recorrente: bool = Field(description="O erro aparece em 2+ repetições (fator 1.3).")
+    fator_posicao: float = Field(
+        ge=0, le=1, description="Desconto marginal pela posição entre erros da mesma gravidade."
+    )
+    pontos: float = Field(ge=0, description="Pontos efetivamente deduzidos da nota por este erro.")
+
+
 class NotaExecucao(BaseModel):
     """Nota 0..100 da execução, calculada DETERMINISTICAMENTE em Python.
 
     Reintroduz o ``weighted_execution_score`` do módulo original, adaptado às 7
-    categorias calibradas (``scoring.py``). O VLM só fornece as notas 0..10 por
-    categoria; agregação, pesos, gates e tetos são todos código:
+    categorias calibradas (``scoring.py`` v2). O VLM só fornece as notas 0..10
+    por categoria e as gravidades dos erros; agregação, pesos, deduções e gates
+    são todos código:
 
     * categorias ``nao_observavel`` saem do cálculo (peso renormalizado — nunca
       viram zero);
     * qualidade de vídeo "ruim" ou menos de 3 categorias observáveis bloqueiam a
       nota (``nota=None, valida=False``) em vez de publicar um número frágil;
-    * teto de coerência: risco de lesão e veredito ruim limitam a nota máxima
-      (impossível "inadequada com 85/100").
+    * a nota = base ponderada − deduções por erro, e os gates de coerência
+      COMPRIMEM a nota para dentro da banda do veredito (risco ⇒ 0-25) em vez
+      de clampá-la numa constante — sem clustering num valor único;
+    * o veredito de 4 níveis é DERIVADO da banda da nota (≤25 · ≤50 · ≤75 · >75).
 
     É um indicador observacional de POC, não validado clinicamente — não mede
     risco de lesão, carga, esforço nem ativação muscular.
@@ -358,11 +395,26 @@ class NotaExecucao(BaseModel):
     criterios_totais: int = Field(ge=1, description="Total de categorias do modelo (7).")
     cobertura: float = Field(ge=0, le=1, description="criterios_presentes / criterios_totais.")
     componentes: list[ComponenteNota] = Field(
-        default_factory=list, description="Breakdown por categoria — as contribuições somam a nota."
+        default_factory=list,
+        description="Breakdown por categoria — as contribuições somam a BASE (pré-deduções/gates).",
+    )
+    deducoes: list[DeducaoNota] = Field(
+        default_factory=list,
+        description="Deduções subtrativas por erro (auditável) — base − Σ deduções = nota pré-gates.",
+    )
+    nota_pre_gates: float | None = Field(
+        default=None, ge=0, le=100,
+        description="Nota após deduções e ANTES dos gates de compressão de banda (null se inválida).",
+    )
+    gate: Literal["risco", "coerencia", "tangencia"] | None = Field(
+        default=None,
+        description="Gate de compressão aplicado: 'risco' (RF-003 ⇒ banda 0-25), 'coerencia' "
+        "(erro relevante impede muito_adequada ⇒ ≤75) ou 'tangencia' (1 leve pontual ⇒ 76-82).",
     )
     teto_aplicado: float | None = Field(
         default=None,
-        description="Teto de coerência aplicado (por risco de lesão/veredito), ou null se nenhum.",
+        description="Limite superior da banda para a qual um gate COMPRIMIU a nota (25/75/82), "
+        "ou null se nenhum gate disparou. Nunca é um clamp min(nota, X).",
     )
     observacao: str = Field(
         description="Explicação do cálculo em PT-BR: bloqueios, renormalização parcial, tetos e o "

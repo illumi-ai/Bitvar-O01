@@ -82,10 +82,16 @@ duplicating them.
   `GEMINI_API_KEY` (tennis + academia); academia config is separate so the key stays
   optional (endpoints `503` until it exists) and persistence is opt-in (`ACADEMIA_PERSIST`).
 - **The schema is the calibration.** `models.py:AcademiaAnalysis` pairs each `ErroTecnico`
-  (an `descricao`→`correcao` "what's wrong → how to fix" pair, graded by `gravidade`) with a
-  list of `acertos` and a single `foco_pratico`. `gravidade="risco_lesao"` (severe dynamic
-  valgus, mispositioned feet…) forces `veredito="inadequada"` + `risco_lesao=True` (RF-003);
-  a clean execution returns `erros=[]` — the prompt forbids fabricating errors (RF-004). The
+  (an `descricao`→`correcao` "what's wrong → how to fix" pair, graded by `gravidade` +
+  `recorrente`) with a list of `acertos` and a single `foco_pratico`. The **verdict has 4
+  levels** (`muito_inadequada`/`pouco_inadequada`/`pouco_adequada`/`muito_adequada`,
+  23jul2026 — replaced the same-day binary verdict, whose constant caps flattened every
+  production score to 49/39): the FINAL verdict is derived in code from the score band
+  (≤25·≤50·≤75·>75, `scoring.derive_veredito`) and always overrides the VLM's.
+  `gravidade="risco_lesao"` (severe dynamic valgus, mispositioned feet…) forces
+  `risco_lesao=True` + a risk gate that compresses the score into the 0-25 band ⇒
+  `muito_inadequada` (RF-003); a clean execution returns `erros=[]` — the prompt forbids
+  fabricating errors (RF-004). The
   UI (`static/academia/index.html`) renders these as three sections: **Erros técnicos**,
   **Acertos**, **Foco prático** — this is the standard layout; a session that reworked it into
   "o que está bom / o que melhorar / feedback ideal" was reverted at the user's request.
@@ -93,12 +99,16 @@ duplicating them.
   calibrated core):** per-category `checklist` (all 7 RF-002 categories, each with
   `status`/`nota_0a10`/`observacao`), `repeticoes` (segmented reps with approximate
   timestamps), movement consistency + capture-condition fields, and a **deterministic
-  0–100 `nota_execucao`** computed in Python (`scoring.py`, mirrors `tennis/weights.py`:
-  normalize 0–10 notes, renormalize weights over observable categories, gate on bad
-  video/low coverage, coherence caps: risk⇒≤39, inadequada⇒≤49). The VLM
-  never does the arithmetic. `scoring.harmonize_analysis` also enforces RF-003 and
-  checklist↔erros consistency **in code** (each fix becomes a user-visible warning).
-  **Recalibrating the score = editing `PESOS`** in `scoring.py`. The UI renders ALL of
+  0–100 `nota_execucao`** computed in Python (`scoring.py` v2 "Code of Points": weighted
+  base over observable categories − per-error deductions (leve −6, moderada −10, ×1.3 if
+  recurrent, diminishing 1.0/0.75/0.50/0.25) + band-COMPRESSION gates instead of constant
+  clamps — risk ⇒ 0-25 band, relevant error ⇒ ≤75, single light error ⇒ 76-82 tangency;
+  gate on bad video/low coverage). Calibrated on the 11-video dataset (11/11 ordering,
+  MAE 1.3). The VLM never does the arithmetic. `scoring.harmonize_analysis` enforces
+  checklist↔erros consistency **in code** (each fix becomes a user-visible warning);
+  `scoring.finalize_veredito` applies the derived verdict.
+  **Recalibrating the score = editing `PESOS` + deduction/band constants** in
+  `scoring.py` (bump `WEIGHT_MODEL_NAME`). The UI renders ALL of
   these (score dial, checklist with contribution bars, reps table, capture card,
   client-side .txt/.json/.wav downloads) — the "dry parameters" complaint of 22jul.
 - **Error-moment screenshots:** `frames.py` runs ffmpeg over the local temp video (before

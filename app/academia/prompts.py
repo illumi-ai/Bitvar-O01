@@ -9,9 +9,11 @@ calibragem Caio 17-22/07/2026, dataset de 11 vídeos em
   (membros inferiores: extensão da cadeia quadril→pé, ângulo e posição de cada
   subsegmento, profundidade; membros superiores: amplitude dos braços e cada
   ligação escápula→mão cumprindo o seu papel; erro rastreado ao elo de origem
-  para a correção se propagar na cadeia), com regras duras de VEREDITO BINÁRIO
-  (adequada ou inadequada — "parcialmente" não existe; qualquer erro registrado
-  ⇒ inadequada; RF-003) e anti-nitpicking (RF-004). A varredura das 7 categorias agora também vira
+  para a correção se propagar na cadeia), com veredito em 4 NÍVEIS
+  (muito_inadequada · pouco_inadequada · pouco_adequada · muito_adequada —
+  23jul2026, substitui o binário; risco de lesão ⇒ muito_inadequada, RF-003; o
+  veredito FINAL é derivado da nota em ``scoring.py``) e anti-nitpicking
+  (RF-004). A varredura das 7 categorias agora também vira
   parâmetro visível: checklist por categoria (status + nota 0..10 + evidência),
   repetições segmentadas, leitura do movimento e condições de captura —
   parâmetros reintroduzidos do módulo original (a368d14);
@@ -77,6 +79,9 @@ trazer O PAR OBRIGATÓRIO problema→conserto (campo "erros"):
   erro apontado tem de vir com o seu conserto específico e distinto da descrição.
 - "timestamp_s" = instante aproximado (ou null se não der para estimar).
 - "gravidade" = "leve" | "moderada" | "risco_lesao".
+- "recorrente" = true SOMENTE se o MESMO desvio aparece em 2 ou mais repetições
+  do vídeo (observação, não julgamento); false se ocorre uma única vez ou se
+  não der para afirmar.
 """
 
 _CHECKLIST_REGRA = """\
@@ -164,27 +169,35 @@ Esta análise NÃO cria categorias novas: cada achado continua classificado nas
 """
 
 _VEREDITO_REGRAS = """\
-REGRAS DURAS DE VEREDITO (não são sugestão, são obrigatórias). O veredito é
-BINÁRIO: ou a execução está correta ("adequada") ou está errada ("inadequada").
-NÃO existe meio-termo — "parcialmente adequada" não é uma opção deste sistema.
+REGRAS DE VEREDITO (não são sugestão, são obrigatórias). O veredito tem 4
+NÍVEIS — escolha pelo quadro geral da execução, usando estas âncoras:
+- "muito_inadequada" — há risco de lesão OU a execução está globalmente errada
+  (a base/estrutura do exercício não se sustenta).
+- "pouco_inadequada" — erros moderados que comprometem o objetivo do exercício
+  (o estímulo pretendido se perde), ainda que haja acertos.
+- "pouco_adequada" — o exercício é executado, mas com desvios técnicos reais e
+  corrigíveis.
+- "muito_adequada" — execução tecnicamente limpa; no máximo UM refinamento
+  pontual opcional.
+Regras duras sobre as âncoras:
 - Se HOUVER qualquer erro com gravidade "risco_lesao" (ex.: valgo dinâmico
   severo, pés mal posicionados numa base de sustentação de carga, qualquer
   padrão que ofereça risco real de lesão articular ou ligamentar) =>
-  "veredito" DEVE ser "inadequada" e "risco_lesao" DEVE ser true.
-- Se a lista "erros" tiver QUALQUER erro registrado (leve, moderado ou risco de
-  lesão) => "veredito" é "inadequada". Erro registrado = execução errada; a
-  gravidade modula a nota e a urgência da correção, NUNCA o veredito.
+  "veredito" DEVE ser "muito_inadequada" e "risco_lesao" DEVE ser true (RF-003).
+- Erro moderado, dois ou mais erros, ou erro leve recorrente => NUNCA
+  "muito_adequada".
 - Se a execução estiver tecnicamente limpa (sem erros relevantes observáveis)
-  => "veredito" é "adequada" e a lista "erros" fica VAZIA. ANTI-NITPICKING:
+  => "veredito" é "muito_adequada" e a lista "erros" fica VAZIA. ANTI-NITPICKING:
   é PROIBIDO inventar erro cosmético ou irrelevante só para preencher a lista.
   Um vídeo bem executado recebe no máximo "refinamentos" (sugestões opcionais
   de polimento — status "ajuste_leve" no checklist e/ou nota em
   "foco_pratico"), NUNCA um erro fabricado. Nitpicking punitivo em execução
   correta é uma falha grave deste sistema.
 - A linha divisória exige critério de treinador: se é um DESVIO TÉCNICO REAL,
-  registre em "erros" (e o veredito é "inadequada"); se é só polimento opcional
-  numa execução correta, NÃO é erro — vira "ajuste_leve"/refinamento e o
-  veredito permanece "adequada".
+  registre em "erros" (com gravidade e recorrência honestas); se é só polimento
+  opcional numa execução correta, NÃO é erro — vira "ajuste_leve"/refinamento.
+A gravidade e a recorrência dos erros que você registrar alimentam uma nota
+0-100 calculada FORA, em código — seja preciso nelas; não calcule nota nenhuma.
 """
 
 _CONFIABILIDADE = """\
@@ -231,10 +244,10 @@ Assista ao vídeo procurando ATIVAMENTE padrões perigosos sob carga, em especia
 - pés mal posicionados numa base de sustentação de carga (calcanhares ou pontas
   dos pés fora da plataforma/apoio; pés excessivamente rodados para dentro);
 - bloqueio articular violento sob carga; balanço descontrolado com carga.
-O erro mais caro que este sistema pode cometer é classificar como "adequada"
-uma execução com risco de lesão real. Se identificar qualquer um desses
-padrões, registre o erro com gravidade "risco_lesao" AGORA e mantenha-o na
-resposta — nenhum passo posterior (checklist, acertos, repetições) apaga ou
+O erro mais caro que este sistema pode cometer é deixar passar uma execução
+com risco de lesão real como se fosse aceitável. Se identificar qualquer um
+desses padrões, registre o erro com gravidade "risco_lesao" AGORA e mantenha-o
+na resposta — nenhum passo posterior (checklist, acertos, repetições) apaga ou
 suaviza um risco encontrado aqui. Só avance para os passos seguintes depois
 desta triagem.
 
@@ -275,8 +288,8 @@ PASSO 6 — ACERTOS.
 PASSO 7 — FECHAMENTO TÉCNICO.
 - "foco_pratico": a ÚNICA correção mais importante e acionável para a próxima
   série, em linguagem de treinador (ex.: "sente completamente no banco antes de
-  iniciar o movimento"). Se a execução for "adequada", pode ser um refinamento
-  opcional, não uma correção crítica.
+  iniciar o movimento"). Se a execução for limpa (sem erros), pode ser um
+  refinamento opcional, não uma correção crítica.
 - "risco_lesao": true SOMENTE se houver erro de gravidade "risco_lesao" na
   lista de erros; caso contrário, false.
 - "musculos_esperados": lista dos músculos-alvo esperados do exercício
@@ -325,12 +338,28 @@ def analysis_system_prompt(student_name: str | None = None, fps: int | None = No
 # trouxe narração-gabarito falada, só as análises técnicas escritas em
 # ANALISES.md). Cobrem os dois ramos de RN-01: erro primeiro (com risco de lesão)
 # e execução correta (elogio sustentado por evidência, sem hype).
-NARRATIVE_FEWSHOT = """\
+#
+# O vocativo dos exemplos é resolvido em CÓDIGO (bug 23jul2026: os nomes fixos
+# "Paulinho"/"Marina" vazavam para narrativas reais — o modelo imitava a abertura
+# com o nome fictício, principalmente com student_name vazio). Com nome real, os
+# exemplos abrem com ELE (demonstram exatamente a saudação desejada); sem nome,
+# abrem direto no conteúdo (demonstram o estilo "você").
+def narrative_fewshot(student_name: str | None = None) -> str:
+    """Exemplos de estilo da chamada 2, com vocativo parametrizado pelo nome real."""
+    nome = (student_name or "").strip()
+    abre1 = f"{nome}, para tudo agora:" if nome else "Para tudo agora:"
+    abre2 = (
+        f"{nome}, essa puxada alta na polia ficou tecnicamente sólida."
+        if nome else "Essa puxada alta na polia ficou tecnicamente sólida."
+    )
+    return f"""\
 EXEMPLOS DE ESTILO — imite o TOM, o RITMO e a ESTRUTURA destes dois relatórios de
-personal trainer técnico e direto. NÃO copie o conteúdo nem mencione estes casos:
+personal trainer técnico e direto. Os exemplos são FICTÍCIOS: NÃO copie o
+conteúdo, NÃO mencione estes casos e NUNCA use nomes próprios que não estejam
+nas instruções deste prompt:
 
 [exemplo 1 - execução com erro grave / risco de lesão, RN-01 aplicado]
-"Paulinho, para tudo agora: nesse leg press os seus pés estão mal posicionados na
+"{abre1} nesse leg press os seus pés estão mal posicionados na
 plataforma e os joelhos estão caindo para dentro, quase se tocando, entre 11 e 26
 segundos do vídeo. Esse padrão de valgo dinâmico com carga é um dos jeitos mais
 diretos de lesionar ligamento e menisco, então antes de fazer mais uma repetição
@@ -345,7 +374,7 @@ execução visível. Se sentir dor, procure um profissional habilitado antes de
 continuar treinando essa máquina."
 
 [exemplo 2 - execução correta, elogio sustentado por evidência, sem hype]
-"Marina, essa puxada alta na polia ficou tecnicamente sólida. Você manteve a
+"{abre2} Você manteve a
 lombar apoiada durante toda a série e completou a amplitude do movimento nas
 duas repetições que deu para contar, trazendo a barra até perto do peito sem
 perder o alinhamento do tronco. Não vi balanço de corpo nem cotovelo fugindo do
@@ -405,6 +434,17 @@ def build_narrative_prompt(metrics: dict, student_name: str | None = None) -> st
         if nome else
         "Não há nome de aluno informado — não invente um, dirija-se por \"você\".\n"
     )
+    # Defesa em profundidade contra o vazamento de nome do few-shot (23jul2026):
+    # a regra do nome é REPETIDA logo depois dos exemplos (recência vence).
+    regra_nome = (
+        f'REGRA DO NOME (obrigatória, prevalece sobre qualquer exemplo acima): o ÚNICO\n'
+        f'nome próprio permitido na narrativa é "{nome}" — use exatamente esse nome ao\n'
+        f"se dirigir ao aluno.\n"
+        if nome else
+        "REGRA DO NOME (obrigatória, prevalece sobre qualquer exemplo acima): é\n"
+        "PROIBIDO usar qualquer nome próprio na narrativa — dirija-se ao aluno\n"
+        'exclusivamente por "você".\n'
+    )
     erros = metrics.get("erros") if isinstance(metrics, dict) else None
     tem_erro_relevante = bool(erros)
     risco_lesao = bool(metrics.get("risco_lesao")) if isinstance(metrics, dict) else False
@@ -415,8 +455,8 @@ Você é um personal trainer técnico, direto e SEM hype, avaliando a execução
 um exercício de musculação de um aluno a partir da análise estruturada (JSON)
 abaixo, feita por vídeo.
 {saudacao}
-{NARRATIVE_FEWSHOT}
-
+{narrative_fewshot(nome)}
+{regra_nome}
 ESTRUTURA OBRIGATÓRIA — siga esta ordem, em PROSA CORRIDA (sem numerar em voz
 alta):
 {abertura}- ERRO → CONSERTO (pareado): ao apontar CADA erro, diga LOGO EM SEGUIDA
@@ -425,9 +465,9 @@ alta):
   melhoria" — o que está errado é nomeado como erro, com o conserto colado nele.
 - ACERTOS: cite os pontos tecnicamente corretos, cada um com lastro na
   análise (RF-004) — nunca por cortesia.
-- VEREDITO: diga com clareza se a execução foi adequada ou inadequada (o
-  veredito é binário — não existe "parcialmente"), em linguagem natural (sem
-  citar o nome do campo do JSON).
+- VEREDITO: diga com clareza o NÍVEL da execução — muito inadequada, pouco
+  inadequada, pouco adequada ou muito adequada — em linguagem natural (sem
+  underscore e sem citar o nome do campo do JSON).
 - FOCO PRÁTICO PRINCIPAL: a correção (ou refinamento, se a execução for
   adequada) mais importante e acionável para a próxima série.
 - LIMITAÇÕES: mencione, quando a confiabilidade da análise for baixa ou média,

@@ -174,7 +174,14 @@ def _render_txt_report(rec: dict) -> str:
     if m.get("exercicio_identificado"):
         bits.append(f"Exercício: {m['exercicio_identificado']}")
     if m.get("veredito"):
-        bits.append(f"Veredito: {m['veredito']}")
+        # rótulo PT-BR sem underscore; valor cru como fallback cobre registros
+        # legados (persistidos antes dos 4 níveis de 23jul2026) e desconhecidos.
+        rotulos = {
+            "muito_adequada": "muito adequada", "pouco_adequada": "pouco adequada",
+            "pouco_inadequada": "pouco inadequada", "muito_inadequada": "muito inadequada",
+            "parcialmente_adequada": "parcialmente adequada",
+        }
+        bits.append(f"Veredito: {rotulos.get(m['veredito'], m['veredito'])}")
     if m.get("risco_lesao"):
         bits.append("RISCO DE LESÃO")
     if bits:

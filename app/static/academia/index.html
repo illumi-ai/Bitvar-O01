@@ -12,6 +12,7 @@
     --noite:#0D1A2B; --noite-2:#12233A; --noite-3:#1A3050; --noite-code:#0A1521;
     --refletor:#F2F7FC; --arquibancada:#8FA9C4; --linha:rgba(143,169,196,.16);
     --verde:#34D67B; --verde-dim:rgba(52,214,123,.12);
+    --lima:#A8D65C; --lima-dim:rgba(168,214,92,.12);
     --ambar:#FFB454; --ambar-dim:rgba(255,180,84,.12);
     --botoeira:#FF4438; --botoeira-dim:rgba(255,68,56,.12); --info:#6FB1FF; --roxo:#B89CFF; --roxo-dim:rgba(184,156,255,.12);
     --maxw:1080px; --radius:10px;
@@ -87,7 +88,13 @@
 
   /* verdict + nota */
   .verdict{display:inline-flex;align-items:center;gap:10px;padding:12px 18px;border-radius:var(--radius);font-family:'Archivo',sans-serif;font-weight:700;font-size:1.12rem}
+  .verdict.muito_adequada{background:var(--verde-dim);border:1px solid rgba(52,214,123,.4);color:var(--verde)}
+  .verdict.pouco_adequada{background:var(--lima-dim);border:1px solid rgba(168,214,92,.4);color:var(--lima)}
+  .verdict.pouco_inadequada{background:var(--ambar-dim);border:1px solid rgba(255,180,84,.4);color:var(--ambar)}
+  .verdict.muito_inadequada{background:var(--botoeira-dim);border:1px solid rgba(255,68,56,.4);color:var(--botoeira)}
+  /* vereditos legados (registros persistidos antes de 23jul2026) */
   .verdict.adequada{background:var(--verde-dim);border:1px solid rgba(52,214,123,.4);color:var(--verde)}
+  .verdict.parcialmente_adequada{background:var(--ambar-dim);border:1px solid rgba(255,180,84,.4);color:var(--ambar)}
   .verdict.inadequada{background:var(--botoeira-dim);border:1px solid rgba(255,68,56,.4);color:var(--botoeira)}
   .risco-alert{display:flex;align-items:flex-start;gap:12px;background:var(--botoeira-dim);border:1px solid rgba(255,68,56,.45);border-radius:var(--radius);padding:16px 18px;margin:14px 0 20px}
   .risco-alert .ico{font-size:1.4rem;line-height:1}
@@ -226,7 +233,7 @@
     <div class="controls">
       <div class="field">
         <label>Nome do aluno (opcional)</label>
-        <input id="student-name" type="text" placeholder="ex.: Paulinho">
+        <input id="student-name" type="text" placeholder="primeiro nome do aluno">
       </div>
       <div class="field">
         <label>Áudio (TTS)</label>
@@ -368,7 +375,12 @@ $("#go").addEventListener("click",async()=>{
 
 // ---- helpers ----
 function el(t,attrs={},...kids){const e=document.createElement(t);for(const k in attrs){if(k==="class")e.className=attrs[k];else if(k==="html")e.innerHTML=attrs[k];else e.setAttribute(k,attrs[k]);}for(const c of kids){if(c==null)continue;e.append(c.nodeType?c:document.createTextNode(c));}return e;}
-const VEREDITO_LABEL={adequada:"Execução adequada",inadequada:"Execução inadequada"};
+const VEREDITO_LABEL={
+  muito_adequada:"Execução muito adequada",pouco_adequada:"Execução pouco adequada",
+  pouco_inadequada:"Execução pouco inadequada",muito_inadequada:"Execução muito inadequada",
+  // legados (registros persistidos antes de 23jul2026)
+  adequada:"Execução adequada",inadequada:"Execução inadequada",
+  parcialmente_adequada:"Execução parcialmente adequada"};
 const CONFIAB_LABEL={baixa:"baixa",media:"média",alta:"alta"};
 const CATEGORIA_LABEL={amplitude:"Amplitude",escapula_ombros:"Escápula / ombros",tronco:"Tronco",cervical:"Cervical",cotovelos:"Cotovelos",joelhos:"Joelhos",ritmo:"Ritmo",outro:"Outro"};
 const GRAVIDADE_LABEL={leve:"leve",moderada:"moderada",risco_lesao:"risco de lesão"};
@@ -465,7 +477,8 @@ function renderNota(nota){
   const valid=nota&&nota.nota!=null;
   if(valid){
     const v=nota.nota;
-    const cor=v>=80?"var(--verde)":v>=50?"var(--ambar)":"var(--botoeira)";
+    // cores alinhadas às bandas do veredito: ≤25 · ≤50 · ≤75 · >75
+    const cor=v>75?"var(--verde)":v>50?"var(--lima)":v>25?"var(--ambar)":"var(--botoeira)";
     const fg=document.createElementNS(svgNS,"circle");
     fg.setAttribute("cx","60");fg.setAttribute("cy","60");fg.setAttribute("r","52");fg.setAttribute("class","fg");
     fg.setAttribute("stroke",cor);
@@ -481,7 +494,12 @@ function renderNota(nota){
     svg.append(mx);
     svg.setAttribute("aria-label",`Nota da execução: ${v} de 100`);
     meta.append(el("div",{},el("b",{},`${nota.criterios_presentes}/${nota.criterios_totais}`)," categorias observáveis"));
-    if(nota.teto_aplicado!=null) meta.append(el("div",{},`teto de coerência: ${nota.teto_aplicado}`));
+    const totalDed=(nota.deducoes||[]).reduce((s,x)=>s+(x.pontos||0),0);
+    if(totalDed>0) meta.append(el("div",{},`deduções por erro: −${totalDed.toFixed(1)} pts`+(nota.nota_pre_gates!=null?` (nota antes dos gates: ${nota.nota_pre_gates})`:"")));
+    if(nota.gate){
+      const motivo=nota.gate==="risco"?"risco de lesão":nota.gate==="coerencia"?"coerência com os erros registrados":"erro leve pontual (tangência)";
+      meta.append(el("div",{},`nota comprimida para a banda ≤${nota.teto_aplicado} por ${motivo}`));
+    } else if(nota.teto_aplicado!=null) meta.append(el("div",{},`teto de coerência: ${nota.teto_aplicado}`));
   }else{
     const t=document.createElementNS(svgNS,"text");
     t.setAttribute("x","60");t.setAttribute("y","64");t.textContent="—";
@@ -544,6 +562,7 @@ function renderErros(m,framesErros){
       const top=el("div",{class:"top"});
       top.append(el("span",{class:"cat"},CATEGORIA_LABEL[e.categoria]||e.categoria||"—"));
       top.append(el("span",{class:"gravidade "+(e.gravidade||"")}, GRAVIDADE_LABEL[e.gravidade]||e.gravidade||""));
+      if(e.recorrente) top.append(el("span",{class:"ts"},"recorrente (2+ reps)"));
       if(e.timestamp_s!=null) top.append(el("span",{class:"ts"},`~${e.timestamp_s}s`));
       item.append(top);
       if(e.descricao) item.append(el("div",{class:"desc"},e.descricao));

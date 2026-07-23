@@ -50,18 +50,25 @@ núcleo é `veredito` × `risco_lesao`, e a calibragem vive no system prompt:
   `cotovelos`, `joelhos`, `ritmo` (+ `outro` como válvula honesta). Cada `ErroTecnico`
   carrega o **par obrigatório** `descricao` (**o que está errado**) → `correcao`
   (**o que consertar** — instrução acionável específica daquele erro), mais
-  `timestamp_s` e `gravidade` (`leve` | `moderada` | `risco_lesao`). Todo erro
+  `timestamp_s`, `gravidade` (`leve` | `moderada` | `risco_lesao`) e `recorrente`
+  (o mesmo desvio aparece em 2+ repetições — pesa mais na nota). Todo erro
   apontado vem com o seu conserto colado; a UI renderiza ❌ errado / ✅ corrigir e o
   export `.txt` sai como "O QUE ESTÁ ERRADO → COMO CONSERTAR".
-- **Veredito BINÁRIO (23jul2026):** `adequada` ou `inadequada` — não existe
-  "parcialmente adequada". Qualquer erro registrado em `erros` torna a execução
-  `inadequada` (a gravidade modula a nota e a urgência, não o veredito); polimento
-  opcional não é erro e vai como `ajuste_leve` no checklist. Imposto em código por
-  `scoring.harmonize_analysis`.
-- **RF-003 — regra dura de veredito:** valgo dinâmico severo, pés mal posicionados
-  numa base de carga ou qualquer erro `gravidade="risco_lesao"` forçam
-  `veredito="inadequada"` **e** `risco_lesao=True`, independente de quantos acertos
-  existam.
+- **Veredito em 4 NÍVEIS (23jul2026, substitui o binário do mesmo dia):**
+  `muito_inadequada` | `pouco_inadequada` | `pouco_adequada` | `muito_adequada`.
+  O binário + teto constante (`inadequada ⇒ ≤49`) colapsava TODAS as notas de
+  produção em 49/39 — o "engessamento". O veredito FINAL é **derivado em código**
+  da banda da nota (≤25 · ≤50 · ≤75 · >75, `scoring.derive_veredito`) e substitui
+  o do VLM sempre (divergência vira `warning`); sem nota válida, deriva do perfil
+  de erros (moderada=3pts, leve=1pt; ≥12 muito_inadequada, ≥4 pouco_inadequada,
+  senão pouco_adequada — nunca `muito_adequada` sem nota). Polimento opcional não
+  é erro e vai como `ajuste_leve` no checklist.
+- **RF-003 — gate de risco:** valgo dinâmico severo, pés mal posicionados numa
+  base de carga ou qualquer erro `gravidade="risco_lesao"` (ou a flag
+  `risco_lesao=True` do modelo, mantida mesmo sem erro listado — conservador)
+  forçam `risco_lesao=True` e comprimem a nota para a **banda 0-25** ⇒ veredito
+  `muito_inadequada`, independente de quantos acertos existam (o "hard-zero" do
+  FMS).
 - **RF-004 — anti-nitpicking:** execução correta não ganha erro inventado — `erros`
   pode (e deve) vir `[]`.
 - **RN-01 — erro antes de elogio:** quando há erro relevante (sobretudo com risco de
@@ -96,18 +103,34 @@ original da VPS e haviam sido descartados na versão calibrada:
 ### Nota de execução determinística (`scoring.py`)
 
 Agora **há** score em Python (o evento `academia.weighted_score.computed` deixou de
-ser reservado). `scoring.harmonize_analysis` primeiro impõe em código as regras que
-antes só existiam no prompt (RF-003; checklist↔erros; veredito binário: qualquer
-erro registrado ⇒ "inadequada") — cada ajuste vira um `warning` visível. Depois
-`scoring.compute_nota_execucao` agrega o checklist em `nota_execucao` (0–100):
-notas 0..10 normalizadas, categorias `nao_observavel` fora do cálculo com pesos
-renormalizados (contribuições somam a nota), fallback por status quando a nota
-falta (`adequado`=0.85 · `ajuste_leve`=0.65 · `a_corrigir`=0.40), erro na categoria
-limita o valor (risco_lesao **zera**), e gates/tetos: qualidade "ruim" ou <3
-categorias observáveis **bloqueiam** a nota (`nota=null, valida=false`); risco de
-lesão ⇒ ≤39; `inadequada` ⇒ ≤49 — a nota nunca
-contradiz o veredito. **Recalibrar a nota = editar `PESOS`** em `scoring.py`.
-É um indicador observacional de POC (pesos não calibrados contra gabarito).
+ser reservado). O pipeline é `harmonize_analysis` → `compute_nota_execucao` →
+`finalize_veredito` (v2 "academia_categorias_v2_bandas", 23jul2026 — modelo
+"Code of Points"; substitui os clamps constantes 49/39 que engessavam a nota):
+
+1. **`harmonize_analysis`** impõe em código a consistência checklist↔erros
+   (categoria com erro ⇒ `a_corrigir` + nota capada por gravidade: leve ≤8,
+   moderada ≤6, risco ≤3) e a flag de risco (RF-003) — cada ajuste vira um
+   `warning` visível. NÃO toca no veredito.
+2. **`compute_nota_execucao`**: BASE = média ponderada das 7 categorias (notas
+   0..10 /10; `nao_observavel` fora do cálculo com pesos renormalizados;
+   fallback por status: `adequado`=0.85 · `ajuste_leve`=0.65 · `a_corrigir`=0.40)
+   **− deduções subtrativas por erro** (leve −6, moderada −10; ×1.3 se
+   `recorrente`; desconto marginal decrescente 1.0/0.75/0.50/0.25 entre erros da
+   mesma gravidade; soma de leves satura em 13). Depois os **gates de COMPRESSÃO
+   de banda** (linear e injetiva — nunca clamp numa constante): risco ⇒ banda
+   0-25 (−3 por risco extra); erro moderado / 2+ erros / leve recorrente com
+   nota>75 ⇒ comprime para ≤75; exatamente 1 leve pontual com nota>75 ⇒
+   tangência 76-82 (único caminho para `muito_adequada` com erro). Gates de
+   validade: qualidade "ruim" ou <3 categorias observáveis **bloqueiam** a nota
+   (`nota=null, valida=false`). Tudo auditável no response: `deducoes[]`,
+   `nota_pre_gates`, `gate`, `teto_aplicado` (= teto da banda comprimida).
+3. **`finalize_veredito`** deriva o veredito da banda da nota e o aplica.
+
+Calibrado contra os 11 vídeos do dataset (ordenação 11/11 idêntica ao ground
+truth, MAE 1.3, sd 18.9, nenhum valor repetido — contra o v1 em que TODAS as
+análises de produção davam 49.0/39.0). **Recalibrar a nota = editar `PESOS` e as
+constantes de dedução/banda** em `scoring.py` (e dar bump em
+`WEIGHT_MODEL_NAME`). É um indicador observacional de POC.
 
 O exercício, o equipamento e a variação são **identificados automaticamente** pela
 chamada 1, sem seleção manual.
@@ -193,7 +216,7 @@ sem pool, escrita/leitura viram no-op (`None` / lista vazia). O WAV fica em colu
 |---|-------|----------|
 | Roteamento | gênero × modo × duração | **nenhum** (pipeline único) |
 | Schemas | 4 (2 formatos × 2 gêneros) | **1** (`AcademiaAnalysis`) |
-| Score em Python | `weights.py` (0–100) | **`scoring.py`** (0–100, gates + tetos de coerência) |
+| Score em Python | `weights.py` (0–100) | **`scoring.py`** (0–100, deduções por erro + gates de compressão de banda) |
 | fps / resolução | 4/1 · high/medium | **24 · medium** (fixos) |
 | Persistência | opt-out (`TENNIS_PERSIST`) | **opt-in** (`ACADEMIA_PERSIST`) |
 | Saída-núcleo | score + benchmarks | **veredito + risco_lesao + 7 categorias (erros + checklist + nota)** |
@@ -211,7 +234,7 @@ sem pool, escrita/leitura viram no-op (`None` / lista vazia). O WAV fica em colu
 
 `tests/test_academia.py` cobre a guarda de 413 (header e streaming), o saneamento do
 nome de arquivo, os três ramos de veredito (execução limpa → 3 saídas; com erros →
-`erros`+veredito; `risco_lesao` → força `inadequada`), o 503 sem chave, `/health`, o
+`erros`+veredito; `risco_lesao` → força `muito_inadequada`), o 503 sem chave, `/health`, o
 frontend, o histórico/exportação com DB ausente, as regras de prompt (7 categorias,
 checklist/repetições/captura, RN-01 erro-antes-de-elogio, disclaimers RN-03/RN-05),
 a nota determinística (renormalização, fallback, gates, tetos de coerência) e a

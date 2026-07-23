@@ -32,7 +32,7 @@ from app.academia.service import AcademiaService, EmptyUpload, UploadTooLarge  #
 # fixtures de resultado da chamada 1 (AcademiaAnalysis)                        #
 # --------------------------------------------------------------------------- #
 def _clean_result() -> AcademiaAnalysis:
-    """Execução correta: sem erros inventados (RF-004), veredito adequada."""
+    """Execução correta: sem erros inventados (RF-004), veredito muito_adequada."""
     return AcademiaAnalysis(
         exercicio_identificado="puxada alta na polia",
         equipamento="polia alta",
@@ -40,7 +40,7 @@ def _clean_result() -> AcademiaAnalysis:
         qualidade_video="boa",
         partes_ocultas=[],
         repeticoes_visiveis=2,
-        veredito="adequada",
+        veredito="muito_adequada",
         confiabilidade="alta",
         erros=[],
         acertos=[
@@ -91,7 +91,7 @@ def _risco_lesao_result() -> AcademiaAnalysis:
         qualidade_video="boa",
         partes_ocultas=[],
         repeticoes_visiveis=3,
-        veredito="inadequada",
+        veredito="muito_inadequada",
         confiabilidade="alta",
         erros=[
             ErroTecnico(
@@ -248,7 +248,7 @@ def test_analyze_clean_execution_three_outputs(client):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["exercicio"] == "puxada alta na polia"
-    assert body["metrics"]["veredito"] == "adequada"
+    assert body["metrics"]["veredito"] == "muito_adequada"
     assert body["metrics"]["erros"] == []              # RF-004: sem erro inventado
     assert body["metrics"]["risco_lesao"] is False
     assert body["narrative"]
@@ -259,8 +259,10 @@ def test_analyze_clean_execution_three_outputs(client):
     nota = body["nota_execucao"]
     assert nota["valida"] is True and nota["nota"] is not None
     assert nota["criterios_presentes"] == 5             # 2 categorias nao_observavel saem
-    # sem teto: veredito adequada e sem risco
-    assert nota.get("teto_aplicado") is None
+    # sem erros ⇒ sem deduções e sem gate de compressão; nota > 75 ⇒ muito_adequada
+    assert nota.get("teto_aplicado") is None and nota.get("gate") is None
+    assert nota.get("deducoes") in (None, [])
+    assert nota["nota"] > 75
     # as contribuições somam a nota (renormalização sobre o observável)
     soma = sum(c["contribuicao_pontos"] for c in nota["componentes"])
     assert abs(soma - nota["nota"]) < 0.5
@@ -273,8 +275,8 @@ def test_analyze_clean_execution_three_outputs(client):
 
 def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monkeypatch):
     # execução com erro moderado (não risco de lesão) => erros preenchidos e o
-    # veredito binário vira "inadequada" (harmonização em código), mesmo que o
-    # VLM tenha devolvido "adequada"
+    # veredito derivado em código substitui o do VLM ("muito_adequada" é
+    # incoerente com um erro moderado registrado)
     erro_moderado = AcademiaAnalysis(
         exercicio_identificado="rosca bíceps na polia baixa",
         equipamento="polia baixa",
@@ -282,7 +284,7 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
         qualidade_video="boa",
         partes_ocultas=[],
         repeticoes_visiveis=4,
-        veredito="adequada",
+        veredito="muito_adequada",
         confiabilidade="alta",
         erros=[
             ErroTecnico(
@@ -313,8 +315,10 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
     assert r.status_code == 200, r.text
     body = r.json()
     m = body["metrics"]
-    assert m["veredito"] == "inadequada"
-    assert any("binário" in w for w in body["warnings"])
+    # sem checklist ⇒ nota inválida ⇒ fallback por perfil de erros: 1 moderada
+    # (severidade 3 < 4) ⇒ "pouco_adequada", substituindo o veredito do VLM
+    assert m["veredito"] == "pouco_adequada"
+    assert any("substituído" in w for w in body["warnings"])
     assert len(m["erros"]) == 1
     assert m["erros"][0]["categoria"] == "cotovelos"
     # par obrigatório o-que-está-errado (descricao) → o-que-consertar (correcao)
@@ -331,8 +335,9 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
     assert body["nota_execucao"]["nota"] is None
 
 
-def test_analyze_risco_lesao_forces_inadequada(client, monkeypatch):
-    # RF-003: valgo dinâmico severo no leg press => veredito inadequada + risco_lesao=True
+def test_analyze_risco_lesao_forces_muito_inadequada(client, monkeypatch):
+    # RF-003: valgo dinâmico severo no leg press => veredito muito_inadequada +
+    # risco_lesao=True (gate de risco comprime a nota para a banda 0-25)
     monkeypatch.setattr(arouter.service, "gemini", _FakeGeminiRisco())
     r = client.post(
         "/academia/analyze",
@@ -342,15 +347,18 @@ def test_analyze_risco_lesao_forces_inadequada(client, monkeypatch):
     assert r.status_code == 200, r.text
     body = r.json()
     m = body["metrics"]
-    assert m["veredito"] == "inadequada"
+    assert m["veredito"] == "muito_inadequada"
     assert m["risco_lesao"] is True
     assert any(e["gravidade"] == "risco_lesao" for e in m["erros"])
     assert any(e["categoria"] == "joelhos" for e in m["erros"])
-    # nota coerente com o risco: joelhos zerado no cálculo + teto de 39
+    # nota coerente com o risco: joelhos capado (2/10 ⇒ 0.2) na base e a nota
+    # COMPRIMIDA para a banda 0-25 (nunca clampada numa constante)
     nota = body["nota_execucao"]
     joelhos = next(c for c in nota["componentes"] if c["categoria"] == "joelhos")
-    assert joelhos["normalizado"] == 0.0
-    assert nota["teto_aplicado"] == 39.0 and nota["nota"] == 39.0
+    assert joelhos["normalizado"] == 0.2
+    assert nota["gate"] == "risco" and nota["teto_aplicado"] == 25.0
+    assert 0 < nota["nota"] <= 25.0
+    assert nota["nota"] == pytest.approx(16.2, abs=0.2)   # 25 × (base 65)/100
     # RN-01: o prompt REAL construído a partir dessas métricas impõe a abertura
     # de interrupção (não asserta sobre a string do mock, e sim sobre o sistema)
     from app.academia.prompts import build_narrative_prompt
@@ -517,6 +525,23 @@ def test_academia_gemini_narrate_smoke_builds_real_prompt():
     assert "Paulinho" in prompt
 
 
+def test_narrative_fewshot_never_leaks_fixed_names():
+    """Bug 23jul2026: os exemplos few-shot abriam com nomes fictícios fixos
+    ('Paulinho'/'Marina') e o modelo vazava esses nomes na narrativa real. O
+    vocativo agora é resolvido em código: nome real presente ⇒ exemplos abrem
+    com ELE; sem nome ⇒ exemplos abrem direto no conteúdo + proibição explícita."""
+    from app.academia.prompts import build_narrative_prompt
+    p = build_narrative_prompt({"erros": [], "risco_lesao": False}, student_name="Pedro")
+    assert "Paulinho" not in p and "Marina" not in p
+    assert "Pedro, para tudo agora:" in p            # vocativo do exemplo = nome real
+    assert 'o ÚNICO\nnome próprio permitido na narrativa é "Pedro"' in p
+
+    p2 = build_narrative_prompt({"erros": [], "risco_lesao": False}, student_name=None)
+    assert "Paulinho" not in p2 and "Marina" not in p2
+    assert "Para tudo agora:" in p2                  # exemplo sem vocativo
+    assert "PROIBIDO usar qualquer nome próprio" in p2
+
+
 def test_narrative_prompt_has_disclaimer_guardrails():
     from app.academia.prompts import build_narrative_prompt
     p = build_narrative_prompt({}, student_name=None)
@@ -553,7 +578,7 @@ def test_narrative_prompt_mentions_nota_guardrail():
 def _analysis(**over) -> AcademiaAnalysis:
     base = dict(
         exercicio_identificado="exercício x", angulo_camera="lateral",
-        qualidade_video="boa", veredito="adequada", confiabilidade="alta",
+        qualidade_video="boa", veredito="muito_adequada", confiabilidade="alta",
         foco_pratico="foco", risco_lesao=False,
     )
     base.update(over)
@@ -607,11 +632,77 @@ def test_score_fallback_when_nota_missing():
     assert comp.normalizado == 0.85
 
 
-def test_score_caps_by_veredito():
-    """Coerência: nota nunca contradiz o veredito (inadequada ≤ 49)."""
-    a = _analysis(veredito="inadequada", checklist=_checklist_full())
-    n = scoring.compute_nota_execucao(a)
-    assert n.nota == 49.0 and n.teto_aplicado == 49.0
+def test_score_deducao_e_gate_coerencia_erro_moderado():
+    """Erro moderado: dedução subtrativa (−10) + gate de coerência comprime a
+    nota para ≤75 — nunca um clamp numa constante (o bug do 49.0)."""
+    a = _analysis(
+        checklist=_checklist_full(),
+        erros=[ErroTecnico(categoria="cotovelos", descricao="cotovelo à frente",
+                           correcao="cotovelo fixo ao tronco", gravidade="moderada")],
+    )
+    fixed, _ = scoring.harmonize_analysis(a)
+    n = scoring.compute_nota_execucao(fixed)
+    # base: 6 categorias 10/10 + cotovelos capado a 6/10 ⇒ 97.0; dedução 10.0 ⇒ 87.0
+    assert n.nota_pre_gates == 87.0
+    assert len(n.deducoes) == 1 and n.deducoes[0].pontos == 10.0
+    # gate de coerência: 50 + 25×87/100 = 71.75 ⇒ 71.8 (dentro de pouco_adequada)
+    assert n.gate == "coerencia" and n.teto_aplicado == 75.0
+    assert n.nota == 71.8
+    veredito, _ = scoring.derive_veredito(fixed, n)
+    assert veredito == "pouco_adequada"
+
+
+def test_score_tangencia_um_leve_pontual_alcanca_muito_adequada():
+    """Exatamente 1 erro leve não-recorrente: a nota pode tangenciar 76-82 —
+    'muito_adequada' continua alcançável com um único refinamento pontual."""
+    a = _analysis(
+        checklist=_checklist_full(),
+        erros=[ErroTecnico(categoria="ritmo", descricao="excêntrica levemente rápida no fim",
+                           correcao="segure 2s na descida", gravidade="leve", recorrente=False)],
+    )
+    fixed, _ = scoring.harmonize_analysis(a)
+    n = scoring.compute_nota_execucao(fixed)
+    # base: ritmo capado a 8/10 ⇒ 97.0; dedução leve 6.0 ⇒ nota_pre 91.0
+    assert n.nota_pre_gates == 91.0
+    assert n.gate == "tangencia" and n.teto_aplicado == 82.0
+    assert 76.0 < n.nota <= 82.0
+    veredito, _ = scoring.derive_veredito(fixed, n)
+    assert veredito == "muito_adequada"
+
+
+def test_score_leve_recorrente_nunca_muito_adequada():
+    """Erro leve RECORRENTE dispara o gate de coerência (dedução ×1.3 + ≤75)."""
+    a = _analysis(
+        checklist=_checklist_full(),
+        erros=[ErroTecnico(categoria="ritmo", descricao="excêntrica rápida em todas as reps",
+                           correcao="segure 2s na descida", gravidade="leve", recorrente=True)],
+    )
+    fixed, _ = scoring.harmonize_analysis(a)
+    n = scoring.compute_nota_execucao(fixed)
+    # dedução 6×1.3 = 7.8 ⇒ nota_pre 89.2; gate coerência ⇒ 50 + 22.3 = 72.3
+    assert n.deducoes[0].pontos == 7.8 and n.deducoes[0].recorrente is True
+    assert n.gate == "coerencia" and n.nota == 72.3
+    veredito, _ = scoring.derive_veredito(fixed, n)
+    assert veredito == "pouco_adequada"
+
+
+def test_score_gate_risco_comprime_para_banda_0_25():
+    """Risco de lesão: compressão 0-25 preserva variação (não cola em 25/39)."""
+    chk = _checklist_full()
+    a = _analysis(
+        checklist=chk, risco_lesao=True,
+        erros=[ErroTecnico(categoria="joelhos", descricao="valgo severo",
+                           correcao="alinhe o joelho à ponta do pé", gravidade="risco_lesao")],
+    )
+    fixed, _ = scoring.harmonize_analysis(a)
+    n = scoring.compute_nota_execucao(fixed)
+    # joelhos capado a 3/10 ⇒ base = 100 − 0.20×70 = 86.0; risco não deduz;
+    # compressão: 25 × 86/100 = 21.5
+    assert n.nota_pre_gates == 86.0 and n.deducoes == []
+    assert n.gate == "risco" and n.teto_aplicado == 25.0
+    assert n.nota == 21.5
+    veredito, _ = scoring.derive_veredito(fixed, n)
+    assert veredito == "muito_inadequada"
 
 
 # --------------------------------------------------------------------------- #
@@ -626,15 +717,20 @@ def test_harmonize_fills_missing_checklist_without_warning():
 
 
 def test_harmonize_enforces_rf003_in_code():
-    """RF-003 vira código: erro risco_lesao força inadequada + risco_lesao=True."""
+    """RF-003 vira código: erro risco_lesao força a flag, e a cadeia completa
+    (harmonize → nota → finalize) força o veredito 'muito_inadequada'."""
     a = _analysis(
-        veredito="adequada", risco_lesao=False,
+        veredito="muito_adequada", risco_lesao=False,
         erros=[ErroTecnico(categoria="joelhos", descricao="valgo severo",
                            correcao="alinhe o joelho à ponta do pé", gravidade="risco_lesao")],
     )
     fixed, avisos = scoring.harmonize_analysis(a)
-    assert fixed.veredito == "inadequada" and fixed.risco_lesao is True
-    assert len(avisos) >= 2 and all("consistência" in w for w in avisos)
+    assert fixed.risco_lesao is True
+    assert any("consistência" in w for w in avisos)
+    n = scoring.compute_nota_execucao(fixed)
+    avisos2 = scoring.finalize_veredito(fixed, n)
+    assert fixed.veredito == "muito_inadequada"
+    assert any("substituído" in w for w in avisos2)
 
 
 def test_harmonize_category_with_error_becomes_a_corrigir():
@@ -651,12 +747,16 @@ def test_harmonize_category_with_error_becomes_a_corrigir():
     assert any("a_corrigir" in w for w in avisos)
 
 
-def test_harmonize_risco_flag_without_risco_error_forces_inadequada():
+def test_harmonize_risco_flag_without_risco_error_forces_muito_inadequada():
     """Direção inversa de RF-003: flag de risco sem erro grave — conservador,
-    o veredito acompanha a flag (não apagamos sinal de segurança do modelo)."""
-    fixed, avisos = scoring.harmonize_analysis(_analysis(veredito="adequada", risco_lesao=True))
-    assert fixed.veredito == "inadequada" and fixed.risco_lesao is True
+    a flag é MANTIDA (não apagamos sinal de segurança do modelo) e dispara o
+    gate de risco: veredito final 'muito_inadequada'."""
+    fixed, avisos = scoring.harmonize_analysis(_analysis(veredito="muito_adequada", risco_lesao=True))
+    assert fixed.risco_lesao is True
     assert any("risco_lesao=true sem erro" in w for w in avisos)
+    n = scoring.compute_nota_execucao(fixed)          # sem checklist ⇒ nota inválida
+    scoring.finalize_veredito(fixed, n)
+    assert fixed.veredito == "muito_inadequada"
 
 
 def test_harmonize_a_corrigir_without_error_downgraded():
@@ -671,18 +771,30 @@ def test_harmonize_a_corrigir_without_error_downgraded():
     assert any("rebaixado para 'ajuste_leve'" in w for w in avisos)
 
 
-def test_harmonize_any_error_forces_inadequada():
-    """Veredito binário: qualquer erro registrado (até um único 'leve') torna a
-    execução 'inadequada' — não existe 'parcialmente adequada'."""
+def test_finalize_veredito_fallback_sem_nota_valida():
+    """Sem nota válida, o veredito deriva SÓ do perfil de erros (pontos de
+    severidade: moderada=3, leve=1) — e nunca chega a 'muito_adequada'."""
+    # 2 moderadas em categorias diferentes ⇒ P=6 ⇒ pouco_inadequada
     a = _analysis(
-        veredito="adequada",
+        veredito="muito_adequada",
         erros=[
-            ErroTecnico(categoria="ritmo", descricao="d1", correcao="c1", gravidade="leve"),
+            ErroTecnico(categoria="tronco", descricao="d1", correcao="c1", gravidade="moderada"),
+            ErroTecnico(categoria="ritmo", descricao="d2", correcao="c2", gravidade="moderada"),
         ],
     )
-    fixed, avisos = scoring.harmonize_analysis(a)
-    assert fixed.veredito == "inadequada"
-    assert any("binário" in w for w in avisos)
+    fixed, _ = scoring.harmonize_analysis(a)
+    n = scoring.compute_nota_execucao(fixed)
+    assert n.valida is False
+    scoring.finalize_veredito(fixed, n)
+    assert fixed.veredito == "pouco_inadequada"
+
+    # execução limpa sem checklist ⇒ pouco_adequada + aviso conservador
+    b = _analysis(veredito="muito_adequada")
+    fixedb, _ = scoring.harmonize_analysis(b)
+    nb = scoring.compute_nota_execucao(fixedb)
+    avisos = scoring.finalize_veredito(fixedb, nb)
+    assert fixedb.veredito == "pouco_adequada"
+    assert any("conservador" in w for w in avisos)
 
 
 def test_persist_roundtrip_nota_key_reaches_txt_export(client, monkeypatch):

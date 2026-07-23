@@ -33,7 +33,7 @@ from .frames import extract_error_frames
 from .gemini import AcademiaGemini, GeminiError
 from .models import AcademiaAnalysis, AcademiaAnalysisResponse
 from .prompts import analysis_system_prompt
-from .scoring import compute_nota_execucao, harmonize_analysis
+from .scoring import compute_nota_execucao, finalize_veredito, harmonize_analysis
 
 log = logging.getLogger("bitvar.academia")
 
@@ -138,16 +138,26 @@ class AcademiaService:
         finally:
             self.gemini.delete_file(file)
 
-        # harmonização determinística: RF-003 e consistência checklist↔erros em
-        # CÓDIGO (cada ajuste vira um warning visível), e então a nota 0..100 —
-        # aritmética 100% Python, o VLM só forneceu as notas 0..10 por categoria.
+        # harmonização determinística: consistência checklist↔erros e flag de
+        # risco em CÓDIGO (cada ajuste vira um warning visível), depois a nota
+        # 0..100 e por fim o veredito de 4 níveis DERIVADO da banda da nota —
+        # aritmética 100% Python, o VLM só forneceu notas 0..10 e gravidades.
         analysis, ajustes = harmonize_analysis(analysis)
         warnings.extend(ajustes)
         nota = compute_nota_execucao(analysis)
+        veredito_vlm = analysis.veredito
+        warnings.extend(finalize_veredito(analysis, nota))
         emit(catalog.ACADEMIA_WEIGHTED_SCORE, data={
             "nota": nota.nota, "valida": nota.valida, "modelo_pesos": nota.modelo_pesos,
             "criterios_presentes": nota.criterios_presentes, "cobertura": nota.cobertura,
-            "teto_aplicado": nota.teto_aplicado, "ajustes_consistencia": len(ajustes),
+            "nota_pre_gates": nota.nota_pre_gates, "gate": nota.gate,
+            "teto_aplicado": nota.teto_aplicado,
+            "veredito": analysis.veredito, "veredito_vlm": veredito_vlm,
+            "total_deducoes": round(sum(d.pontos for d in nota.deducoes), 2),
+            "erros_leve": sum(1 for e in analysis.erros if e.gravidade == "leve"),
+            "erros_moderada": sum(1 for e in analysis.erros if e.gravidade == "moderada"),
+            "erros_risco": sum(1 for e in analysis.erros if e.gravidade == "risco_lesao"),
+            "ajustes_consistencia": len(ajustes),
         })
 
         # prints do momento exato de cada erro (ffmpeg sobre o vídeo local, que
