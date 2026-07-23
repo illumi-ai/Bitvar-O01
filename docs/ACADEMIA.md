@@ -24,10 +24,10 @@ fixos de `config.py`. O único gate é o teto de duração (`academia_clip_max_s
 upload (multipart, em chunks p/ disco)               app/academia/service.py:_save_upload
   → teto de duração (probe via ffprobe/parser mp4)   app.tennis.routing.probe_duration_seconds (reuso)
   → chamada 1: vídeo → JSON estruturado              app/academia/gemini.py:analyze
-       gemini-3.6-flash · thinking high · fps 24 · MEDIA_RESOLUTION_MEDIUM
+       gemini-3.1-pro-preview · thinking high · fps 24 · MEDIA_RESOLUTION_MEDIUM
   → harmonização + nota 0..100 (determinístico)       app/academia/scoring.py (Python, sem VLM)
   → chamada 2: JSON (+nota) → narrativa PT-BR         app/academia/gemini.py:narrate
-       gemini-3.6-flash · thinking high
+       gemini-3.1-pro-preview · thinking high
   → chamada 3: narrativa → áudio WAV                  app/academia/gemini.py:synthesize
        gemini-3.1-flash-tts-preview · voz Vindemiatrix · retry · PCM→WAV 24kHz mono
 ```
@@ -145,7 +145,7 @@ equivalentes de tênis:
 
 | Env                              | Default                       | O quê |
 |----------------------------------|-------------------------------|-------|
-| `ACADEMIA_ANALYSIS_MODEL`        | `gemini-3.6-flash`            | chamadas 1 e 2 |
+| `ACADEMIA_ANALYSIS_MODEL`        | `gemini-3.1-pro-preview`      | chamadas 1 e 2 |
 | `ACADEMIA_TTS_MODEL` / `_VOICE`  | `gemini-3.1-flash-tts-preview` / `Vindemiatrix` | chamada 3 |
 | `ACADEMIA_ANALYSIS_THINKING_LEVEL` / `_NARRATIVE_THINKING_LEVEL` | `high` / `high` | raciocínio |
 | `ACADEMIA_CLIP_MAX_SECONDS`      | `180`                         | teto de duração |

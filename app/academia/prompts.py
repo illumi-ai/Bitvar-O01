@@ -101,8 +101,10 @@ categoria com erro em "erros" fica "a_corrigir" no checklist — sem exceção.
 """
 
 _MOVIMENTO_REGRA = """\
-SEGMENTE AS REPETIÇÕES (campo "repeticoes"): uma entrada por repetição
-observável, na ordem do vídeo, cada uma com:
+SEGMENTE AS REPETIÇÕES (campo "repeticoes"): uma REPETIÇÃO é o ciclo COMPLETO
+do movimento (fase excêntrica + fase concêntrica, ex.: descida E subida) — não
+conte meia-repetição nem cada mudança de direção como uma repetição nova. Uma
+entrada por repetição observável, na ordem do vídeo, cada uma com:
 - "indice" (1..n), "completa" (true se fecha o ciclo; parcial = false);
 - "inicio_s", "transicao_s" (momento da mudança de direção — fundo/pico) e
   "fim_s": timestamps APROXIMADOS em segundos; use null para qualquer marco que
@@ -187,6 +189,21 @@ amostrado a {fps} quadros por segundo.
 
 Sua tarefa: analisar a execução e devolver SOMENTE um JSON válido no schema
 fornecido (sem texto fora do JSON, sem markdown).
+
+PASSO 0 — TRIAGEM DE RISCO DE LESÃO (ANTES DE QUALQUER OUTRA COISA).
+Assista ao vídeo procurando ATIVAMENTE padrões perigosos sob carga, em especial:
+- valgo dinâmico: joelhos caindo PARA DENTRO, aproximando-se ou se tocando,
+  na descida ou na subida — compare a distância entre os joelhos com a distância
+  entre os pés ao longo de CADA repetição;
+- pés mal posicionados numa base de sustentação de carga (calcanhares ou pontas
+  dos pés fora da plataforma/apoio; pés excessivamente rodados para dentro);
+- bloqueio articular violento sob carga; balanço descontrolado com carga.
+O erro mais caro que este sistema pode cometer é classificar como "adequada"
+uma execução com risco de lesão real. Se identificar qualquer um desses
+padrões, registre o erro com gravidade "risco_lesao" AGORA e mantenha-o na
+resposta — nenhum passo posterior (checklist, acertos, repetições) apaga ou
+suaviza um risco encontrado aqui. Só avance para os passos seguintes depois
+desta triagem.
 
 PASSO 1 — IDENTIFIQUE O EXERCÍCIO E O CONTEXTO.
 - "exercicio_identificado": nome técnico do exercício (ex.: "puxada frontal
