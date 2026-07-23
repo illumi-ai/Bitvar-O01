@@ -46,6 +46,12 @@ class AcademiaSettings(BaseSettings):
     academia_max_upload_mb: int = 600           # validado na app, rejeita antes de subir
     academia_upload_chunk_bytes: int = 1024 * 1024  # grava em disco em chunks (não em RAM)
 
+    # ----- frames dos erros (print do momento exato de cada erro, via ffmpeg) -----
+    academia_frames_enabled: bool = True   # desliga a extração sem redeploy (env)
+    academia_frames_max: int = 6           # teto de frames por análise (payload sob controle)
+    academia_frame_max_width: int = 640    # JPEG reescalado (proporcional); largura ≤ isto
+    academia_frame_timeout_s: float = 20.0  # timeout por frame do subprocess ffmpeg
+
     # ----- Files API (espera o vídeo ficar ACTIVE antes de analisar) -----
     academia_files_active_timeout_s: float = 3600.0
     academia_files_poll_interval_s: float = 2.0

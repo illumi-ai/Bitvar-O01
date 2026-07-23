@@ -107,6 +107,17 @@ contradiz o veredito. **Recalibrar a nota = editar `PESOS`** em `scoring.py`.
 O exercício, o equipamento e a variação são **identificados automaticamente** pela
 chamada 1, sem seleção manual.
 
+### Prints do momento do erro (`frames.py`)
+
+Quando um erro tem `timestamp_s`, o service extrai com **ffmpeg** um JPEG do
+instante exato (seek frame-accurate, reescalado a ≤640px) enquanto o vídeo
+temporário ainda existe — **só para erros**; execução limpa não gera frame. Vai
+na resposta como `frames_erros[]` (`{erro_index, categoria, timestamp_s,
+image_base64, mime}`), a UI mostra o print dentro do card do erro (clique
+amplia). Falha de extração vira `warning`; nada é persistido. Knobs:
+`ACADEMIA_FRAMES_ENABLED` (default true), `ACADEMIA_FRAMES_MAX` (6),
+`ACADEMIA_FRAME_MAX_WIDTH` (640), `ACADEMIA_FRAME_TIMEOUT_S` (20).
+
 ## Endpoints (`router.py`, prefixo `/academia`)
 
 - `GET  /academia/` — dashboard (renderiza o JSON; sem nova chamada de IA).
@@ -116,7 +127,7 @@ chamada 1, sem seleção manual.
     `duration_seconds` (opcional), `with_audio` (bool, default `true`),
     `persist` (opcional; default = config).
   - Resposta `AcademiaAnalysisResponse`:
-    `{ exercicio, metrics, nota_execucao, narrative, audio_base64, warnings, persisted_id }`.
+    `{ exercicio, metrics, nota_execucao, frames_erros, narrative, audio_base64, warnings, persisted_id }`.
 - `GET  /academia/analyses` — histórico paginado (vazio se persistência off / DB fora).
 - `GET  /academia/analyses/{id}` — análise completa (métricas + narrativa); 404 se ausente.
 - `GET  /academia/analyses/{id}/audio` — WAV da narrativa salva.
@@ -166,6 +177,7 @@ sem pool, escrita/leitura viram no-op (`None` / lista vazia). O WAV fica em colu
 
 `academia.analyze.received` · `upload.saved` · `upload.rejected` · `route.decided` ·
 `weighted_score.computed` (nota 0..100 + cobertura + ajustes de consistência) ·
+`frames.extracted` (prints do momento dos erros) ·
 `analyze.completed` · `analyze.failed` · `persisted` · `analysis.retrieved` ·
 `analysis.exported` · `warning`. As três chamadas ao Gemini reusam os eventos
 `gemini.*` compartilhados.

@@ -160,6 +160,10 @@
   .erro-item .correcao{margin-top:6px;font-size:.94rem;color:var(--refletor)}
   .erro-item .correcao::before{content:"✅ ";}
   .erro-item .correcao .lab{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--verde);margin-right:6px}
+  .erro-frame{margin-top:10px}
+  .erro-frame img{display:block;max-width:min(420px,100%);border:1px solid var(--linha);border-radius:8px;cursor:zoom-in}
+  .erro-frame img.zoom{max-width:100%;cursor:zoom-out}
+  .erro-frame .cap{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--arquibancada);margin-top:5px}
 
   .acertos{list-style:none;display:grid;gap:8px}
   .acertos li{padding-left:22px;position:relative;font-size:.94rem;color:var(--refletor)}
@@ -419,7 +423,7 @@ function render(d){
 
   renderNota(nota);
   renderChecklist(m,nota);
-  renderErros(m);
+  renderErros(m,d.frames_erros||[]);
   renderAcertos(m);
   renderFoco(m);
   renderMovimento(m);
@@ -520,10 +524,13 @@ function renderChecklist(m,nota){
   });
 }
 
-// ---- erros técnicos ----
-function renderErros(m){
+// ---- erros técnicos (com print do momento exato, quando disponível) ----
+function renderErros(m,framesErros){
   const errosHost=$("#erros"); errosHost.innerHTML="";
-  const erros=(m.erros||[]).slice().sort((a,b)=>{
+  const originais=m.erros||[];
+  const frameByIndex={};
+  (framesErros||[]).forEach(f=>{if(f&&f.image_base64!=null)frameByIndex[f.erro_index]=f;});
+  const erros=originais.slice().sort((a,b)=>{
     const order={risco_lesao:0,moderada:1,leve:2};
     return (order[a.gravidade]??3)-(order[b.gravidade]??3);
   });
@@ -541,6 +548,16 @@ function renderErros(m){
         fix.append(el("span",{class:"lab"},"Corrigir"));
         fix.append(document.createTextNode(e.correcao));
         item.append(fix);
+      }
+      const f=frameByIndex[originais.indexOf(e)];
+      if(f){
+        const box=el("div",{class:"erro-frame"});
+        const img=el("img",{alt:`Frame do vídeo em ${f.timestamp_s}s mostrando o erro`,loading:"lazy"});
+        img.src=`data:${f.mime||"image/jpeg"};base64,${f.image_base64}`;
+        img.addEventListener("click",()=>img.classList.toggle("zoom"));
+        box.append(img);
+        box.append(el("div",{class:"cap"},`📸 momento do erro · ${f.timestamp_s}s (clique para ampliar)`));
+        item.append(box);
       }
       errosHost.append(item);
     });

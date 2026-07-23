@@ -67,6 +67,7 @@ ACADEMIA_UPLOAD_SAVED = "academia.upload.saved"
 ACADEMIA_UPLOAD_REJECTED = "academia.upload.rejected"
 ACADEMIA_ROUTE_DECIDED = "academia.route.decided"
 ACADEMIA_WEIGHTED_SCORE = "academia.weighted_score.computed"
+ACADEMIA_FRAMES_EXTRACTED = "academia.frames.extracted"
 ACADEMIA_ANALYZE_COMPLETED = "academia.analyze.completed"
 ACADEMIA_ANALYZE_FAILED = "academia.analyze.failed"
 ACADEMIA_PERSISTED = "academia.persisted"
@@ -127,6 +128,7 @@ CATALOG: dict[str, tuple[str, str]] = {
     ACADEMIA_UPLOAD_REJECTED: (Category.ACADEMIA, "Upload rejeitado (vazio ou acima do limite)."),
     ACADEMIA_ROUTE_DECIDED: (Category.ACADEMIA, "Roteamento decidido (fps, media_resolution, duração)."),
     ACADEMIA_WEIGHTED_SCORE: (Category.ACADEMIA, "Nota de execução 0..100 calculada em Python (scoring.py) a partir do checklist."),
+    ACADEMIA_FRAMES_EXTRACTED: (Category.ACADEMIA, "Prints (ffmpeg) do momento exato dos erros extraídos do vídeo."),
     ACADEMIA_ANALYZE_COMPLETED: (Category.ACADEMIA, "Análise de academia concluída (3 saídas)."),
     ACADEMIA_ANALYZE_FAILED: (Category.ACADEMIA, "Análise de academia falhou."),
     ACADEMIA_PERSISTED: (Category.ACADEMIA, "Análise de academia persistida no Postgres."),

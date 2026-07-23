@@ -29,6 +29,7 @@ from app.tennis.routing import probe_duration_seconds
 
 from .config import AcademiaSettings
 from .config import academia_settings as default_cfg
+from .frames import extract_error_frames
 from .gemini import AcademiaGemini, GeminiError
 from .models import AcademiaAnalysis, AcademiaAnalysisResponse
 from .prompts import analysis_system_prompt
@@ -149,6 +150,18 @@ class AcademiaService:
             "teto_aplicado": nota.teto_aplicado, "ajustes_consistencia": len(ajustes),
         })
 
+        # prints do momento exato de cada erro (ffmpeg sobre o vídeo local, que
+        # ainda existe aqui — é apagado pelo caller depois do threadpool). Só há
+        # frames quando há erro com timestamp; falha vira warning, nunca erro.
+        frames, frame_warnings = extract_error_frames(path, analysis.erros, self.cfg)
+        warnings.extend(frame_warnings)
+        if frames:
+            emit(catalog.ACADEMIA_FRAMES_EXTRACTED, data={
+                "count": len(frames),
+                "timestamps_s": [f.timestamp_s for f in frames],
+                "erros_com_timestamp": sum(1 for e in analysis.erros if e.timestamp_s is not None),
+            })
+
         metrics = analysis.model_dump(by_alias=True, exclude_none=True)
 
         narrative: str | None = None
@@ -180,13 +193,14 @@ class AcademiaService:
              duration_ms=round((time.monotonic() - t0) * 1000, 1) if t0 else None,
              data={"exercicio": metrics.get("exercicio_identificado"),
                    "veredito": metrics.get("veredito"), "risco_lesao": metrics.get("risco_lesao"),
-                   "nota_execucao": nota.nota,
+                   "nota_execucao": nota.nota, "frames_erros": len(frames),
                    "has_narrative": narrative is not None, "has_audio": audio_b64 is not None,
                    "warnings": len(warnings), "persisted_id": persisted_id})
         return AcademiaAnalysisResponse(
             exercicio=analysis.exercicio_identificado,
             metrics=analysis,
             nota_execucao=nota,
+            frames_erros=frames,
             narrative=narrative or "",
             audio_base64=audio_b64,
             warnings=warnings,

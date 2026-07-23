@@ -101,6 +101,11 @@ duplicating them.
   **Recalibrating the score = editing `PESOS`** in `scoring.py`. The UI renders ALL of
   these (score dial, checklist with contribution bars, reps table, capture card,
   client-side .txt/.json/.wav downloads) — the "dry parameters" complaint of 22jul.
+- **Error-moment screenshots:** `frames.py` runs ffmpeg over the local temp video (before
+  it's deleted) to grab one JPEG per erro **with a `timestamp_s`** — errors only, clean
+  executions get none. Returned as `frames_erros` on the response (never persisted, never
+  in the VLM schema); extraction failures become `warnings`. Knobs: `ACADEMIA_FRAMES_*`
+  (enabled/max/width/timeout). ffmpeg is already in the Docker image (duration probing).
 - Calibrated against `docs/videos-calibragem-academia/` — a written ground-truth dataset
   (11 videos + `analises/*.txt`) whose 7-part structure the schema mirrors. **Recalibrating
   = editing `prompts.py`** (the 7 error categories + verdict rules).
