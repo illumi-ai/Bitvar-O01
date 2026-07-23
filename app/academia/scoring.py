@@ -59,10 +59,11 @@ _TETO_NOTA_POR_GRAVIDADE = {"leve": 8.0, "moderada": 6.0, "risco_lesao": 3.0}
 # erro na categoria. risco_lesao zera: um padrão perigoso não soma pontos.
 _TETO_NORMALIZADO_POR_GRAVIDADE = {"leve": 0.8, "moderada": 0.6, "risco_lesao": 0.0}
 
-# Gates e tetos de coerência da nota 0..100.
+# Gates e tetos de coerência da nota 0..100. Veredito binário: só "inadequada"
+# tem teto ("parcialmente_adequada" deixou de existir em 23jul2026).
 MIN_CRITERIOS_AVALIADOS = 3
 _TETO_RISCO_LESAO = 39.0
-_TETO_VEREDITO = {"inadequada": 49.0, "parcialmente_adequada": 79.0}
+_TETO_VEREDITO = {"inadequada": 49.0}
 
 _AVISO_POC = (
     "indicador observacional de POC (pesos não calibrados) — não mede risco de "
@@ -119,12 +120,13 @@ def harmonize_analysis(analysis: AcademiaAnalysis) -> tuple[AcademiaAnalysis, li
             "consistência: risco_lesao=true sem erro de gravidade 'risco_lesao' na lista de erros."
         )
 
-    # 2+ erros moderados nunca são "adequada" (regra dura do prompt, agora em código).
-    moderados = sum(1 for e in fixed.erros if e.gravidade == "moderada")
-    if moderados >= 2 and fixed.veredito == "adequada":
-        fixed.veredito = "parcialmente_adequada"
+    # Veredito binário: qualquer erro registrado torna a execução "inadequada"
+    # (ou está certo, ou está errado — "parcialmente" não existe; polimento
+    # opcional vai no checklist como ajuste_leve, nunca em `erros`).
+    if fixed.erros and fixed.veredito != "inadequada":
+        fixed.veredito = "inadequada"
         avisos.append(
-            "consistência: veredito ajustado para 'parcialmente_adequada' — múltiplos erros moderados."
+            "consistência: veredito ajustado para 'inadequada' — o veredito é binário e há erro registrado."
         )
 
     # Checklist: exatamente uma entrada por categoria, todas as 7, na ordem canônica.
@@ -207,8 +209,8 @@ def compute_nota_execucao(analysis: AcademiaAnalysis) -> NotaExecucao:
     * gates: qualidade de vídeo "ruim" ou menos de ``MIN_CRITERIOS_AVALIADOS``
       categorias observáveis ⇒ ``nota=None, valida=False`` (nada de nota frágil);
     * erro na categoria limita o valor normalizado (risco_lesao zera);
-    * tetos de coerência: risco de lesão ⇒ ≤39; veredito "inadequada" ⇒ ≤49,
-      "parcialmente_adequada" ⇒ ≤79 — a nota nunca contradiz o veredito. Quando
+    * tetos de coerência: risco de lesão ⇒ ≤39; veredito "inadequada" ⇒ ≤49
+      — a nota nunca contradiz o veredito (binário: adequada/inadequada). Quando
       um teto corta a nota, ``teto_aplicado`` é preenchido e as contribuições do
       breakdown somam o valor PRÉ-teto (o corte é global, não por categoria).
     """

@@ -63,11 +63,15 @@ GravidadeErro = Literal["leve", "moderada", "risco_lesao"]
 
 QualidadeVideo = Literal["boa", "media", "ruim"]
 
+# Veredito BINÁRIO (decisão do usuário, 23jul2026): ou a execução está correta
+# ("adequada") ou está errada ("inadequada") — não existe "parcialmente".
+# Qualquer erro registrado em `erros` implica "inadequada" (imposto em código
+# por scoring.harmonize_analysis); a gravidade modula a nota, não o veredito.
 # RF-003: valgo dinâmico severo, pés mal posicionados em leg press ou qualquer
 # erro com risco de lesão real levam obrigatoriamente a "inadequada".
 # RF-004: execução correta não ganha erros inventados — "adequada" fica livre
 # de nitpicking punitivo.
-Veredito = Literal["adequada", "parcialmente_adequada", "inadequada"]
+Veredito = Literal["adequada", "inadequada"]
 
 # RN-02: confiabilidade do veredito é limitada pelo que é observável no vídeo
 # (ângulo de câmera, qualidade, partes ocultas) — não é uma nota de execução.
@@ -226,8 +230,9 @@ class AcademiaAnalysis(BaseModel):
         default=None, ge=0, description="Número de repetições completas visíveis no vídeo, se contável."
     )
     veredito: Veredito = Field(
-        description="Veredito geral da execução, restrito ao observável (RN-02). "
-        "'inadequada' é obrigatório quando há erro com risco de lesão (RF-003)."
+        description="Veredito BINÁRIO da execução, restrito ao observável (RN-02): "
+        "'adequada' (execução correta, erros vazio) ou 'inadequada' (há erro registrado). "
+        "'inadequada' é obrigatório quando há qualquer erro, sobretudo com risco de lesão (RF-003)."
     )
     confiabilidade: Confiabilidade = Field(
         description="Confiança no veredito, dada a qualidade do vídeo/ângulo/partes ocultas."
@@ -366,6 +371,27 @@ class NotaExecucao(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# frame do momento do erro (Python + ffmpeg, nunca o VLM)                      #
+# --------------------------------------------------------------------------- #
+class FrameErro(BaseModel):
+    """Print (JPEG) do instante exato de UM erro técnico, extraído com ffmpeg.
+
+    Gerado em ``frames.py`` a partir do ``timestamp_s`` do erro, enquanto o
+    vídeo temporário ainda existe — só para erros COM timestamp (o objetivo é
+    mostrar ao aluno o momento exato do problema; execução limpa não gera
+    frame nenhum). Nunca faz parte do ``response_schema`` da chamada 1.
+    """
+
+    erro_index: int = Field(
+        ge=0, description="Índice do erro correspondente em metrics.erros (posição original)."
+    )
+    categoria: str = Field(description="Categoria do erro (redundante, facilita a UI/consumidores).")
+    timestamp_s: float = Field(ge=0, description="Instante do vídeo capturado no frame (s).")
+    image_base64: str = Field(description="JPEG base64 do frame no momento do erro.")
+    mime: str = Field(default="image/jpeg", description="MIME type da imagem.")
+
+
+# --------------------------------------------------------------------------- #
 # modelo de saída da API                                                      #
 # --------------------------------------------------------------------------- #
 class AcademiaAnalysisResponse(BaseModel):
@@ -383,6 +409,12 @@ class AcademiaAnalysisResponse(BaseModel):
         default=None,
         description="Nota 0..100 determinística calculada em Python a partir do checklist "
         "(scoring.py) — nunca preenchida pelo VLM; null só em registros antigos sem checklist.",
+    )
+    frames_erros: list[FrameErro] = Field(
+        default_factory=list,
+        description="Prints (JPEG base64) do momento exato de cada erro com timestamp — "
+        "extraídos com ffmpeg em Python (frames.py); vazia quando não há erro com timestamp "
+        "ou quando a extração falha (falha vira warning, nunca erro).",
     )
     narrative: str = Field(
         description="Narrativa PT-BR de treinador (chamada 2): erros primeiro se houver (RN-01), "

@@ -5,8 +5,13 @@ calibragem Caio 17-22/07/2026, dataset de 11 vídeos em
 * ``analysis_system_prompt(student_name)`` — chamada 1 (vídeo→JSON): instrui a
   identificação do exercício e a checagem EXPLÍCITA e sequencial das 7 categorias
   de erro técnico do catálogo de calibragem (amplitude, escápula/ombros, tronco,
-  cervical, cotovelos, joelhos, ritmo), com regras duras de veredito (RF-003) e
-  anti-nitpicking (RF-004). A varredura das 7 categorias agora também vira
+  cervical, cotovelos, joelhos, ritmo), guiada pelo método de ANÁLISE SEGMENTAR
+  (membros inferiores: extensão da cadeia quadril→pé, ângulo e posição de cada
+  subsegmento, profundidade; membros superiores: amplitude dos braços e cada
+  ligação escápula→mão cumprindo o seu papel; erro rastreado ao elo de origem
+  para a correção se propagar na cadeia), com regras duras de VEREDITO BINÁRIO
+  (adequada ou inadequada — "parcialmente" não existe; qualquer erro registrado
+  ⇒ inadequada; RF-003) e anti-nitpicking (RF-004). A varredura das 7 categorias agora também vira
   parâmetro visível: checklist por categoria (status + nota 0..10 + evidência),
   repetições segmentadas, leitura do movimento e condições de captura —
   parâmetros reintroduzidos do módulo original (a368d14);
@@ -132,26 +137,54 @@ _CAPTURA_EXTRA = """\
   Se a captura está boa, deixe a lista VAZIA — não invente recomendação.
 """
 
+_ANALISE_SEGMENTAR = """\
+MÉTODO DE OBSERVAÇÃO — ANÁLISE SEGMENTAR (aplique DENTRO das 7 categorias):
+- Membros INFERIORES (agachamento, leg press, cadeiras extensora/flexora,
+  avanço, panturrilha...): observe a EXTENSÃO do membro como cadeia — quadril,
+  coxa, joelho, canela, tornozelo e pé — e a POSIÇÃO de cada subsegmento em
+  cada fase: o ÂNGULO de cada articulação está certo ou não para a fase do
+  movimento? A posição do segmento está adequada ou não? A profundidade condiz
+  com a amplitude de referência do exercício? O alinhamento entre os
+  subsegmentos se mantém (joelho seguindo a direção da ponta do pé, pé inteiro
+  apoiado na base)?
+- Membros SUPERIORES (puxadas, remadas, supinos, roscas, elevações,
+  desenvolvimentos...): observe a AMPLITUDE do movimento dos braços e cada
+  LIGAÇÃO da cadeia — escápula, ombro, cotovelo, punho e mão — verificando se
+  cada subsegmento cumpre o seu papel na fase certa (ex.: a escápula deprime
+  antes de o cotovelo puxar; o cotovelo flexiona sem o ombro compensar; o
+  punho permanece neutro, sem quebrar).
+- Pense em CADEIA: um subsegmento fora de posição altera o membro inteiro e se
+  reflete nos demais (ex.: pé mal apoiado muda o ângulo do joelho, que muda o
+  quadril; escápula solta muda o trajeto do cotovelo). Ao apontar um erro,
+  identifique o ELO DE ORIGEM — é a ligação (articulação), a posição do
+  segmento, a profundidade ou a amplitude? — para que a "correcao" ataque a
+  causa e o ajuste se propague para o resto da cadeia.
+Esta análise NÃO cria categorias novas: cada achado continua classificado nas
+7 categorias abaixo e sujeito às mesmas regras de veredito e anti-nitpicking.
+"""
+
 _VEREDITO_REGRAS = """\
-REGRAS DURAS DE VEREDITO (não são sugestão, são obrigatórias):
+REGRAS DURAS DE VEREDITO (não são sugestão, são obrigatórias). O veredito é
+BINÁRIO: ou a execução está correta ("adequada") ou está errada ("inadequada").
+NÃO existe meio-termo — "parcialmente adequada" não é uma opção deste sistema.
 - Se HOUVER qualquer erro com gravidade "risco_lesao" (ex.: valgo dinâmico
   severo, pés mal posicionados numa base de sustentação de carga, qualquer
   padrão que ofereça risco real de lesão articular ou ligamentar) =>
-  "veredito" DEVE ser "inadequada" e "risco_lesao" DEVE ser true. Não existe
-  meio-termo aqui: risco de lesão nunca é "parcialmente_adequada".
-- Se houver MÚLTIPLOS erros de gravidade "moderada" (duas ou mais categorias
-  comprometidas, mesmo sem risco de lesão) => "veredito" no MÁXIMO
-  "parcialmente_adequada". Nunca marque "adequada" quando há mais de um erro
-  moderado.
+  "veredito" DEVE ser "inadequada" e "risco_lesao" DEVE ser true.
+- Se a lista "erros" tiver QUALQUER erro registrado (leve, moderado ou risco de
+  lesão) => "veredito" é "inadequada". Erro registrado = execução errada; a
+  gravidade modula a nota e a urgência da correção, NUNCA o veredito.
 - Se a execução estiver tecnicamente limpa (sem erros relevantes observáveis)
   => "veredito" é "adequada" e a lista "erros" fica VAZIA. ANTI-NITPICKING:
   é PROIBIDO inventar erro cosmético ou irrelevante só para preencher a lista.
   Um vídeo bem executado recebe no máximo "refinamentos" (sugestões opcionais
-  de polimento), NUNCA um erro fabricado. Nitpicking punitivo em execução
+  de polimento — status "ajuste_leve" no checklist e/ou nota em
+  "foco_pratico"), NUNCA um erro fabricado. Nitpicking punitivo em execução
   correta é uma falha grave deste sistema.
-- Um único erro "leve" isolado, sem mais nada relevante, ainda pode ser
-  "adequada" com a ressalva citada em "foco_pratico" — critério de bom senso de
-  treinador, não perfeição milimétrica.
+- A linha divisória exige critério de treinador: se é um DESVIO TÉCNICO REAL,
+  registre em "erros" (e o veredito é "inadequada"); se é só polimento opcional
+  numa execução correta, NÃO é erro — vira "ajuste_leve"/refinamento e o
+  veredito permanece "adequada".
 """
 
 _CONFIABILIDADE = """\
@@ -226,6 +259,7 @@ PASSO 2 — SEGMENTE AS REPETIÇÕES E LEIA O MOVIMENTO.
 {movimento_regra}
 
 PASSO 3 — VERIFIQUE AS 7 CATEGORIAS DE ERRO, UMA A UMA, E PREENCHA O CHECKLIST.
+{analise_segmentar}
 {categorias_erro}
 {checklist_regra}
 
@@ -277,6 +311,7 @@ def analysis_system_prompt(student_name: str | None = None, fps: int | None = No
         fps=fps if fps is not None else 24,
         captura_extra=_CAPTURA_EXTRA,
         movimento_regra=_MOVIMENTO_REGRA,
+        analise_segmentar=_ANALISE_SEGMENTAR,
         categorias_erro=_CATEGORIAS_ERRO,
         checklist_regra=_CHECKLIST_REGRA,
         veredito_regras=_VEREDITO_REGRAS,
@@ -390,8 +425,9 @@ alta):
   melhoria" — o que está errado é nomeado como erro, com o conserto colado nele.
 - ACERTOS: cite os pontos tecnicamente corretos, cada um com lastro na
   análise (RF-004) — nunca por cortesia.
-- VEREDITO: diga com clareza se a execução foi adequada, parcialmente adequada
-  ou inadequada, em linguagem natural (sem citar o nome do campo do JSON).
+- VEREDITO: diga com clareza se a execução foi adequada ou inadequada (o
+  veredito é binário — não existe "parcialmente"), em linguagem natural (sem
+  citar o nome do campo do JSON).
 - FOCO PRÁTICO PRINCIPAL: a correção (ou refinamento, se a execução for
   adequada) mais importante e acionável para a próxima série.
 - LIMITAÇÕES: mencione, quando a confiabilidade da análise for baixa ou média,

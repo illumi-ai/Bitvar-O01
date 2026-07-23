@@ -88,7 +88,6 @@
   /* verdict + nota */
   .verdict{display:inline-flex;align-items:center;gap:10px;padding:12px 18px;border-radius:var(--radius);font-family:'Archivo',sans-serif;font-weight:700;font-size:1.12rem}
   .verdict.adequada{background:var(--verde-dim);border:1px solid rgba(52,214,123,.4);color:var(--verde)}
-  .verdict.parcialmente_adequada{background:var(--ambar-dim);border:1px solid rgba(255,180,84,.4);color:var(--ambar)}
   .verdict.inadequada{background:var(--botoeira-dim);border:1px solid rgba(255,68,56,.4);color:var(--botoeira)}
   .risco-alert{display:flex;align-items:flex-start;gap:12px;background:var(--botoeira-dim);border:1px solid rgba(255,68,56,.45);border-radius:var(--radius);padding:16px 18px;margin:14px 0 20px}
   .risco-alert .ico{font-size:1.4rem;line-height:1}
@@ -160,6 +159,15 @@
   .erro-item .correcao{margin-top:6px;font-size:.94rem;color:var(--refletor)}
   .erro-item .correcao::before{content:"✅ ";}
   .erro-item .correcao .lab{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--verde);margin-right:6px}
+  .erro-frame{margin-top:10px}
+  .framebtn{display:block;background:none;border:none;padding:0;cursor:zoom-in}
+  .framebtn img{display:block;max-width:min(420px,100%);border:1px solid var(--linha);border-radius:8px}
+  .framebtn:hover img{border-color:var(--info)}
+  .erro-frame .cap{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--arquibancada);margin-top:5px}
+  .lightbox{position:fixed;inset:0;z-index:100;background:rgba(6,12,20,.93);display:flex;align-items:center;justify-content:center;padding:20px}
+  .lightbox img{max-width:95vw;max-height:88vh;border:1px solid var(--linha);border-radius:8px}
+  .lightbox .lb-close{position:absolute;top:12px;right:16px;background:var(--noite-2);color:var(--refletor);border:1px solid var(--linha);border-radius:8px;font-size:1.3rem;line-height:1;padding:8px 14px;cursor:pointer}
+  .lightbox .lb-cap{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--arquibancada)}
 
   .acertos{list-style:none;display:grid;gap:8px}
   .acertos li{padding-left:22px;position:relative;font-size:.94rem;color:var(--refletor)}
@@ -360,7 +368,7 @@ $("#go").addEventListener("click",async()=>{
 
 // ---- helpers ----
 function el(t,attrs={},...kids){const e=document.createElement(t);for(const k in attrs){if(k==="class")e.className=attrs[k];else if(k==="html")e.innerHTML=attrs[k];else e.setAttribute(k,attrs[k]);}for(const c of kids){if(c==null)continue;e.append(c.nodeType?c:document.createTextNode(c));}return e;}
-const VEREDITO_LABEL={adequada:"Execução adequada",parcialmente_adequada:"Parcialmente adequada",inadequada:"Execução inadequada"};
+const VEREDITO_LABEL={adequada:"Execução adequada",inadequada:"Execução inadequada"};
 const CONFIAB_LABEL={baixa:"baixa",media:"média",alta:"alta"};
 const CATEGORIA_LABEL={amplitude:"Amplitude",escapula_ombros:"Escápula / ombros",tronco:"Tronco",cervical:"Cervical",cotovelos:"Cotovelos",joelhos:"Joelhos",ritmo:"Ritmo",outro:"Outro"};
 const GRAVIDADE_LABEL={leve:"leve",moderada:"moderada",risco_lesao:"risco de lesão"};
@@ -419,7 +427,7 @@ function render(d){
 
   renderNota(nota);
   renderChecklist(m,nota);
-  renderErros(m);
+  renderErros(m,d.frames_erros||[]);
   renderAcertos(m);
   renderFoco(m);
   renderMovimento(m);
@@ -520,10 +528,13 @@ function renderChecklist(m,nota){
   });
 }
 
-// ---- erros técnicos ----
-function renderErros(m){
+// ---- erros técnicos (com print do momento exato, quando disponível) ----
+function renderErros(m,framesErros){
   const errosHost=$("#erros"); errosHost.innerHTML="";
-  const erros=(m.erros||[]).slice().sort((a,b)=>{
+  const originais=m.erros||[];
+  const frameByIndex={};
+  (framesErros||[]).forEach(f=>{if(f&&f.image_base64!=null)frameByIndex[f.erro_index]=f;});
+  const erros=originais.slice().sort((a,b)=>{
     const order={risco_lesao:0,moderada:1,leve:2};
     return (order[a.gravidade]??3)-(order[b.gravidade]??3);
   });
@@ -541,6 +552,21 @@ function renderErros(m){
         fix.append(el("span",{class:"lab"},"Corrigir"));
         fix.append(document.createTextNode(e.correcao));
         item.append(fix);
+      }
+      const f=frameByIndex[originais.indexOf(e)];
+      if(f){
+        const box=el("div",{class:"erro-frame"});
+        const src=`data:${f.mime||"image/jpeg"};base64,${f.image_base64}`;
+        const alt=`Frame do vídeo em ${f.timestamp_s}s mostrando o erro`;
+        const btn=el("button",{class:"framebtn",type:"button",
+          "aria-label":`Ampliar o frame do erro em ${f.timestamp_s} segundos`});
+        const img=el("img",{alt:alt,loading:"lazy"});
+        img.src=src;
+        btn.append(img);
+        btn.addEventListener("click",()=>openLightbox(src,alt,`momento do erro · ${f.timestamp_s}s`));
+        box.append(btn);
+        box.append(el("div",{class:"cap"},`📸 momento do erro · ${f.timestamp_s}s — clique ou Enter para ampliar`));
+        item.append(box);
       }
       errosHost.append(item);
     });
@@ -649,6 +675,23 @@ function renderContexto(m){
 }
 
 function addChip(cls,k,v){const s=el("span",{class:"chip "+cls});s.append(document.createTextNode(k+" "));const b=el("b");b.textContent=v;s.append(b);$("#chips").append(s);}
+
+// ---- lightbox acessível (frames dos erros): Esc/clique fora fecham, foco volta ----
+function openLightbox(src,alt,caption){
+  const prev=document.activeElement;
+  const ov=el("div",{class:"lightbox",role:"dialog","aria-modal":"true","aria-label":alt});
+  const img=el("img",{alt:alt}); img.src=src;
+  const close=el("button",{class:"lb-close",type:"button","aria-label":"Fechar imagem ampliada"},"×");
+  function fechar(){ov.remove();document.removeEventListener("keydown",onKey);if(prev&&prev.focus)prev.focus();}
+  function onKey(e){if(e.key==="Escape")fechar();}
+  ov.addEventListener("click",e=>{if(e.target===ov)fechar();});
+  close.addEventListener("click",fechar);
+  document.addEventListener("keydown",onKey);
+  ov.append(img,close);
+  if(caption)ov.append(el("div",{class:"lb-cap"},caption));
+  document.body.append(ov);
+  close.focus();
+}
 
 // ---- downloads (client-side, a partir da última resposta) ----
 function download(name,blob){

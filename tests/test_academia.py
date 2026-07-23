@@ -272,7 +272,9 @@ def test_analyze_clean_execution_three_outputs(client):
 
 
 def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monkeypatch):
-    # execução com erro moderado (não risco de lesão) => erros preenchidos, veredito não-adequado
+    # execução com erro moderado (não risco de lesão) => erros preenchidos e o
+    # veredito binário vira "inadequada" (harmonização em código), mesmo que o
+    # VLM tenha devolvido "adequada"
     erro_moderado = AcademiaAnalysis(
         exercicio_identificado="rosca bíceps na polia baixa",
         equipamento="polia baixa",
@@ -280,7 +282,7 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
         qualidade_video="boa",
         partes_ocultas=[],
         repeticoes_visiveis=4,
-        veredito="parcialmente_adequada",
+        veredito="adequada",
         confiabilidade="alta",
         erros=[
             ErroTecnico(
@@ -311,7 +313,8 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
     assert r.status_code == 200, r.text
     body = r.json()
     m = body["metrics"]
-    assert m["veredito"] == "parcialmente_adequada"
+    assert m["veredito"] == "inadequada"
+    assert any("binário" in w for w in body["warnings"])
     assert len(m["erros"]) == 1
     assert m["erros"][0]["categoria"] == "cotovelos"
     # par obrigatório o-que-está-errado (descricao) → o-que-consertar (correcao)
@@ -605,10 +608,10 @@ def test_score_fallback_when_nota_missing():
 
 
 def test_score_caps_by_veredito():
-    """Coerência: nota nunca contradiz o veredito (parcialmente_adequada ≤ 79)."""
-    a = _analysis(veredito="parcialmente_adequada", checklist=_checklist_full())
+    """Coerência: nota nunca contradiz o veredito (inadequada ≤ 49)."""
+    a = _analysis(veredito="inadequada", checklist=_checklist_full())
     n = scoring.compute_nota_execucao(a)
-    assert n.nota == 79.0 and n.teto_aplicado == 79.0
+    assert n.nota == 49.0 and n.teto_aplicado == 49.0
 
 
 # --------------------------------------------------------------------------- #
@@ -668,16 +671,18 @@ def test_harmonize_a_corrigir_without_error_downgraded():
     assert any("rebaixado para 'ajuste_leve'" in w for w in avisos)
 
 
-def test_harmonize_two_moderate_errors_never_adequada():
+def test_harmonize_any_error_forces_inadequada():
+    """Veredito binário: qualquer erro registrado (até um único 'leve') torna a
+    execução 'inadequada' — não existe 'parcialmente adequada'."""
     a = _analysis(
         veredito="adequada",
         erros=[
-            ErroTecnico(categoria="cotovelos", descricao="d1", correcao="c1", gravidade="moderada"),
-            ErroTecnico(categoria="ritmo", descricao="d2", correcao="c2", gravidade="moderada"),
+            ErroTecnico(categoria="ritmo", descricao="d1", correcao="c1", gravidade="leve"),
         ],
     )
-    fixed, _ = scoring.harmonize_analysis(a)
-    assert fixed.veredito == "parcialmente_adequada"
+    fixed, avisos = scoring.harmonize_analysis(a)
+    assert fixed.veredito == "inadequada"
+    assert any("binário" in w for w in avisos)
 
 
 def test_persist_roundtrip_nota_key_reaches_txt_export(client, monkeypatch):
@@ -705,6 +710,102 @@ def test_persist_roundtrip_nota_key_reaches_txt_export(client, monkeypatch):
         {"id": 42, "student_name": None, "created_at": "2026-07-22", "result_json": rj}
     )
     assert "NOTA DE EXECUÇÃO" in txt and "CHECKLIST DAS 7 CATEGORIAS" in txt
+
+
+# --------------------------------------------------------------------------- #
+# frames dos erros — print do momento exato (ffmpeg mockado)                   #
+# --------------------------------------------------------------------------- #
+def test_frames_skipped_without_errors_or_timestamps():
+    from app.academia.frames import extract_error_frames
+    assert extract_error_frames("/tmp/x.mp4", []) == ([], [])
+    sem_ts = [ErroTecnico(categoria="ritmo", descricao="d", correcao="c",
+                          gravidade="leve", timestamp_s=None)]
+    assert extract_error_frames("/tmp/x.mp4", sem_ts) == ([], [])
+
+
+def test_frames_disabled_by_config(monkeypatch):
+    from app.academia import frames as fr
+    monkeypatch.setattr(cfg, "academia_frames_enabled", False)
+    erros = [ErroTecnico(categoria="joelhos", descricao="d", correcao="c",
+                         gravidade="risco_lesao", timestamp_s=5.0)]
+    assert fr.extract_error_frames("/tmp/x.mp4", erros, cfg) == ([], [])
+
+
+def test_frames_extracted_in_original_order_with_index(monkeypatch):
+    from app.academia import frames as fr
+    monkeypatch.setattr(fr, "_grab_frame", lambda path, ts, cfg: b"\xff\xd8fake-jpeg")
+    erros = [
+        ErroTecnico(categoria="ritmo", descricao="d", correcao="c",
+                    gravidade="leve", timestamp_s=None),        # sem timestamp: pulado
+        ErroTecnico(categoria="joelhos", descricao="d", correcao="c",
+                    gravidade="risco_lesao", timestamp_s=11.0),
+        ErroTecnico(categoria="tronco", descricao="d", correcao="c",
+                    gravidade="moderada", timestamp_s=3.5),
+    ]
+    frames, warns = fr.extract_error_frames("/tmp/x.mp4", erros, cfg)
+    assert warns == []
+    assert [(f.erro_index, f.categoria, f.timestamp_s) for f in frames] == [
+        (1, "joelhos", 11.0), (2, "tronco", 3.5),
+    ]
+    import base64 as b64
+    assert b64.b64decode(frames[0].image_base64).startswith(b"\xff\xd8")
+
+
+def test_frames_cap_and_failure_become_warnings(monkeypatch):
+    from app.academia import frames as fr
+    calls = {"n": 0}
+
+    def flaky(path, ts, cfg_):
+        calls["n"] += 1
+        if ts == 2.0:
+            raise RuntimeError("ffmpeg falhou")
+        return b"\xff\xd8ok"
+
+    monkeypatch.setattr(fr, "_grab_frame", flaky)
+    monkeypatch.setattr(cfg, "academia_frames_max", 2)
+    erros = [ErroTecnico(categoria="ritmo", descricao="d", correcao="c",
+                         gravidade="leve", timestamp_s=float(t)) for t in (1, 2, 3)]
+    frames, warns = fr.extract_error_frames("/tmp/x.mp4", erros, cfg)
+    assert calls["n"] == 2                      # teto respeitado (3º erro nem tenta)
+    assert len(frames) == 1 and frames[0].erro_index == 0
+    assert any("limitado a 2" in w for w in warns)
+    assert any("indisponível" in w for w in warns)
+
+
+def test_analyze_risco_returns_error_frame(client, monkeypatch):
+    """Endpoint: erro com timestamp gera print no response (frames_erros)."""
+    from app.academia import service as asvc
+    from app.academia.models import FrameErro
+
+    def fake_extract(path, erros, cfg_):
+        assert any(e.timestamp_s == 11.0 for e in erros)
+        return [FrameErro(erro_index=0, categoria="joelhos", timestamp_s=11.0,
+                          image_base64="ZmFrZQ==")], []
+
+    monkeypatch.setattr(asvc, "extract_error_frames", fake_extract)
+    monkeypatch.setattr(arouter.service, "gemini", _FakeGeminiRisco())
+    r = client.post(
+        "/academia/analyze",
+        files={"file": ("legpress.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"with_audio": "false"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["frames_erros"]) == 1
+    f = body["frames_erros"][0]
+    assert f["erro_index"] == 0 and f["timestamp_s"] == 11.0
+    assert f["mime"] == "image/jpeg" and f["image_base64"] == "ZmFrZQ=="
+
+
+def test_analyze_clean_execution_has_no_frames(client):
+    """Execução limpa (sem erros) não gera print nenhum."""
+    r = client.post(
+        "/academia/analyze",
+        files={"file": ("puxada.mp4", b"\x00" * 2048, "video/mp4")},
+        data={"with_audio": "false"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["frames_erros"] == []
 
 
 def test_render_txt_report_covers_reintroduced_parameters():
