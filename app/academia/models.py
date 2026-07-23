@@ -63,11 +63,15 @@ GravidadeErro = Literal["leve", "moderada", "risco_lesao"]
 
 QualidadeVideo = Literal["boa", "media", "ruim"]
 
+# Veredito BINÁRIO (decisão do usuário, 23jul2026): ou a execução está correta
+# ("adequada") ou está errada ("inadequada") — não existe "parcialmente".
+# Qualquer erro registrado em `erros` implica "inadequada" (imposto em código
+# por scoring.harmonize_analysis); a gravidade modula a nota, não o veredito.
 # RF-003: valgo dinâmico severo, pés mal posicionados em leg press ou qualquer
 # erro com risco de lesão real levam obrigatoriamente a "inadequada".
 # RF-004: execução correta não ganha erros inventados — "adequada" fica livre
 # de nitpicking punitivo.
-Veredito = Literal["adequada", "parcialmente_adequada", "inadequada"]
+Veredito = Literal["adequada", "inadequada"]
 
 # RN-02: confiabilidade do veredito é limitada pelo que é observável no vídeo
 # (ângulo de câmera, qualidade, partes ocultas) — não é uma nota de execução.
@@ -226,8 +230,9 @@ class AcademiaAnalysis(BaseModel):
         default=None, ge=0, description="Número de repetições completas visíveis no vídeo, se contável."
     )
     veredito: Veredito = Field(
-        description="Veredito geral da execução, restrito ao observável (RN-02). "
-        "'inadequada' é obrigatório quando há erro com risco de lesão (RF-003)."
+        description="Veredito BINÁRIO da execução, restrito ao observável (RN-02): "
+        "'adequada' (execução correta, erros vazio) ou 'inadequada' (há erro registrado). "
+        "'inadequada' é obrigatório quando há qualquer erro, sobretudo com risco de lesão (RF-003)."
     )
     confiabilidade: Confiabilidade = Field(
         description="Confiança no veredito, dada a qualidade do vídeo/ângulo/partes ocultas."

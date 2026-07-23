@@ -53,6 +53,11 @@ núcleo é `veredito` × `risco_lesao`, e a calibragem vive no system prompt:
   `timestamp_s` e `gravidade` (`leve` | `moderada` | `risco_lesao`). Todo erro
   apontado vem com o seu conserto colado; a UI renderiza ❌ errado / ✅ corrigir e o
   export `.txt` sai como "O QUE ESTÁ ERRADO → COMO CONSERTAR".
+- **Veredito BINÁRIO (23jul2026):** `adequada` ou `inadequada` — não existe
+  "parcialmente adequada". Qualquer erro registrado em `erros` torna a execução
+  `inadequada` (a gravidade modula a nota e a urgência, não o veredito); polimento
+  opcional não é erro e vai como `ajuste_leve` no checklist. Imposto em código por
+  `scoring.harmonize_analysis`.
 - **RF-003 — regra dura de veredito:** valgo dinâmico severo, pés mal posicionados
   numa base de carga ou qualquer erro `gravidade="risco_lesao"` forçam
   `veredito="inadequada"` **e** `risco_lesao=True`, independente de quantos acertos
@@ -92,15 +97,15 @@ original da VPS e haviam sido descartados na versão calibrada:
 
 Agora **há** score em Python (o evento `academia.weighted_score.computed` deixou de
 ser reservado). `scoring.harmonize_analysis` primeiro impõe em código as regras que
-antes só existiam no prompt (RF-003; checklist↔erros; 2+ erros moderados nunca são
-"adequada") — cada ajuste vira um `warning` visível. Depois
+antes só existiam no prompt (RF-003; checklist↔erros; veredito binário: qualquer
+erro registrado ⇒ "inadequada") — cada ajuste vira um `warning` visível. Depois
 `scoring.compute_nota_execucao` agrega o checklist em `nota_execucao` (0–100):
 notas 0..10 normalizadas, categorias `nao_observavel` fora do cálculo com pesos
 renormalizados (contribuições somam a nota), fallback por status quando a nota
 falta (`adequado`=0.85 · `ajuste_leve`=0.65 · `a_corrigir`=0.40), erro na categoria
 limita o valor (risco_lesao **zera**), e gates/tetos: qualidade "ruim" ou <3
 categorias observáveis **bloqueiam** a nota (`nota=null, valida=false`); risco de
-lesão ⇒ ≤39; `inadequada` ⇒ ≤49; `parcialmente_adequada` ⇒ ≤79 — a nota nunca
+lesão ⇒ ≤39; `inadequada` ⇒ ≤49 — a nota nunca
 contradiz o veredito. **Recalibrar a nota = editar `PESOS`** em `scoring.py`.
 É um indicador observacional de POC (pesos não calibrados contra gabarito).
 

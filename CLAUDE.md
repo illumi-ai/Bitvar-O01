@@ -95,7 +95,7 @@ duplicating them.
   timestamps), movement consistency + capture-condition fields, and a **deterministic
   0–100 `nota_execucao`** computed in Python (`scoring.py`, mirrors `tennis/weights.py`:
   normalize 0–10 notes, renormalize weights over observable categories, gate on bad
-  video/low coverage, coherence caps: risk⇒≤39, inadequada⇒≤49, parcial⇒≤79). The VLM
+  video/low coverage, coherence caps: risk⇒≤39, inadequada⇒≤49). The VLM
   never does the arithmetic. `scoring.harmonize_analysis` also enforces RF-003 and
   checklist↔erros consistency **in code** (each fix becomes a user-visible warning).
   **Recalibrating the score = editing `PESOS`** in `scoring.py`. The UI renders ALL of

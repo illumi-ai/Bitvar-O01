@@ -272,7 +272,9 @@ def test_analyze_clean_execution_three_outputs(client):
 
 
 def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monkeypatch):
-    # execução com erro moderado (não risco de lesão) => erros preenchidos, veredito não-adequado
+    # execução com erro moderado (não risco de lesão) => erros preenchidos e o
+    # veredito binário vira "inadequada" (harmonização em código), mesmo que o
+    # VLM tenha devolvido "adequada"
     erro_moderado = AcademiaAnalysis(
         exercicio_identificado="rosca bíceps na polia baixa",
         equipamento="polia baixa",
@@ -280,7 +282,7 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
         qualidade_video="boa",
         partes_ocultas=[],
         repeticoes_visiveis=4,
-        veredito="parcialmente_adequada",
+        veredito="adequada",
         confiabilidade="alta",
         erros=[
             ErroTecnico(
@@ -311,7 +313,8 @@ def test_analyze_execution_with_errors_returns_veredicto_and_erros(client, monke
     assert r.status_code == 200, r.text
     body = r.json()
     m = body["metrics"]
-    assert m["veredito"] == "parcialmente_adequada"
+    assert m["veredito"] == "inadequada"
+    assert any("binário" in w for w in body["warnings"])
     assert len(m["erros"]) == 1
     assert m["erros"][0]["categoria"] == "cotovelos"
     # par obrigatório o-que-está-errado (descricao) → o-que-consertar (correcao)
@@ -605,10 +608,10 @@ def test_score_fallback_when_nota_missing():
 
 
 def test_score_caps_by_veredito():
-    """Coerência: nota nunca contradiz o veredito (parcialmente_adequada ≤ 79)."""
-    a = _analysis(veredito="parcialmente_adequada", checklist=_checklist_full())
+    """Coerência: nota nunca contradiz o veredito (inadequada ≤ 49)."""
+    a = _analysis(veredito="inadequada", checklist=_checklist_full())
     n = scoring.compute_nota_execucao(a)
-    assert n.nota == 79.0 and n.teto_aplicado == 79.0
+    assert n.nota == 49.0 and n.teto_aplicado == 49.0
 
 
 # --------------------------------------------------------------------------- #
@@ -668,16 +671,18 @@ def test_harmonize_a_corrigir_without_error_downgraded():
     assert any("rebaixado para 'ajuste_leve'" in w for w in avisos)
 
 
-def test_harmonize_two_moderate_errors_never_adequada():
+def test_harmonize_any_error_forces_inadequada():
+    """Veredito binário: qualquer erro registrado (até um único 'leve') torna a
+    execução 'inadequada' — não existe 'parcialmente adequada'."""
     a = _analysis(
         veredito="adequada",
         erros=[
-            ErroTecnico(categoria="cotovelos", descricao="d1", correcao="c1", gravidade="moderada"),
-            ErroTecnico(categoria="ritmo", descricao="d2", correcao="c2", gravidade="moderada"),
+            ErroTecnico(categoria="ritmo", descricao="d1", correcao="c1", gravidade="leve"),
         ],
     )
-    fixed, _ = scoring.harmonize_analysis(a)
-    assert fixed.veredito == "parcialmente_adequada"
+    fixed, avisos = scoring.harmonize_analysis(a)
+    assert fixed.veredito == "inadequada"
+    assert any("binário" in w for w in avisos)
 
 
 def test_persist_roundtrip_nota_key_reaches_txt_export(client, monkeypatch):
