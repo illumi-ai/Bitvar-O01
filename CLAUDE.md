@@ -71,14 +71,17 @@ clip uses one schema (`AcademiaAnalysis`) and the fixed `fps`/`media_resolution`
 `config.py`. It reuses tennis's audio/Files-API helpers by import (`gemini.py`) instead of
 duplicating them.
 
-- **Model: `gemini-3.1-pro-preview`** for calls 1 & 2 (`academia_analysis_model` in
-  `config.py`); TTS is `gemini-3.1-flash-tts-preview`. **Settled by A/B on 23jul2026** on
-  the 637 leg-press clip (ground truth: INCORRETA, injury risk): `gemini-3.6-flash` missed
-  the risk in 3/4 runs (returned "adequada, sem risco, 100/100") even after a risk-triage
-  step was added to the prompt; pro caught it 2/2 — and pro is the model that generated the
-  calibration ground truth. The user chose pro with this evidence (reversing their earlier
-  flash preference). Flash remains available via `ACADEMIA_ANALYSIS_MODEL` (cheaper/faster)
-  but is documented as unreliable for injury-risk detection. The key is the shared
+- **Model: `gemini-3.5-flash-lite`** for calls 1 & 2 (`academia_analysis_model` in
+  `config.py`); TTS is `gemini-3.1-flash-tts-preview`. **28jul2026: the user swapped pro →
+  flash-lite to test cost/latency** (cost study: `docs/precificacao-academia-27jul2026.html`).
+  **Carry the earlier evidence forward:** the A/B on 23jul2026 on the 637 leg-press clip
+  (ground truth: INCORRETA, injury risk) had `gemini-3.6-flash` miss the risk in 3/4 runs
+  (returned "adequada, sem risco, 100/100") even after a risk-triage step was added to the
+  prompt, while `gemini-3.1-pro-preview` caught it 2/2 — and pro is the model that generated
+  the calibration ground truth. So the flash family is cheaper/faster but has already proven
+  weak at injury-risk detection; re-check RF-003 on the calibration set before treating
+  flash-lite as settled. Reverting is env-only: `ACADEMIA_ANALYSIS_MODEL=gemini-3.1-pro-preview`
+  (no image rebuild). The key is the shared
   `GEMINI_API_KEY` (tennis + academia); academia config is separate so the key stays
   optional (endpoints `503` until it exists) and persistence is opt-in (`ACADEMIA_PERSIST`).
 - **The schema is the calibration.** `models.py:AcademiaAnalysis` pairs each `ErroTecnico`
