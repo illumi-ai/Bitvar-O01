@@ -71,11 +71,12 @@ clip uses one schema (`AcademiaAnalysis`) and the fixed `fps`/`media_resolution`
 `config.py`. It reuses tennis's audio/Files-API helpers by import (`gemini.py`) instead of
 duplicating them.
 
-- **Model: `gemini-3.5-flash-lite`** for calls 1 & 2 (`academia_analysis_model` in
-  `config.py`); TTS is `gemini-3.1-flash-tts-preview`. **28jul2026: the user swapped pro →
-  flash-lite to test cost/latency** (cost study: `docs/precificacao-academia-27jul2026.html`).
+- **Model: `gemini-3.6-flash`** for calls 1 & 2 (`academia_analysis_model` in
+  `config.py`); TTS is `gemini-3.1-flash-tts-preview`. **28jul2026: the user is testing the
+  flash family in place of pro for cost/latency** (cost study:
+  `docs/precificacao-academia-27jul2026.html`) — pro → `gemini-3.5-flash-lite` → `gemini-3.6-flash`.
   **Carry the earlier evidence forward:** the A/B on 23jul2026 on the 637 leg-press clip
-  (ground truth: INCORRETA, injury risk) had `gemini-3.6-flash` miss the risk in 3/4 runs
+  (ground truth: INCORRETA, injury risk) had this same `gemini-3.6-flash` miss the risk in 3/4 runs
   (returned "adequada, sem risco, 100/100") even after a risk-triage step was added to the
   prompt, while `gemini-3.1-pro-preview` caught it 2/2 — and pro is the model that generated
   the calibration ground truth. So the flash family is cheaper/faster but has already proven
