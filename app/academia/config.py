@@ -22,17 +22,19 @@ class AcademiaSettings(BaseSettings):
 
     # ----- credenciais / modelos -----
     gemini_api_key: str | None = None  # compartilhada com o tênis (mesma env var, sem prefixo)
-    # chamada 1 (vídeo→JSON) e 2 (JSON→texto). Em 28/07/2026 o usuário está testando a
-    # família flash no lugar do pro (custo/latência): passou por gemini-3.5-flash-lite e
-    # está agora em gemini-3.6-flash.
-    # ATENÇÃO ao histórico: no A/B de 23/07/2026 no clipe 637 (leg press com risco de
-    # lesão, gabarito INCORRETA) este mesmo gemini-3.6-flash errou 3/4 rodadas
-    # ("adequada, sem risco, 100/100") mesmo com a triagem de risco no prompt, enquanto o
-    # gemini-3.1-pro-preview acertou 2/2 — e foi o pro que gerou o gabarito de
-    # calibragem. Ou seja: mais barato/rápido, mas já se mostrou fraco em detecção de
-    # risco de lesão (RF-003). Voltar ao pro é só
-    # ACADEMIA_ANALYSIS_MODEL=gemini-3.1-pro-preview (sem rebuild de imagem).
-    academia_analysis_model: str = "gemini-3.6-flash"
+    # chamada 1 (vídeo→JSON) e 2 (JSON→texto). O pro é o default estabelecido — a família
+    # flash já foi testada em produção DUAS vezes e o usuário voltou ao pro nas duas:
+    #   - 23/07/2026, A/B no clipe 637 (leg press com risco de lesão, gabarito INCORRETA):
+    #     gemini-3.6-flash errou 3/4 rodadas ("adequada, sem risco, 100/100") mesmo com a
+    #     triagem de risco no prompt; o pro acertou 2/2 — e foi o pro que gerou o gabarito
+    #     de calibragem em docs/videos-calibragem-academia/.
+    #   - 28/07/2026, teste de custo/latência: gemini-3.5-flash-lite e depois
+    #     gemini-3.6-flash foram para o ar e o usuário reverteu para o pro no mesmo dia.
+    # Ou seja: flash é mais barato/rápido, mas perde detecção de risco de lesão (RF-003),
+    # que é o requisito que justifica o módulo. Testar flash de novo é só
+    # ACADEMIA_ANALYSIS_MODEL=gemini-3.6-flash no .env (sem rebuild de imagem) — mas
+    # valide contra o clipe 637 antes de considerar a troca.
+    academia_analysis_model: str = "gemini-3.1-pro-preview"
     academia_tts_model: str = "gemini-3.1-flash-tts-preview"  # chamada 3 (texto→áudio)
     academia_tts_voice: str = "Vindemiatrix"  # voz PT-BR (Gentle), mesmo padrão do tênis
 
